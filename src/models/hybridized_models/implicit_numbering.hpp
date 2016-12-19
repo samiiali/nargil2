@@ -3,7 +3,7 @@
 #ifndef IMPLICIT_DOF_NUM_HPP
 #define IMPLICIT_DOF_NUM_HPP
 
-/*!
+/**
  * \brief A class containing a collection of \c std::unique_ptr 's to
  * GenericCell 's.
  *
@@ -19,8 +19,8 @@
  * In any case, each hdg_model can only have one type of physical phenomenon
  * (hence one type of element).
  */
-template <int dim, template <int> class CellType>
-struct hdg_model : public generic_model<dim, CellType>
+template <int dim>
+struct hybridized_dof_numbering : public generic_dof_numbering<dim>
 {
 
   //  friend struct GenericCell<dim>;
@@ -32,7 +32,8 @@ struct hdg_model : public generic_model<dim, CellType>
   // hdg_model() = delete;
   // hdg_model(SolutionManager<dim> *const sol_, BDFIntegrator
   // *time_integrator_);
-  hdg_model();
+  hybridized_dof_numbering();
+  virtual ~hybridized_dof_numbering();
 
   //  unsigned poly_order;
   //  unsigned n_faces_per_cell;
@@ -51,6 +52,7 @@ struct hdg_model : public generic_model<dim, CellType>
   void free_containers();
   void set_boundary_indicator();
   void count_globals();
+
   //  void assign_initial_data(const BDFIntegrator &);
 
   //  void assemble_globals(const solver_update_keys &keys_);

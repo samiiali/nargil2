@@ -31,3 +31,4 @@
 #
 *.user
 *.DS_Store
+CMakeLocals/*

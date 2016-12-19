@@ -1,8 +1,10 @@
 # Set the name of the project and target:
 set(TARGET "nargil")
-set(DEAL_II_DIR "/org/groups/chg/_Ali_/Libraries/deal.II/install/")
-set(EIGEN_INC "/org/groups/chg/_Ali_/Libraries/Eigen/eigen_3_2_10/")
-set(MTL4_INC "/org/groups/chg/_Ali_/Libraries/MTL4/")
+
+set(DEAL_II_DIR "/Users/ali/MyLibs/deal.II/8.4.1/install")
+set(EIGEN_INC "/Users/ali/MyLibs/Eigen/eigen")
+set(MTL4_INC "/Users/ali/MyLibs/mtl4/MTL-all-4.0.9555-Linux/usr/include")
+set(BOOST_INC "/usr/local/Cellar/boost/1.62.0/include")
 
 # IMPORTANT : THIS PART CORRESPONDS TO GCC COMPILER. HOWEVER YOU CAN USE
 # GCC WITH INTEL libiomp5.so
@@ -18,7 +20,8 @@ set(MTL4_INC "/org/groups/chg/_Ali_/Libraries/MTL4/")
 include_directories(${INCLUDE_DIRECTORIES}
                     ${CMAKE_SOURCE_DIR}
                     ${EIGEN_INC}
-                    ${MTL4_INC})
+                    ${MTL4_INC}
+                    ${BOOST_INC})
 link_directories(${LINK_DIRECTORIES} ${COMPILER_LIB})
 
 # Declare all source files the target consimts of. Here, this is only
@@ -32,7 +35,7 @@ link_directories(${LINK_DIRECTORIES} ${COMPILER_LIB})
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 
-SET(TARGET_SRC src/main.cpp)
+SET(TARGET_SRC main.cpp)
 
 # Usually, you will not need to modify anything beyond this point...
 
@@ -78,21 +81,22 @@ DEAL_II_INVOKE_AUTOPILOT()
 # We want to include all of the pure header files, i.e. class templates
 # in the source tree
 #
-# add_subdirectory(src/elements)
-# add_subdirectory(src/poly_bases)
 add_subdirectory(src/models)
+# add_subdirectory(elements)
+# add_subdirectory(poly_bases)
+# add_subdirectory(models)
 # add_custom_target(DUMMY SOURCES
-#                   src/solution_manager.hpp
-#                   src/solution_manager.cpp
-#                   src/lib_headers.hpp
-#                   src/support_classes.hpp
-#                   src/support_classes.cpp
-#                   src/solvers.hpp
-#                   src/solvers.cpp
-#                   src/time_integrators.hpp
-#                   src/time_integrators.cpp)
+#                   solution_manager.hpp
+#                   solution_manager.cpp
+#                   lib_headers.hpp
+#                   support_classes.hpp
+#                   support_classes.cpp
+#                   solvers.hpp
+#                   solvers.cpp
+#                   time_integrators.hpp
+#                   time_integrators.cpp)
 
-set(CMAKE_CXX_FLAGS " -O2 -fopenmp -m64 -Wall ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS " -O2 -m64 -w ${CMAKE_CXX_FLAGS}")
 target_link_libraries(${TARGET} pthread m)
 
 #set(CMAKE_CXX_FLAGS " -O2 -openmp -std=c++0x ${CMAKE_CXX_FLAGS}")

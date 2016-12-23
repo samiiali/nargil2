@@ -1,5 +1,3 @@
-#include "../generic_model.hpp"
-
 #ifndef IMPLICIT_DOF_NUM_HPP
 #define IMPLICIT_DOF_NUM_HPP
 
@@ -19,8 +17,8 @@
  * In any case, each hdg_model can only have one type of physical phenomenon
  * (hence one type of element).
  */
-template <int dim>
-struct hybridized_dof_numbering : public generic_dof_numbering<dim>
+template <int dim, int spacedim>
+struct hybridized_dof_numbering : public dof_numbering<dim, spacedim>
 {
 
   //  friend struct GenericCell<dim>;

@@ -10,18 +10,18 @@
 //{
 //}
 
-template <int dim>
-generic_dof_numbering<dim>::generic_dof_numbering()
+template <int dim, int spacedim>
+dof_numbering<dim, spacedim>::dof_numbering()
 {
 }
 
-template <int dim>
-generic_dof_numbering<dim>::~generic_dof_numbering()
+template <int dim, int spacedim>
+dof_numbering<dim, spacedim>::~dof_numbering()
 {
 }
 
-template <int dim>
-unsigned generic_dof_numbering<dim>::get_global_mat_block_size()
+template <int dim, int spacedim>
+unsigned dof_numbering<dim, spacedim>::get_global_mat_block_size()
 {
   return 0;
   //  unsigned poly_order = manager->poly_order;

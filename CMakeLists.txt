@@ -72,10 +72,11 @@ DEAL_II_INVOKE_AUTOPILOT()
 # We want to include all of the pure header files, i.e. class templates
 # in the source tree
 #
-# add_subdirectory(src/elements)
 # add_subdirectory(src/poly_bases)
 add_subdirectory(src/models)
 add_subdirectory(src/solution_managers)
+add_subdirectory(src/elements)
+
 # add_custom_target(DUMMY SOURCES
 #                   src/solution_manager.hpp
 #                   src/solution_manager.cpp

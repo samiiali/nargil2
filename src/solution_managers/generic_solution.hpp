@@ -9,6 +9,9 @@
 #ifndef GENERIC_SOL_HPP
 #define GENERIC_SOL_HPP
 
+namespace nargil
+{
+
 template <int dim, int spacedim = dim>
 struct Mesh
 {
@@ -43,7 +46,7 @@ struct Mesh
 
   virtual ~Mesh();
 };
-
+}
 #include "generic_solution.cpp"
 
 #endif

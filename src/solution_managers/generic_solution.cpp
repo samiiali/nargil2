@@ -41,9 +41,9 @@ void write_grid(
 }
 
 template <int dim, int spacedim>
-Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
-                          const unsigned n_threads_,
-                          const bool adaptive_on_)
+nargil::Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
+                                  const unsigned n_threads_,
+                                  const bool adaptive_on_)
   : comm(&comm_),
     adaptive_on(adaptive_on_),
     n_threads(n_threads_),
@@ -58,7 +58,7 @@ Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
 }
 
 template <int dim, int spacedim>
-Mesh<dim, spacedim>::~Mesh()
+nargil::Mesh<dim, spacedim>::~Mesh()
 {
 }
 
@@ -73,7 +73,7 @@ Mesh<dim, spacedim>::~Mesh()
 
 template <int dim, int spacedim>
 template <typename F>
-void Mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
+void nargil::Mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
 {
   generate_mesh_(mesh);
   write_grid(mesh, *comm);

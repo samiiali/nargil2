@@ -1,21 +1,14 @@
+#include "../elements/cell_class.hpp"
+#include <functional>
+#include <map>
+#include <memory>
+
 //#include "solution_manager.hpp"
 //#include "support_classes.hpp"
 #include <vector>
 
 #ifndef GENERIC_DOF_NUM_HPP
 #define GENERIC_DOF_NUM_HPP
-
-enum class BC
-{
-  not_set = ~(1 << 0),
-  essential = 1 << 0,
-  flux_bc = 1 << 1,
-  periodic = 1 << 2,
-  in_out_BC = 1 << 3,
-  inflow_BC = 1 << 4,
-  outflow_BC = 1 << 5,
-  solid_wall = 1 << 6,
-};
 
 enum class time_integration_type
 {
@@ -43,6 +36,9 @@ enum class dof_numbering_type
 };
 
 template <int dim, int spacedim = dim>
+struct implicit_HDG_dof_numbering;
+
+template <int dim, int spacedim = dim>
 struct dof_numbering
 {
   dof_numbering();
@@ -60,11 +56,39 @@ struct dof_numbering
   unsigned get_global_mat_block_size();
 };
 
-template <int dim, int spacedim = dim>
-struct implicit_hybridized_numbering : public dof_numbering<dim, spacedim>
+// The default value for spacedim parameter is given on the top.
+template <int dim, int spacedim>
+struct implicit_HDG_dof_numbering : public dof_numbering<dim, spacedim>
 {
-  implicit_hybridized_numbering() {}
-  ~implicit_hybridized_numbering() {}
+  implicit_HDG_dof_numbering() {}
+  ~implicit_HDG_dof_numbering() {}
+};
+
+template <int dim, int spacedim = dim>
+struct cell_container
+{
+  cell_container() {}
+  ~cell_container() {}
+
+  void set_dof_numbering(time_integration_type time_integratorm_,
+                         dof_numbering_type numbering_type_)
+  {
+    if (time_integratorm_ == time_integration_type::implicit_type &&
+        numbering_type_ == dof_numbering_type::hybridized_DG)
+    {
+      dof_counter =
+        std::move(std::unique_ptr<implicit_HDG_dof_numbering<dim, spacedim> >(
+          new implicit_HDG_dof_numbering<dim, spacedim>()));
+    }
+  }
+
+  std::vector<std::unique_ptr<Cell<dim, spacedim> > > all_owned_cells;
+  std::unique_ptr<dof_numbering<dim, spacedim> > dof_counter;
+
+  void init_mesh_containers();
+  void free_containers();
+  void set_boundary_indicator();
+  void count_globals();
 };
 
 #include "generic_model.cpp"

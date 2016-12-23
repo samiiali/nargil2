@@ -1,3 +1,5 @@
+#include "../generic_model.hpp"
+
 #ifndef IMPLICIT_DOF_NUM_HPP
 #define IMPLICIT_DOF_NUM_HPP
 

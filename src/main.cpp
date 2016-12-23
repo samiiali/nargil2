@@ -64,9 +64,14 @@ int main(int argc, char **argv)
   //
   {
     const MPI_Comm *const comm = &PETSC_COMM_WORLD;
-    Mesh<2> h_mesh1(*comm, 1, false);
+    nargil::Mesh<2> h_mesh1(*comm, 1, false);
 
     h_mesh1.generate_mesh(Problem<2>::generate_mesh);
+
+    cell_container<2> cont1;
+    cont1.set_dof_numbering(time_integration_type::implicit_type,
+                            dof_numbering_type::hybridized_DG);
+
     //
     // We can also use a functor to generate the mesh.
     //

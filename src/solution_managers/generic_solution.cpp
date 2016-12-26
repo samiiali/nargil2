@@ -47,34 +47,46 @@ nargil::Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
   : comm(&comm_),
     adaptive_on(adaptive_on_),
     n_threads(n_threads_),
-    mesh(*comm,
-         typename dealii::Triangulation<dim>::MeshSmoothing(
-           dealii::Triangulation<dim>::smoothing_on_refinement |
-           dealii::Triangulation<dim>::smoothing_on_coarsening))
+    dealii_mesh(*comm,
+                typename dealii::Triangulation<dim>::MeshSmoothing(
+                  dealii::Triangulation<dim>::smoothing_on_refinement |
+                  dealii::Triangulation<dim>::smoothing_on_coarsening))
 {
   int comm_rank, comm_size;
   MPI_Comm_rank(*comm, &comm_rank);
   MPI_Comm_size(*comm, &comm_size);
 }
 
-template <int dim, int spacedim>
-nargil::Mesh<dim, spacedim>::~Mesh()
-{
-}
+template <int dim, int spacedim> nargil::Mesh<dim, spacedim>::~Mesh() {}
 
-// template <int dim, int spacedim>
-// void Mesh<dim, spacedim>::generate_mesh(
-//  const std::function<void(
-//    dealii::parallel::distributed::Triangulation<dim, spacedim> &)> &grid_gen)
-//{
-//  grid_gen(mesh);
-//  write_grid(mesh, *comm);
-//}
+template <int dim, int spacedim>
+void nargil::Mesh<dim, spacedim>::init_cell_ID_to_num()
+{
+  unsigned n_cell = 0;
+  n_owned_cell = 0;
+  n_ghost_cell = 0;
+  for (dealii_cell_type &&cell : dealii_mesh.active_cell_iterators())
+  {
+    if (cell->is_locally_owned())
+    {
+      std::stringstream ss_id;
+      ss_id << cell->id();
+      std::string cell_id = ss_id.str();
+      cell_ID_to_num[cell_id] = n_owned_cell;
+      ++n_owned_cell;
+    }
+    if (cell->is_ghost())
+    {
+      ++n_ghost_cell;
+    }
+    ++n_cell;
+  }
+}
 
 template <int dim, int spacedim>
 template <typename F>
 void nargil::Mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
 {
-  generate_mesh_(mesh);
-  write_grid(mesh, *comm);
+  generate_mesh_(dealii_mesh);
+  write_grid(dealii_mesh, *comm);
 }

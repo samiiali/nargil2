@@ -11,8 +11,7 @@
 
 #include "solution_managers/generic_solution.hpp"
 
-template <int dim, int spacedim = dim>
-struct Problem
+template <int dim, int spacedim = dim> struct Problem
 {
   static void generate_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
@@ -25,9 +24,10 @@ struct Problem
       the_mesh, repeats, point_1, point_2, true);
   }
 
-  std::vector<boost::dynamic_bitset<> > dofs_on_nodes()
+  boost::dynamic_bitset<> dofs_on_nodes()
   {
-    std::vector<boost::dynamic_bitset<> > dof_names_on_nodes(1, 1);
+    boost::dynamic_bitset<> dof_names_on_nodes(1);
+    dof_names_on_nodes[0] = 1;
     return dof_names_on_nodes;
   }
 
@@ -69,8 +69,8 @@ int main(int argc, char **argv)
     h_mesh1.generate_mesh(Problem<2>::generate_mesh);
 
     cell_container<2> cont1;
-    cont1.set_dof_numbering(time_integration_type::implicit_type,
-                            dof_numbering_type::hybridized_DG);
+    cont1.set_dof_numbering(ModelOptions::implicit_type,
+                            ModelOptions::hybridized_DG);
 
     //
     // We can also use a functor to generate the mesh.

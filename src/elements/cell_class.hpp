@@ -30,8 +30,7 @@ enum class BC
  *
  * \ingroup cells
  */
-template <int dim, int spacedim = dim>
-struct Cell
+template <int dim, int spacedim = dim> struct Cell
 {
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
     dealiiCell;
@@ -82,38 +81,6 @@ struct Cell
    */
   virtual ~Cell();
 
-#if 0
-  /**
-   * Factory pattern for producing new GenericCell
-   */
-  template <template <int> class type_of_cell>
-  static std::unique_ptr<Cell<dim, spacedim> >
-  make_cell(dealiiCell &inp_cell,
-            const unsigned &id_num_,
-            const unsigned &poly_order_,
-            hdg_model<dim, type_of_cell> *model_);
-
-  /**
-   * Factory pattern for producing new GenericCell
-   */
-  template <template <int> class type_of_cell>
-  static std::unique_ptr<Cell<dim, spacedim> >
-  make_cell(dealiiCell &inp_cell,
-            const unsigned &id_num_,
-            const unsigned &poly_order_,
-            explicit_hdg_model<dim, type_of_cell> *model_);
-
-  /**
-   * Factory pattern for producing new GenericCell
-   */
-  template <template <int> class type_of_cell>
-  static std::unique_ptr<Cell<dim, spacedim> >
-  make_cell(dealiiCell &inp_cell,
-            const unsigned &id_num_,
-            const unsigned &poly_order_,
-            hdg_model_with_explicit_rk<dim, type_of_cell> *model_);
-#endif
-
   /**
    * \brief Moves the dealii::FEValues and dealii::FEFaceValues
    * objects between different elements and faces.
@@ -146,6 +113,11 @@ struct Cell
                        FE_val_ptr &cell_supp_fe_vals_,
                        FEFace_val_ptr &face_supp_fe_vals_);
 
+  void detach_FEValues(FE_val_ptr &cell_quad_fe_vals_,
+                       FEFace_val_ptr &face_quad_fe_vals_,
+                       FE_val_ptr &cell_supp_fe_vals_,
+                       FEFace_val_ptr &face_supp_fe_vals_);
+
   /*!
    * \details Updates the FEValues which are connected to the current element
    * (not the FEFaceValues.)
@@ -160,85 +132,10 @@ struct Cell
    */
   void reinit_face_fe_vals(unsigned i_face);
 
-  void detach_FEValues(FE_val_ptr &cell_quad_fe_vals_,
-                       FEFace_val_ptr &face_quad_fe_vals_,
-                       FE_val_ptr &cell_supp_fe_vals_,
-                       FEFace_val_ptr &face_supp_fe_vals_);
-
-  /*
-  double get_error_in_cell(const TimeFunction<dim, double> &func,
-                           const Eigen::MatrixXd &input_vector,
-                           const double &time = 0);
-
-  template <int func_output_dim>
-  double get_error_in_cell(
-    const TimeFunction<dim, dealii::Tensor<1, func_output_dim> > &func,
-    const Eigen::MatrixXd &modal_vector,
-    const double &time = 0);
-
-  double get_error_on_faces(const TimeFunction<dim, double> &func,
-                            const Eigen::MatrixXd &input_vector,
-                            const double &time = 0);
-
-  template <int func_output_dim>
-  double get_error_on_faces(
-    const TimeFunction<dim, dealii::Tensor<1, func_output_dim> > &func,
-    const Eigen::MatrixXd &modal_vector,
-    const double &time = 0);
-
-  virtual void internal_vars_errors(const eigen3mat &u_vec,
-                                    const eigen3mat &q_vec,
-                                    double &u_error,
-                                    double &q_error);
-  */
-
-  /*!
-  * This function projects the function "func" to the current basis.
-  * For modal basis of the dual space this is calculated via:
-  * \f[f(x)=\sum_{i} \alpha_i N_i(x) \Longrightarrow
-  * \left(f(x),N_j(x)\right) = \sum_i \alpha_i \left(N_i(x),N(x)\right).\f]
-  * Now, if \f$N_i\f$'s are orthonormal to each other, then \f$ \alpha_i =
-  * (f,N_i)\f$.
-  * If, we use Lagrangian basis for dual space, in order to
-  * project a function onto this basis, we need to just calculate the value
-  * of the function at the corresponding support points.
-  */
-  /*
-  template <typename BasisType, typename func_out_type>
-  void project_essential_BC_to_face(
-    const TimeFunction<dim, func_out_type> &func,
-    const poly_space_basis<BasisType, dim - 1> &the_basis,
-    const std::vector<double> &weights,
-    mtl::vec::dense_vector<func_out_type> &vec,
-    const double &time = 0);
-
-  template <typename BasisType, typename func_out_type>
-  void
-  project_func_to_face(const TimeFunction<dim, func_out_type> &func,
-                       const poly_space_basis<BasisType, dim - 1> &the_basis,
-                       const std::vector<double> &weights,
-                       mtl::vec::dense_vector<func_out_type> &vec,
-                       const unsigned &i_face,
-                       const double &time = 0);
-
-  template <typename BasisType, typename func_out_type>
-  void
-  project_flux_BC_to_face(const Function<dim, func_out_type> &func,
-                          const poly_space_basis<BasisType, dim - 1> &the_basis,
-                          const std::vector<double> &weights,
-                          mtl::vec::dense_vector<func_out_type> &vec);
-
-  template <typename BasisType, typename func_out_type>
-  void project_to_elem_basis(const TimeFunction<dim, func_out_type> &func,
-                             const poly_space_basis<BasisType, dim> &the_basis,
-                             const std::vector<double> &weights,
-                             mtl::vec::dense_vector<func_out_type> &vec,
-                             const double &time = 0.0);
-  */
-
   const unsigned n_faces;
   unsigned poly_order, n_face_bases, n_cell_bases;
   unsigned id_num;
+
   /**
    * We want to know which degrees of freedom are restrained and which are open.
    * Hence, we store a bitset which has its size equal to the number of dofs of
@@ -264,9 +161,11 @@ struct Cell
                               const unsigned &comm_rank_,
                               const unsigned &half_range_);
 
-  /*! A unique ID of each cell, which is taken from the dealii cell
+  /**
+   * A unique ID of each cell, which is taken from the dealii cell
    * corresponding to the current cell. This ID is unique in the
-   * interCPU space. */
+   * interCPU space.
+   */
   std::string cell_id;
 
   std::vector<unsigned> half_range_flag;
@@ -279,17 +178,6 @@ struct Cell
   std::unique_ptr<dealii::FEValues<dim> > cell_quad_fe_vals, cell_supp_fe_vals;
   std::unique_ptr<dealii::FEFaceValues<dim> > face_quad_fe_vals,
     face_supp_fe_vals;
-
-  /*
-   * Now, we will have some idiotically publicly implemented pointers !
-   * Not far from now, we should change this.
-   */
-  /*
-  local_nodal_sol<dim> *refn_local_nodal;
-  local_nodal_sol<dim> *cell_local_nodal;
-  poly_space_basis<elem_basis_type, dim> *the_elem_basis;
-  poly_space_basis<face_basis_type, dim - 1> *the_face_basis;
-  */
 
   /**
    *

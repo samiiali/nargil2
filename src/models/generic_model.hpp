@@ -10,36 +10,37 @@
 #ifndef GENERIC_DOF_NUM_HPP
 #define GENERIC_DOF_NUM_HPP
 
-enum class time_integration_type
+namespace ModelOptions
+{
+enum time_integration_type
 {
   implicit_type,
   explicit_type
 };
 
-enum class adaptivity_type
+enum adaptivity_type
 {
   h_adaptive,
   hp_adaptive
 };
 
-enum class cell_basis_function_type
+enum cell_basis_function_type
 {
   nodal_polynomial,
   modal_polynomial
 };
 
-enum class dof_numbering_type
+enum dof_numbering_type
 {
   CG,
   interior_DG,
   hybridized_DG
 };
+}
 
-template <int dim, int spacedim = dim>
-struct implicit_HDG_dof_numbering;
+template <int dim, int spacedim = dim> struct implicit_HDG_dof_numbering;
 
-template <int dim, int spacedim = dim>
-struct dof_numbering
+template <int dim, int spacedim = dim> struct dof_numbering
 {
   dof_numbering();
   virtual ~dof_numbering();
@@ -64,17 +65,16 @@ struct implicit_HDG_dof_numbering : public dof_numbering<dim, spacedim>
   ~implicit_HDG_dof_numbering() {}
 };
 
-template <int dim, int spacedim = dim>
-struct cell_container
+template <int dim, int spacedim = dim> struct cell_container
 {
   cell_container() {}
   ~cell_container() {}
 
-  void set_dof_numbering(time_integration_type time_integratorm_,
-                         dof_numbering_type numbering_type_)
+  void set_dof_numbering(ModelOptions::time_integration_type time_integratorm_,
+                         ModelOptions::dof_numbering_type numbering_type_)
   {
-    if (time_integratorm_ == time_integration_type::implicit_type &&
-        numbering_type_ == dof_numbering_type::hybridized_DG)
+    if (time_integratorm_ == ModelOptions::implicit_type &&
+        numbering_type_ == ModelOptions::hybridized_DG)
     {
       dof_counter =
         std::move(std::unique_ptr<implicit_HDG_dof_numbering<dim, spacedim> >(

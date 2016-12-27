@@ -26,13 +26,18 @@ include(CMakeLocals/CMakeIncs.txt)
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 
-SET(TARGET_SRC src/main.cpp)
+SET(TARGET_SRC main.cpp)
+
+FILE(GLOB_RECURSE TARGET_INC ${TARGET_INC} "include/*.hpp")
+
+
+SET(TARGET_SRC ${TARGET_SRC} ${TARGET_INC})
 
 # Usually, you will not need to modify anything beyond this point...
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 
-FIND_PACKAGE(deal.II 8.2 QUIET
+FIND_PACKAGE(deal.II 8.3 QUIET
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
   )
 IF(NOT ${deal.II_FOUND})
@@ -72,10 +77,11 @@ DEAL_II_INVOKE_AUTOPILOT()
 # We want to include all of the pure header files, i.e. class templates
 # in the source tree
 #
+add_subdirectory(source/mesh)
+add_subdirectory(source/models)
+add_subdirectory(source/elements)
+
 # add_subdirectory(src/poly_bases)
-add_subdirectory(src/models)
-add_subdirectory(src/solution_managers)
-add_subdirectory(src/elements)
 
 # add_custom_target(DUMMY SOURCES
 #                   src/solution_manager.hpp

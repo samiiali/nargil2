@@ -1,9 +1,9 @@
-#include "cell_class.hpp"
+#include "../../include/elements/cell.hpp"
 
 template <int dim, int spacedim>
-Cell<dim, spacedim>::Cell(dealiiCell &inp_cell,
-                          const unsigned &id_num_,
-                          const unsigned &poly_order_)
+nargil::Cell<dim, spacedim>::Cell(dealii_cell_type &inp_cell,
+                                  const unsigned &id_num_,
+                                  const unsigned &poly_order_)
   : n_faces(dealii::GeometryInfo<dim>::faces_per_cell),
     poly_order(poly_order_),
     n_face_bases(pow(poly_order + 1, dim - 1)),
@@ -23,7 +23,7 @@ Cell<dim, spacedim>::Cell(dealiiCell &inp_cell,
 }
 
 template <int dim, int spacedim>
-Cell<dim, spacedim>::Cell(Cell &&inp_cell) noexcept
+nargil::Cell<dim, spacedim>::Cell(Cell &&inp_cell) noexcept
   : n_faces(std::move(inp_cell.n_faces)),
     poly_order(std::move(inp_cell.poly_order)),
     n_face_bases(std::move(inp_cell.n_face_bases)),
@@ -40,27 +40,34 @@ Cell<dim, spacedim>::Cell(Cell &&inp_cell) noexcept
 {
 }
 
+template <int dim, int spacedim> nargil::Cell<dim, spacedim>::~Cell() {}
+
 template <int dim, int spacedim>
-Cell<dim, spacedim>::~Cell()
+template <typename ModelEq>
+std::unique_ptr<nargil::Cell<dim, spacedim> >
+nargil::Cell<dim, spacedim>::create(dealii_cell_type &inp_cell,
+                                    const unsigned id_num_,
+                                    const unsigned poly_order_)
 {
+  return std::unique_ptr<ModelEq>(new ModelEq(inp_cell, id_num_, poly_order_));
 }
 
 template <int dim, int spacedim>
-void Cell<dim, spacedim>::reinit_cell_fe_vals()
+void nargil::Cell<dim, spacedim>::reinit_cell_fe_vals()
 {
   cell_quad_fe_vals->reinit(dealii_cell);
   cell_supp_fe_vals->reinit(dealii_cell);
 }
 
 template <int dim, int spacedim>
-void Cell<dim, spacedim>::reinit_face_fe_vals(unsigned i_face)
+void nargil::Cell<dim, spacedim>::reinit_face_fe_vals(unsigned i_face)
 {
   face_quad_fe_vals->reinit(dealii_cell, i_face);
   face_supp_fe_vals->reinit(dealii_cell, i_face);
 }
 
 template <int dim, int spacedim>
-void Cell<dim, spacedim>::assign_local_global_cell_data(
+void nargil::Cell<dim, spacedim>::assign_local_global_cell_data(
   const unsigned &i_face,
   const unsigned &local_num_,
   const unsigned &global_num_,
@@ -77,11 +84,12 @@ void Cell<dim, spacedim>::assign_local_global_cell_data(
 }
 
 template <int dim, int spacedim>
-void Cell<dim, spacedim>::assign_ghost_cell_data(const unsigned &i_face,
-                                                 const int &local_num_,
-                                                 const int &global_num_,
-                                                 const unsigned &comm_rank_,
-                                                 const unsigned &half_range_)
+void nargil::Cell<dim, spacedim>::assign_ghost_cell_data(
+  const unsigned &i_face,
+  const int &local_num_,
+  const int &global_num_,
+  const unsigned &comm_rank_,
+  const unsigned &half_range_)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
@@ -93,13 +101,27 @@ void Cell<dim, spacedim>::assign_ghost_cell_data(const unsigned &i_face,
 }
 
 template <int dim, int spacedim>
-void Cell<dim, spacedim>::assign_local_cell_data(const unsigned &i_face,
-                                                 const unsigned &local_num_,
-                                                 const int &comm_rank_,
-                                                 const unsigned &half_range_)
+void nargil::Cell<dim, spacedim>::assign_local_cell_data(
+  const unsigned &i_face,
+  const unsigned &local_num_,
+  const int &comm_rank_,
+  const unsigned &half_range_)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
+}
+
+//
+//
+//
+//
+//
+template <int dim, int spacedim>
+nargil::Diffusion<dim, spacedim>::Diffusion(dealii_cell_type &inp_cell,
+                                            const unsigned id_num_,
+                                            const unsigned poly_order_)
+  : Cell<dim, spacedim>(inp_cell, id_num_, poly_order_)
+{
 }

@@ -1,10 +1,14 @@
 #include <functional>
+#include <map>
+#include <string>
 
 #include <mpi.h>
 
-#include <deal.II/grid/tria_accessor.h>
+#include <deal.II/distributed/tria.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
 
-#include "../models/generic_model.hpp"
+#include <deal.II/grid/tria_accessor.h>
 
 #ifndef GENERIC_SOL_HPP
 #define GENERIC_SOL_HPP
@@ -42,6 +46,12 @@ template <int dim, int spacedim = dim> struct Mesh
   virtual ~Mesh();
 };
 }
-#include "generic_solution.cpp"
+
+template <int dim>
+void write_grid(
+  const dealii::parallel::distributed::Triangulation<dim> &the_grid,
+  const MPI_Comm &comm);
+
+#include "../../source/mesh/mesh_handler.cpp"
 
 #endif

@@ -1,9 +1,19 @@
+#include <memory>
 #include <type_traits>
 
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/grid/tria_accessor.h>
 
 #ifndef CELL_CLASS_HPP
 #define CELL_CLASS_HPP
+
+namespace nargil
+{
+
+//
+//
+// Forward decleration of BaseModel.
+struct BaseModel;
 
 enum class BC
 {
@@ -33,9 +43,11 @@ enum class BC
 template <int dim, int spacedim = dim> struct Cell
 {
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
-    dealiiCell;
-  typedef
-    typename std::vector<std::unique_ptr<Cell> >::iterator vec_iter_ptr_type;
+    dealii_cell_type;
+
+  //  typedef
+  //    typename std::vector<std::unique_ptr<Cell> >::iterator
+  //    vec_iter_ptr_type;
 
   typedef std::unique_ptr<dealii::FEValues<dim> > FE_val_ptr;
   typedef std::unique_ptr<dealii::FEFaceValues<dim> > FEFace_val_ptr;
@@ -53,7 +65,7 @@ template <int dim, int spacedim = dim> struct Cell
    * \param id_num_  The unique ID (\c dealii_Cell::id()) of the dealii_Cell.
    * This is necessary when working on a distributed mesh.
    */
-  Cell(dealiiCell &inp_cell,
+  Cell(dealii_cell_type &inp_cell,
        const unsigned &id_num_,
        const unsigned &poly_order_);
 
@@ -80,6 +92,14 @@ template <int dim, int spacedim = dim> struct Cell
    * Obviously, the destructor.
    */
   virtual ~Cell();
+
+  /**
+   *
+   */
+  template <typename ModelEq>
+  std::unique_ptr<Cell<dim, spacedim> > create(dealii_cell_type &inp_cell,
+                                               const unsigned id_num_,
+                                               const unsigned poly_order_);
 
   /**
    * \brief Moves the dealii::FEValues and dealii::FEFaceValues
@@ -170,10 +190,12 @@ template <int dim, int spacedim = dim> struct Cell
 
   std::vector<unsigned> half_range_flag;
   std::vector<unsigned> face_owner_rank;
-  dealiiCell dealii_cell;
+  dealii_cell_type dealii_cell;
   std::vector<std::vector<int> > dofs_ID_in_this_rank;
   std::vector<std::vector<int> > dofs_ID_in_all_ranks;
   std::vector<BC> BCs;
+
+  BaseModel *model;
 
   std::unique_ptr<dealii::FEValues<dim> > cell_quad_fe_vals, cell_supp_fe_vals;
   std::unique_ptr<dealii::FEFaceValues<dim> > face_quad_fe_vals,
@@ -190,5 +212,21 @@ template <int dim, int spacedim = dim> struct Cell
   //  const dealii::QGauss<dim - 1> *face_quad_bundle;
 };
 
-#include "cell_class.cpp"
+//
+//
+/**
+ *
+ */
+template <int dim, int spacedim = dim>
+struct Diffusion : public Cell<dim, spacedim>
+{
+  using typename Cell<dim, spacedim>::dealii_cell_type;
+  Diffusion(dealii_cell_type &inp_cell,
+            const unsigned id_num_,
+            const unsigned poly_order_);
+  ~Diffusion() {}
+};
+}
+
+#include "../../source/elements/cell.cpp"
 #endif // CELL_CLASS_HPP

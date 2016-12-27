@@ -1,7 +1,10 @@
-#include "../generic_model.hpp"
+#include "model.hpp"
 
 #ifndef IMPLICIT_DOF_NUM_HPP
 #define IMPLICIT_DOF_NUM_HPP
+
+namespace nargil
+{
 
 /**
  * \brief A class containing a collection of \c std::unique_ptr 's to
@@ -20,7 +23,7 @@
  * (hence one type of element).
  */
 template <int dim, int spacedim>
-struct hybridized_dof_numbering : public dof_numbering<dim, spacedim>
+struct HDG_dof_numbering : public dof_numbering<dim, spacedim>
 {
 
   //  friend struct GenericCell<dim>;
@@ -32,8 +35,8 @@ struct hybridized_dof_numbering : public dof_numbering<dim, spacedim>
   // hdg_model() = delete;
   // hdg_model(SolutionManager<dim> *const sol_, BDFIntegrator
   // *time_integrator_);
-  hybridized_dof_numbering();
-  virtual ~hybridized_dof_numbering();
+  HDG_dof_numbering();
+  virtual ~HDG_dof_numbering();
 
   //  unsigned poly_order;
   //  unsigned n_faces_per_cell;
@@ -65,7 +68,8 @@ struct hybridized_dof_numbering : public dof_numbering<dim, spacedim>
   //  BDFIntegrator *time_integrator;
   //  std::unique_ptr<generic_solver<dim, CellType> > solver;
 };
+}
 
-#include "implicit_numbering.cpp"
+#include "../../source/models/hybridized_DG.cpp"
 
 #endif

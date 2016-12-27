@@ -84,18 +84,18 @@ using namespace ::LinearAlgebraTrilinos;
 #ifndef LIB_HEADERS_HPP
 #define LIB_HEADERS_HPP
 
-typedef Eigen::MatrixXd eigen3mat;
-typedef Eigen::SparseMatrix<double> eigen3sparse_mat;
-typedef Eigen::Triplet<double> eigen3triplet;
-typedef Eigen::LDLT<eigen3mat, Eigen::Lower> eigen3ldlt;
+// typedef Eigen::MatrixXd eigen3mat;
+// typedef Eigen::SparseMatrix<double> eigen3sparse_mat;
+// typedef Eigen::Triplet<double> eigen3triplet;
+// typedef Eigen::LDLT<eigen3mat, Eigen::Lower> eigen3ldlt;
 
-template <int dim, template <int> class CellType>
-struct hdg_model;
+// template <int dim, template <int> class CellType>
+// struct hdg_model;
 
-template <int dim, template <int> class CellType>
-struct explicit_hdg_model;
+// template <int dim, template <int> class CellType>
+// struct explicit_hdg_model;
 
-template <int dim, template <int> class CellType>
-struct hdg_model_with_explicit_rk;
+// template <int dim, template <int> class CellType>
+// struct hdg_model_with_explicit_rk;
 
 #endif

@@ -1,68 +1,87 @@
+#include <boost/dynamic_bitset.hpp>
 #include <cstdio>
 #include <fstream>
-#include <iostream>
-#include <slepc.h>
+#include <vector>
 
-#include "src/models/generic_model.hpp"
+#include <petsc.h>
+
+#include <deal.II/distributed/tria.h>
+#include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
+
+#include "include/mesh/mesh_handler.hpp"
+#include "include/models/model.hpp"
+
+template <int dim, int spacedim = dim> struct Problem
+{
+  static void generate_mesh(
+    dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
+  {
+    std::vector<unsigned> repeats(dim, 10);
+    dealii::Point<spacedim> point_1, point_2;
+    point_1 = {-1.0, -1.0};
+    point_2 = {1.0, 1.0};
+    dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, repeats,
+                                                      point_1, point_2, true);
+  }
+
+  boost::dynamic_bitset<> dofs_on_nodes()
+  {
+    boost::dynamic_bitset<> dof_names_on_nodes(1);
+    dof_names_on_nodes[0] = 1;
+    return dof_names_on_nodes;
+  }
+
+  //
+  // This is a functor, which basically does the same thing as above.
+  // Since, we do not need the state of the grid_gen, we really do not
+  // need a functor here. I have just implemented it for later reference.
+  //
+  struct grid_gen2
+  {
+    void operator()(
+      dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
+    {
+      std::vector<unsigned> repeats(dim, 10);
+      dealii::Point<spacedim> point_1, point_2;
+      point_1 = {-1.0, -1.0};
+      point_2 = {1.0, 1.0};
+      dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, repeats,
+                                                        point_1, point_2, true);
+    }
+  };
+
+  std::vector<nargil::BC> BCs_on_face()
+  {
+    std::vector<nargil::BC> BCs(1, nargil::BC::essential);
+    return BCs;
+  }
+};
 
 int main(int argc, char **argv)
 {
-  SlepcInitialize(&argc, &argv, (char *)0, NULL);
-  PetscMPIInt comm_rank, comm_size;
-  MPI_Comm_rank(PETSC_COMM_WORLD, &comm_rank);
-  MPI_Comm_size(PETSC_COMM_WORLD, &comm_size);
-  // dealii::MultithreadInfo::set_thread_limit(1);
+  PetscInitialize(&argc, &argv, NULL, NULL);
 
-  int number_of_threads = 1;
-#ifdef _OPENMP
-  omp_set_num_threads(1);
-  number_of_threads = omp_get_max_threads();
-#endif
-
-  if (comm_rank == 0)
+  //
   {
-    char help_line[300];
-    std::snprintf(help_line,
-                  300,
-                  "\n"
-                  "mpiexec -n 6 ./GN_Solver -h_0 2 -h_n 8 -p_0 1 -p_n 2 -amr 0 "
-                  "\n");
-    std::cout << "Usage: " << help_line << std::endl;
+    const MPI_Comm *const comm = &PETSC_COMM_WORLD;
+    nargil::Mesh<2> mesh1(*comm, 1, false);
 
-    std::ofstream Convergence_Cleaner("Convergence_Result.txt");
-    Convergence_Cleaner.close();
-    std::ofstream ExecTime_Cleaner("Execution_Time.txt");
-    ExecTime_Cleaner.close();
+    mesh1.generate_mesh(Problem<2>::generate_mesh);
+
+    nargil::Model<nargil::Diffusion<2>, 2> model1(&mesh1);
+    model1.init_mesh_containers();
+
+    //    cell_container<2> cont1;
+    //    cont1.set_dof_numbering(ModelOptions::implicit_type,
+    //                            ModelOptions::hybridized_DG);
+
+    //
+    // We can also use a functor to generate the mesh.
+    //
+    // h_mesh1.generate_mesh(problem<2>::grid_gen2());
   }
+  //
 
-  int p_1, p_2, h_1, h_2, found_options = 1;
-  PetscBool found_option;
-  int adaptive_on = 0;
-
-  PetscOptionsGetInt(NULL, "-p_0", &p_1, &found_option);
-  found_options = found_option * found_options;
-  PetscOptionsGetInt(NULL, "-p_n", &p_2, &found_option);
-  found_options = found_option && found_options;
-  PetscOptionsGetInt(NULL, "-h_0", &h_1, &found_option);
-  found_options = found_option && found_options;
-  PetscOptionsGetInt(NULL, "-h_n", &h_2, &found_option);
-  found_options = found_option && found_options;
-  PetscOptionsGetInt(NULL, "-amr", &adaptive_on, &found_option);
-  found_options = found_option && found_options;
-
-  const int dim = 2;
-
-  //  for (unsigned p1 = (unsigned)p_1; p1 < (unsigned)p_2; ++p1)
-  //  {
-  //    SolutionManager<dim> sol_man1(p1,
-  //                                  PETSC_COMM_WORLD,
-  //                                  comm_size,
-  //                                  comm_rank,
-  //                                  number_of_threads,
-  //                                  adaptive_on);
-  //    sol_man1.solve((unsigned)h_1, (unsigned)h_2);
-  //  }
-
-  SlepcFinalize();
-  return 0;
+  PetscFinalize();
 }

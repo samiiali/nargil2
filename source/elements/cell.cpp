@@ -1,13 +1,16 @@
 #include "../../include/elements/cell.hpp"
 
+//
+//
+//
 template <int dim, int spacedim>
 nargil::Cell<dim, spacedim>::Cell(dealii_cell_type &inp_cell,
-                                  const unsigned &id_num_,
-                                  const unsigned &poly_order_)
+                                  const unsigned id_num_,
+                                  BaseModel *model_)
   : n_faces(dealii::GeometryInfo<dim>::faces_per_cell),
-    poly_order(poly_order_),
-    n_face_bases(pow(poly_order + 1, dim - 1)),
-    n_cell_bases(pow(poly_order + 1, dim)),
+    //    poly_order(poly_order_),
+    //    n_face_bases(pow(poly_order + 1, dim - 1)),
+    //    n_cell_bases(pow(poly_order + 1, dim)),
     id_num(id_num_),
     dof_names_on_faces(n_faces),
     half_range_flag(n_faces, 0),
@@ -15,19 +18,23 @@ nargil::Cell<dim, spacedim>::Cell(dealii_cell_type &inp_cell,
     dealii_cell(inp_cell),
     dofs_ID_in_this_rank(n_faces),
     dofs_ID_in_all_ranks(n_faces),
-    BCs(n_faces, BC::not_set)
+    BCs(n_faces, BC::not_set),
+    model(model_)
 {
   std::stringstream ss_id;
   ss_id << inp_cell->id();
   cell_id = ss_id.str();
 }
 
+//
+//
+//
 template <int dim, int spacedim>
 nargil::Cell<dim, spacedim>::Cell(Cell &&inp_cell) noexcept
   : n_faces(std::move(inp_cell.n_faces)),
-    poly_order(std::move(inp_cell.poly_order)),
-    n_face_bases(std::move(inp_cell.n_face_bases)),
-    n_cell_bases(std::move(inp_cell.n_cell_bases)),
+    //    poly_order(std::move(inp_cell.poly_order)),
+    //    n_face_bases(std::move(inp_cell.n_face_bases)),
+    //    n_cell_bases(std::move(inp_cell.n_cell_bases)),
     id_num(std::move(inp_cell.id_num)),
     dof_names_on_faces(std::move(inp_cell.dof_names_on_faces)),
     cell_id(std::move(inp_cell.cell_id)),
@@ -36,36 +43,52 @@ nargil::Cell<dim, spacedim>::Cell(Cell &&inp_cell) noexcept
     dealii_cell(std::move(inp_cell.dealii_cell)),
     dofs_ID_in_this_rank(std::move(inp_cell.dofs_ID_in_this_rank)),
     dofs_ID_in_all_ranks(std::move(inp_cell.dofs_ID_in_all_ranks)),
-    BCs(std::move(inp_cell.BCs))
+    BCs(std::move(inp_cell.BCs)),
+    model(inp_cell.model)
 {
 }
 
+//
+//
+//
 template <int dim, int spacedim> nargil::Cell<dim, spacedim>::~Cell() {}
 
+//
+//
+//
 template <int dim, int spacedim>
 template <typename ModelEq>
 std::unique_ptr<nargil::Cell<dim, spacedim> >
 nargil::Cell<dim, spacedim>::create(dealii_cell_type &inp_cell,
                                     const unsigned id_num_,
-                                    const unsigned poly_order_)
+                                    BaseModel *model_)
 {
-  return std::unique_ptr<ModelEq>(new ModelEq(inp_cell, id_num_, poly_order_));
+  return std::unique_ptr<ModelEq>(new ModelEq(inp_cell, id_num_, model_));
 }
 
+//
+//
+//
 template <int dim, int spacedim>
 void nargil::Cell<dim, spacedim>::reinit_cell_fe_vals()
 {
-  cell_quad_fe_vals->reinit(dealii_cell);
-  cell_supp_fe_vals->reinit(dealii_cell);
+  // cell_quad_fe_vals->reinit(dealii_cell);
+  // cell_supp_fe_vals->reinit(dealii_cell);
 }
 
+//
+//
+//
 template <int dim, int spacedim>
-void nargil::Cell<dim, spacedim>::reinit_face_fe_vals(unsigned i_face)
+void nargil::Cell<dim, spacedim>::reinit_face_fe_vals(unsigned)
 {
-  face_quad_fe_vals->reinit(dealii_cell, i_face);
-  face_supp_fe_vals->reinit(dealii_cell, i_face);
+  // face_quad_fe_vals->reinit(dealii_cell, i_face);
+  // face_supp_fe_vals->reinit(dealii_cell, i_face);
 }
 
+//
+//
+//
 template <int dim, int spacedim>
 void nargil::Cell<dim, spacedim>::assign_local_global_cell_data(
   const unsigned &i_face,
@@ -83,6 +106,9 @@ void nargil::Cell<dim, spacedim>::assign_local_global_cell_data(
   }
 }
 
+//
+//
+//
 template <int dim, int spacedim>
 void nargil::Cell<dim, spacedim>::assign_ghost_cell_data(
   const unsigned &i_face,
@@ -100,6 +126,9 @@ void nargil::Cell<dim, spacedim>::assign_ghost_cell_data(
   }
 }
 
+//
+//
+//
 template <int dim, int spacedim>
 void nargil::Cell<dim, spacedim>::assign_local_cell_data(
   const unsigned &i_face,
@@ -121,7 +150,8 @@ void nargil::Cell<dim, spacedim>::assign_local_cell_data(
 template <int dim, int spacedim>
 nargil::Diffusion<dim, spacedim>::Diffusion(dealii_cell_type &inp_cell,
                                             const unsigned id_num_,
-                                            const unsigned poly_order_)
-  : Cell<dim, spacedim>(inp_cell, id_num_, poly_order_)
+                                            BaseModel *model_)
+  : Cell<dim, spacedim>(inp_cell, id_num_, model_)
 {
+  std::cout << this->id_num << std::endl;
 }

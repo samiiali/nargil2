@@ -12,8 +12,14 @@
 #include "include/mesh/mesh_handler.hpp"
 #include "include/models/model.hpp"
 
+/**
+ * Just a sample problem
+ */
 template <int dim, int spacedim = dim> struct Problem
 {
+  /**
+   * @brief generate_mesh
+   */
   static void generate_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
@@ -25,6 +31,9 @@ template <int dim, int spacedim = dim> struct Problem
                                                       point_1, point_2, true);
   }
 
+  /**
+   * @brief dofs_on_nodes
+   */
   boost::dynamic_bitset<> dofs_on_nodes()
   {
     boost::dynamic_bitset<> dof_names_on_nodes(1);
@@ -37,8 +46,14 @@ template <int dim, int spacedim = dim> struct Problem
   // Since, we do not need the state of the grid_gen, we really do not
   // need a functor here. I have just implemented it for later reference.
   //
+  /**
+   * @brief The grid_gen2 struct
+   */
   struct grid_gen2
   {
+    /**
+     * @brief operator ()
+     */
     void operator()(
       dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
     {
@@ -51,6 +66,9 @@ template <int dim, int spacedim = dim> struct Problem
     }
   };
 
+  /**
+   * @brief BCs_on_face
+   */
   std::vector<nargil::BC> BCs_on_face()
   {
     std::vector<nargil::BC> BCs(1, nargil::BC::essential);
@@ -58,6 +76,9 @@ template <int dim, int spacedim = dim> struct Problem
   }
 };
 
+/**
+ * @brief main
+ */
 int main(int argc, char **argv)
 {
   PetscInitialize(&argc, &argv, NULL, NULL);
@@ -69,8 +90,8 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    nargil::Model<nargil::Diffusion<2>, 2> model1(&mesh1);
-    model1.init_mesh_containers();
+    nargil::Model<2> model1(&mesh1);
+    model1.assign_model_features<nargil::Diffusion<2> >();
 
     //    cell_container<2> cont1;
     //    cont1.set_dof_numbering(ModelOptions::implicit_type,

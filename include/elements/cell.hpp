@@ -7,6 +7,12 @@
 #ifndef CELL_CLASS_HPP
 #define CELL_CLASS_HPP
 
+/**
+ * \defgroup modelelements Model Elements
+ * \brief This group contains different model elements and the relevant
+ * structures used to solve different model problems.
+ */
+
 namespace nargil
 {
 
@@ -15,6 +21,11 @@ namespace nargil
 // Forward decleration of BaseModel.
 struct BaseModel;
 
+//
+//
+/**
+ * \brief The enum which contains different boundary conditions.
+ */
 enum class BC
 {
   not_set = ~(1 << 0),
@@ -27,57 +38,61 @@ enum class BC
   solid_wall = 1 << 6,
 };
 
-/*!
- * \defgroup cells Cell data
- * \brief
- * This group contains the classes which encapsulate data corresponding to each
- * cell in the mesh.
- */
-
-/*!
- * \brief The \c Cell_Class contains most of the required data about a generic
+//
+//
+/**
+ * \brief Contains most of the required data about a generic
  * element in the mesh.
- *
- * \ingroup cells
+ * \ingroup modelelements
  */
 template <int dim, int spacedim = dim> struct Cell
 {
+  //
+  //
+  /**
+   * @brief The deal.II cell iterator type.
+   */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
     dealii_cell_type;
 
-  //  typedef
-  //    typename std::vector<std::unique_ptr<Cell> >::iterator
-  //    vec_iter_ptr_type;
-
+  //
+  //
+  /**
+   * @name deal.II FEValues used in the class
+   */
+  ///@{
   typedef std::unique_ptr<dealii::FEValues<dim> > FE_val_ptr;
   typedef std::unique_ptr<dealii::FEFaceValues<dim> > FEFace_val_ptr;
+  ///@}
 
+  //
+  //
   /**
    * \details
    * We remove the default constructor to avoid uninitialized creation of Cell
    * objects.
    */
   Cell() = delete;
+
+  //
+  //
   /**
    * \details
-   * The constructor of this class takes a deal.II cell and its deal.II ID.
-   * \param inp_cell The iterator to the deal.II cell in the mesh.
-   * \param id_num_  The unique ID (\c dealii_Cell::id()) of the dealii_Cell.
-   * This is necessary when working on a distributed mesh.
+   * The constructor of this class takes a deal.II cell and creates the cell.
    */
-  Cell(dealii_cell_type &inp_cell,
-       const unsigned &id_num_,
-       const unsigned &poly_order_);
+  Cell(dealii_cell_type &inp_cell, const unsigned id_num_, BaseModel *model_);
 
+  //
+  //
   /**
    * \details
    * We remove the copy constructor of this class to avoid unnecessary copies
-   * (specially unintentional ones). Up to October 2015, this copy constructor
-   * was not useful anywhere in the code.
+   * (specially unintentional ones).
    */
-
   Cell(const Cell &inp_cell) = delete;
 
+  //
+  //
   /**
    * \details
    * We need a move constructor, to be able to pass this class as function
@@ -88,24 +103,30 @@ template <int dim, int spacedim = dim> struct Cell
    */
   Cell(Cell &&inp_cell) noexcept;
 
+  //
+  //
   /**
-   * Obviously, the destructor.
+   * @brief The destructor of the class.
    */
   virtual ~Cell();
 
+  //
+  //
   /**
-   *
+   * @brief This is the factory function which creates a cell of type
+   * ModelEq (the template parameter). This function is called by
+   * Model::init_mesh_containers.
    */
   template <typename ModelEq>
-  std::unique_ptr<Cell<dim, spacedim> > create(dealii_cell_type &inp_cell,
-                                               const unsigned id_num_,
-                                               const unsigned poly_order_);
+  static std::unique_ptr<Cell<dim, spacedim> >
+  create(dealii_cell_type &inp_cell, const unsigned id_num_, BaseModel *model_);
 
+  //
+  //
   /**
-   * \brief Moves the dealii::FEValues and dealii::FEFaceValues
-   * objects between different elements and faces.
-   *
-   * dealii::FEValues are not copyable objects. They also
+   * This function Moves the dealii::FEValues and dealii::FEFaceValues
+   * objects between different elements and faces. dealii::FEValues are not
+   * copyable objects. They also
    * do not have empty constructor. BUT, they have (possibly
    * very efficient) move assignment operators. So, they should
    * be created once and updated afterwards. This avoids us from
@@ -116,46 +137,60 @@ template <int dim, int spacedim = dim> struct Cell
    * calculation, we create std::unique_ptr to our FEValues
    * objects and use the std::move to move them along to
    * next elements.
-   *
-   * \details We attach a \c unique_ptr of dealii::FEValues and
-   * dealii::FEFaceValues to the current object.
-   * \param cell_quad_fe_vals_ The dealii::FEValues which is used for location
-   * of quadrature points in cells.
-   * \param face_quad_fe_vals_ The dealii::FEValues which is used for lacation
-   * of support points in cells.
-   * \param cell_supp_fe_vals_ The dealii::FEValues which is used for location
-   * of quadrature points on faces.
-   * \param face_supp_fe_vals_ The dealii::FEValues which is used for location
-   * of support points on faces.
    */
-  void attach_FEValues(FE_val_ptr &cell_quad_fe_vals_,
-                       FEFace_val_ptr &face_quad_fe_vals_,
-                       FE_val_ptr &cell_supp_fe_vals_,
-                       FEFace_val_ptr &face_supp_fe_vals_);
+  void attach_FEValues(FE_val_ptr &,
+                       FEFace_val_ptr &,
+                       FE_val_ptr &,
+                       FEFace_val_ptr &);
 
-  void detach_FEValues(FE_val_ptr &cell_quad_fe_vals_,
-                       FEFace_val_ptr &face_quad_fe_vals_,
-                       FE_val_ptr &cell_supp_fe_vals_,
-                       FEFace_val_ptr &face_supp_fe_vals_);
+  //
+  //
+  /**
+   * The opposite action of Cell::attach_FEValues.
+   */
+  void detach_FEValues(FE_val_ptr &,
+                       FEFace_val_ptr &,
+                       FE_val_ptr &,
+                       FEFace_val_ptr &);
 
-  /*!
+  //
+  //
+  /**
    * \details Updates the FEValues which are connected to the current element
    * (not the FEFaceValues.)
    */
   void reinit_cell_fe_vals();
 
-  /*!
+  //
+  //
+  /**
    * \details Updates the FEFaceValues which are connected to a given face of
    * the current element.
-   * \param i_face the face which we want to update the connected FEFaceValues.
-   * \c i_face\f$\in\{1,2,3,4\}\f$
    */
-  void reinit_face_fe_vals(unsigned i_face);
+  void reinit_face_fe_vals(unsigned);
 
+  //
+  //
+  /**
+   * @brief n_faces
+   */
   const unsigned n_faces;
-  unsigned poly_order, n_face_bases, n_cell_bases;
+
+  //
+  //
+  //  unsigned poly_order;
+
+  //  unsigned n_face_bases, n_cell_bases;
+
+  //
+  //
+  /**
+   * @brief id_num
+   */
   unsigned id_num;
 
+  //
+  //
   /**
    * We want to know which degrees of freedom are restrained and which are open.
    * Hence, we store a bitset which has its size equal to the number of dofs of
@@ -164,23 +199,40 @@ template <int dim, int spacedim = dim> struct Cell
    */
   std::vector<boost::dynamic_bitset<> > dof_names_on_faces;
 
+  //
+  //
+  /**
+   * @brief assign_local_global_cell_data
+   */
   void assign_local_global_cell_data(const unsigned &i_face,
                                      const unsigned &local_num_,
                                      const unsigned &global_num_,
                                      const unsigned &comm_rank_,
                                      const unsigned &half_range_);
 
+  //
+  //
+  /**
+   * @brief assign_local_cell_data
+   */
   void assign_local_cell_data(const unsigned &i_face,
                               const unsigned &local_num_,
                               const int &comm_rank_,
                               const unsigned &half_range_);
 
+  //
+  //
+  /**
+   * @brief assign_ghost_cell_data
+   */
   void assign_ghost_cell_data(const unsigned &i_face,
                               const int &local_num_,
                               const int &global_num_,
                               const unsigned &comm_rank_,
                               const unsigned &half_range_);
 
+  //
+  //
   /**
    * A unique ID of each cell, which is taken from the dealii cell
    * corresponding to the current cell. This ID is unique in the
@@ -188,42 +240,88 @@ template <int dim, int spacedim = dim> struct Cell
    */
   std::string cell_id;
 
+  //
+  //
+  /**
+   * @brief Decides if the current face has a coarser neighbor.
+   */
   std::vector<unsigned> half_range_flag;
+
+  //
+  //
+  /**
+   * @brief The CPU number of the processor which owns the current face.
+   */
   std::vector<unsigned> face_owner_rank;
+
+  //
+  //
+  /**
+   * @brief An iterator to the deal.II element corresponding to this Cell.
+   */
   dealii_cell_type dealii_cell;
+
+  //
+  //
+  /**
+   * @brief dofs_ID_in_this_rank
+   */
   std::vector<std::vector<int> > dofs_ID_in_this_rank;
+
+  //
+  //
+  /**
+   * @brief dofs_ID_in_all_ranks
+   */
   std::vector<std::vector<int> > dofs_ID_in_all_ranks;
+
+  //
+  //
+  /**
+   * @brief Contains all of the boundary conditions of on the faces of this
+   * Cell.
+   */
   std::vector<BC> BCs;
 
+  //
+  //
+  /**
+   * @brief A pointer to the BaseModel object which contains this Cell.
+   */
   BaseModel *model;
-
-  std::unique_ptr<dealii::FEValues<dim> > cell_quad_fe_vals, cell_supp_fe_vals;
-  std::unique_ptr<dealii::FEFaceValues<dim> > face_quad_fe_vals,
-    face_supp_fe_vals;
-
-  /**
-   *
-   */
-  //  const dealii::QGauss<dim> *elem_quad_bundle;
-
-  /**
-   *
-   */
-  //  const dealii::QGauss<dim - 1> *face_quad_bundle;
 };
 
 //
 //
 /**
- *
+ * This the diffusion model problem. The original method of solving this is
+ * based on hybridized DG.
+ * \ingroup modelelements
  */
 template <int dim, int spacedim = dim>
 struct Diffusion : public Cell<dim, spacedim>
 {
+  //
+  //
+  /**
+   * @brief We use the same typename as we defined in base class.
+   */
   using typename Cell<dim, spacedim>::dealii_cell_type;
+
+  //
+  //
+  /**
+   * @brief The constructor of the class.
+   */
   Diffusion(dealii_cell_type &inp_cell,
             const unsigned id_num_,
-            const unsigned poly_order_);
+            BaseModel *model_);
+
+  //
+  //
+  /**
+   * @brief The destructor of the class.
+   */
   ~Diffusion() {}
 };
 }

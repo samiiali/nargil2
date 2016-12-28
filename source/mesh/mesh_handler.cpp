@@ -1,13 +1,10 @@
 #include "../../include/mesh/mesh_handler.hpp"
 
-template <int dim>
-void write_grid(
-  const dealii::parallel::distributed::Triangulation<dim> &the_grid,
-  const MPI_Comm &comm)
+template <int dim, int spacedim> void nargil::Mesh<dim, spacedim>::write_grid()
 {
   int comm_rank, comm_size, refn_cycle;
-  MPI_Comm_rank(comm, &comm_rank);
-  MPI_Comm_size(comm, &comm_size);
+  MPI_Comm_rank(*comm, &comm_rank);
+  MPI_Comm_size(*comm, &comm_size);
   refn_cycle = 0;
   dealii::GridOut Grid1_Out;
   dealii::GridOutFlags::Svg svg_flags(
@@ -30,13 +27,13 @@ void write_grid(
   {
     std::ofstream Grid1_OutFile("the_grid" + std::to_string(refn_cycle) +
                                 std::to_string(comm_rank) + ".svg");
-    Grid1_Out.write_svg(the_grid, Grid1_OutFile);
+    Grid1_Out.write_svg(tria, Grid1_OutFile);
   }
   else
   {
     std::ofstream Grid1_OutFile("the_grid" + std::to_string(refn_cycle) +
                                 std::to_string(comm_rank) + ".msh");
-    Grid1_Out.write_msh(the_grid, Grid1_OutFile);
+    Grid1_Out.write_msh(tria, Grid1_OutFile);
   }
 }
 
@@ -47,10 +44,10 @@ nargil::Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
   : comm(&comm_),
     adaptive_on(adaptive_on_),
     n_threads(n_threads_),
-    dealii_mesh(*comm,
-                typename dealii::Triangulation<dim>::MeshSmoothing(
-                  dealii::Triangulation<dim>::smoothing_on_refinement |
-                  dealii::Triangulation<dim>::smoothing_on_coarsening))
+    tria(*comm,
+         typename dealii::Triangulation<dim>::MeshSmoothing(
+           dealii::Triangulation<dim>::smoothing_on_refinement |
+           dealii::Triangulation<dim>::smoothing_on_coarsening))
 {
   int comm_rank, comm_size;
   MPI_Comm_rank(*comm, &comm_rank);
@@ -65,7 +62,7 @@ void nargil::Mesh<dim, spacedim>::init_cell_ID_to_num()
   unsigned n_cell = 0;
   n_owned_cell = 0;
   n_ghost_cell = 0;
-  for (dealii_cell_type &&cell : dealii_mesh.active_cell_iterators())
+  for (dealii_cell_type &&cell : tria.active_cell_iterators())
   {
     if (cell->is_locally_owned())
     {
@@ -87,6 +84,7 @@ template <int dim, int spacedim>
 template <typename F>
 void nargil::Mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
 {
-  generate_mesh_(dealii_mesh);
-  write_grid(dealii_mesh, *comm);
+  generate_mesh_(tria);
+  init_cell_ID_to_num();
+  write_grid();
 }

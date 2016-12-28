@@ -25,7 +25,6 @@ namespace nargil
 template <int dim, int spacedim>
 struct HDG_dof_numbering : public dof_numbering<dim, spacedim>
 {
-
   //  friend struct GenericCell<dim>;
   //  typedef CellType<dim> model_type;
   //  typedef typename GenericCell<dim>::dealiiCell dealiiCell;
@@ -35,6 +34,12 @@ struct HDG_dof_numbering : public dof_numbering<dim, spacedim>
   // hdg_model() = delete;
   // hdg_model(SolutionManager<dim> *const sol_, BDFIntegrator
   // *time_integrator_);
+
+  //
+  //
+  /**
+  * @brief The constructor of the class
+  */
   HDG_dof_numbering();
   virtual ~HDG_dof_numbering();
 
@@ -51,9 +56,32 @@ struct HDG_dof_numbering : public dof_numbering<dim, spacedim>
 
   //  std::vector<std::unique_ptr<GenericCell<dim> > > all_owned_cells;
 
+  //
+  //
+  /**
+   * @brief init_mesh_containers
+   */
   void init_mesh_containers();
+
+  //
+  //
+  /**
+   * @brief free_containers
+   */
   void free_containers();
+
+  //
+  //
+  /**
+   * @brief set_boundary_indicator
+   */
   void set_boundary_indicator();
+
+  //
+  //
+  /**
+   * @brief count_globals
+   */
   void count_globals();
 
   //  void assign_initial_data(const BDFIntegrator &);

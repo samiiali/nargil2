@@ -1,11 +1,20 @@
+#include <assert.h>
 #include <memory>
 #include <type_traits>
 
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/tria_accessor.h>
 
+#include <deal.II/base/qprojector.h>
+#include <deal.II/base/quadrature_lib.h>
+#include <deal.II/fe/fe_dgq.h>
+#include <deal.II/fe/fe_system.h>
+
 #ifndef CELL_CLASS_HPP
 #define CELL_CLASS_HPP
+
+#include "../models/dof_numbering.hpp"
+#include "../models/model_options.hpp"
 
 /**
  * \defgroup modelelements Model Elements
@@ -15,18 +24,90 @@
 
 namespace nargil
 {
+//
+//
+//
+namespace bases
+{
+//
+//
+/**
+ *
+ */
+template <int dim, int spacedim> struct basis
+{
+  basis() {}
+  ~basis() {}
+  template <typename BasisType> std::unique_ptr<BasisType> create();
+};
 
 //
 //
-// Forward decleration of BaseModel.
-struct BaseModel;
+/**
+ *
+ */
+template <int dim, int spacedim = dim>
+struct hdg_diffusion_polybasis : public basis<dim, spacedim>
+{
+  hdg_diffusion_polybasis() = delete;
+  hdg_diffusion_polybasis(const unsigned poly_order, const unsigned quad_order);
+
+  unsigned _poly_order;
+  unsigned _quad_order;
+
+  dealii::FE_DGQ<dim> u_basis;
+  dealii::FESystem<dim> q_basis;
+  dealii::FE_DGQ<dim - 1> uhat_basis;
+
+  dealii::QGauss<dim> cell_quad;
+  dealii::QGauss<dim - 1> face_quad;
+
+  dealii::Quadrature<dim> projected_face_quad;
+
+  dealii::UpdateFlags fe_val_flags;
+
+  dealii::FEValues<dim> u_in_cell;
+  dealii::FEValues<dim> q_in_cell;
+  dealii::FEFaceValues<dim> uhat_on_face;
+  std::vector<std::unique_ptr<dealii::FEValues<dim> > > u_on_faces;
+  std::vector<std::unique_ptr<dealii::FEValues<dim> > > q_on_faces;
+
+  //
+  //
+  /**
+   *
+   */
+  void adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
+                                    const unsigned half_range);
+
+  //
+  //
+  /**
+   *
+   */
+  unsigned get_n_dofs_on_each_face();
+
+  //
+  //
+  /**
+   *
+   */
+  static nargil::bases::basis_options get_options();
+};
+}
+
+//
+//
+// Forward decleration of BaseModel. The model, which all other models
+// are based on it.
+struct base_model;
 
 //
 //
 /**
  * \brief The enum which contains different boundary conditions.
  */
-enum class BC
+enum class boundary_condition
 {
   not_set = ~(1 << 0),
   essential = 1 << 0,
@@ -45,7 +126,7 @@ enum class BC
  * element in the mesh.
  * \ingroup modelelements
  */
-template <int dim, int spacedim = dim> struct Cell
+template <int dim, int spacedim = dim> struct cell
 {
   //
   //
@@ -58,21 +139,11 @@ template <int dim, int spacedim = dim> struct Cell
   //
   //
   /**
-   * @name deal.II FEValues used in the class
-   */
-  ///@{
-  typedef std::unique_ptr<dealii::FEValues<dim> > FE_val_ptr;
-  typedef std::unique_ptr<dealii::FEFaceValues<dim> > FEFace_val_ptr;
-  ///@}
-
-  //
-  //
-  /**
    * \details
    * We remove the default constructor to avoid uninitialized creation of Cell
    * objects.
    */
-  Cell() = delete;
+  cell() = delete;
 
   //
   //
@@ -80,7 +151,7 @@ template <int dim, int spacedim = dim> struct Cell
    * \details
    * The constructor of this class takes a deal.II cell and creates the cell.
    */
-  Cell(dealii_cell_type &inp_cell, const unsigned id_num_, BaseModel *model_);
+  cell(dealii_cell_type &inp_cell, const unsigned id_num_, base_model *model_);
 
   //
   //
@@ -89,7 +160,7 @@ template <int dim, int spacedim = dim> struct Cell
    * We remove the copy constructor of this class to avoid unnecessary copies
    * (specially unintentional ones).
    */
-  Cell(const Cell &inp_cell) = delete;
+  cell(const cell &inp_cell) = delete;
 
   //
   //
@@ -101,14 +172,14 @@ template <int dim, int spacedim = dim> struct Cell
    * \param inp_cell An object of the \c Cell_Class type which we steal its
    * guts.
    */
-  Cell(Cell &&inp_cell) noexcept;
+  cell(cell &&inp_cell) noexcept;
 
   //
   //
   /**
    * @brief The destructor of the class.
    */
-  virtual ~Cell();
+  virtual ~cell();
 
   //
   //
@@ -117,41 +188,11 @@ template <int dim, int spacedim = dim> struct Cell
    * ModelEq (the template parameter). This function is called by
    * Model::init_mesh_containers.
    */
-  template <typename ModelEq>
-  static std::unique_ptr<Cell<dim, spacedim> >
-  create(dealii_cell_type &inp_cell, const unsigned id_num_, BaseModel *model_);
-
-  //
-  //
-  /**
-   * This function Moves the dealii::FEValues and dealii::FEFaceValues
-   * objects between different elements and faces. dealii::FEValues are not
-   * copyable objects. They also
-   * do not have empty constructor. BUT, they have (possibly
-   * very efficient) move assignment operators. So, they should
-   * be created once and updated afterwards. This avoids us from
-   * using shared memory parallelism, because we want to create
-   * more than one instance of this type of object and update it
-   * according to the element in action. That is why, at the
-   * beginning of assemble_globals and internal unknowns
-   * calculation, we create std::unique_ptr to our FEValues
-   * objects and use the std::move to move them along to
-   * next elements.
-   */
-  void attach_FEValues(FE_val_ptr &,
-                       FEFace_val_ptr &,
-                       FE_val_ptr &,
-                       FEFace_val_ptr &);
-
-  //
-  //
-  /**
-   * The opposite action of Cell::attach_FEValues.
-   */
-  void detach_FEValues(FE_val_ptr &,
-                       FEFace_val_ptr &,
-                       FE_val_ptr &,
-                       FEFace_val_ptr &);
+  template <typename ModelEq, typename BasisType>
+  static std::unique_ptr<ModelEq> create(dealii_cell_type &inp_cell,
+                                         const unsigned id_num_,
+                                         BasisType *,
+                                         base_model *model_);
 
   //
   //
@@ -281,16 +322,18 @@ template <int dim, int spacedim = dim> struct Cell
    * @brief Contains all of the boundary conditions of on the faces of this
    * Cell.
    */
-  std::vector<BC> BCs;
+  std::vector<boundary_condition> BCs;
 
   //
   //
   /**
    * @brief A pointer to the BaseModel object which contains this Cell.
    */
-  BaseModel *model;
+  base_model *my_model;
 };
 
+//
+//
 //
 //
 /**
@@ -299,31 +342,76 @@ template <int dim, int spacedim = dim> struct Cell
  * \ingroup modelelements
  */
 template <int dim, int spacedim = dim>
-struct Diffusion : public Cell<dim, spacedim>
+struct diffusion_cell : public cell<dim, spacedim>
 {
   //
   //
   /**
    * @brief We use the same typename as we defined in base class.
    */
-  using typename Cell<dim, spacedim>::dealii_cell_type;
+  using typename cell<dim, spacedim>::dealii_cell_type;
 
   //
   //
   /**
    * @brief The constructor of the class.
    */
-  Diffusion(dealii_cell_type &inp_cell,
-            const unsigned id_num_,
-            BaseModel *model_);
+  diffusion_cell(dealii_cell_type &inp_cell,
+                 const unsigned id_num_,
+                 bases::basis<dim, spacedim> *basis,
+                 base_model *model_,
+                 bases::basis_options basis_opts);
 
   //
   //
   /**
    * @brief The destructor of the class.
    */
-  ~Diffusion() {}
+  ~diffusion_cell() {}
+
+  //
+  //
+  /**
+   *
+   */
+  template <typename Func> void assign_BCs(Func f);
+
+  //
+  //
+  /**
+   *
+   */
+  void assemble_globals();
+
+  //
+  //
+  /*
+   *
+   */
+  unsigned get_relevant_dofs_count(const unsigned);
+
+  //
+  //
+  /**
+   * @brief my_basis
+   */
+  bases::basis<dim, spacedim> *my_basis;
+
+  //
+  //
+  /**
+   *
+   */
+  bases::basis_options my_basis_opts;
 };
+
+//
+//
+//
+//
+/**
+ *
+ */
 }
 
 #include "../../source/elements/cell.cpp"

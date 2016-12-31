@@ -24,7 +24,7 @@ namespace nargil
  * program. Besides the deal.II triangulation, this class also includes mpi
  * communicator and an std::map which maps deal.II cell_id to an integer.
  */
-template <int dim, int spacedim = dim> struct Mesh
+template <int dim, int spacedim = dim> struct mesh
 {
   //
   //
@@ -44,7 +44,7 @@ template <int dim, int spacedim = dim> struct Mesh
    * @todo Add assertions to make sure we do not use Mesh::tria, and
    * Mesh::cell_ID_to_num before initialization.
    */
-  Mesh(const MPI_Comm &comm_,
+  mesh(const MPI_Comm &comm_,
        const unsigned n_threads_,
        const bool adaptive_on_);
 
@@ -127,7 +127,7 @@ template <int dim, int spacedim = dim> struct Mesh
   /**
    * The class destructor.
    */
-  virtual ~Mesh();
+  virtual ~mesh();
 };
 }
 

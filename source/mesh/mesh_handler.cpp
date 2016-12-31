@@ -1,6 +1,6 @@
 #include "../../include/mesh/mesh_handler.hpp"
 
-template <int dim, int spacedim> void nargil::Mesh<dim, spacedim>::write_grid()
+template <int dim, int spacedim> void nargil::mesh<dim, spacedim>::write_grid()
 {
   int comm_rank, comm_size, refn_cycle;
   MPI_Comm_rank(*comm, &comm_rank);
@@ -38,7 +38,7 @@ template <int dim, int spacedim> void nargil::Mesh<dim, spacedim>::write_grid()
 }
 
 template <int dim, int spacedim>
-nargil::Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
+nargil::mesh<dim, spacedim>::mesh(const MPI_Comm &comm_,
                                   const unsigned n_threads_,
                                   const bool adaptive_on_)
   : comm(&comm_),
@@ -54,10 +54,10 @@ nargil::Mesh<dim, spacedim>::Mesh(const MPI_Comm &comm_,
   MPI_Comm_size(*comm, &comm_size);
 }
 
-template <int dim, int spacedim> nargil::Mesh<dim, spacedim>::~Mesh() {}
+template <int dim, int spacedim> nargil::mesh<dim, spacedim>::~mesh() {}
 
 template <int dim, int spacedim>
-void nargil::Mesh<dim, spacedim>::init_cell_ID_to_num()
+void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
 {
   unsigned n_cell = 0;
   n_owned_cell = 0;
@@ -82,7 +82,7 @@ void nargil::Mesh<dim, spacedim>::init_cell_ID_to_num()
 
 template <int dim, int spacedim>
 template <typename F>
-void nargil::Mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
+void nargil::mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
 {
   generate_mesh_(tria);
   init_cell_ID_to_num();

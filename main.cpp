@@ -69,9 +69,10 @@ template <int dim, int spacedim = dim> struct Problem
   /**
    * @brief BCs_on_face
    */
-  std::vector<nargil::BC> BCs_on_face()
+  std::vector<nargil::boundary_condition> BCs_on_face()
   {
-    std::vector<nargil::BC> BCs(1, nargil::BC::essential);
+    std::vector<nargil::boundary_condition> BCs(
+      1, nargil::boundary_condition::essential);
     return BCs;
   }
 };
@@ -86,12 +87,18 @@ int main(int argc, char **argv)
   //
   {
     const MPI_Comm *const comm = &PETSC_COMM_WORLD;
-    nargil::Mesh<2> mesh1(*comm, 1, false);
+    nargil::mesh<2> mesh1(*comm, 1, false);
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    nargil::Model<2> model1(&mesh1);
-    model1.assign_model_features<nargil::Diffusion<2> >();
+    nargil::model_options::options options1 = (nargil::model_options::options)(
+      nargil::model_options::implicit_time_integration |
+      nargil::model_options::HDG_dof_numbering);
+    nargil::model<nargil::diffusion_cell<2>, 2> model1(&mesh1, options1);
+
+    nargil::bases::hdg_diffusion_polybasis<2> bases1(3, 4);
+    model1.init_model_elements(&bases1);
+    model1.count_globals();
 
     //    cell_container<2> cont1;
     //    cont1.set_dof_numbering(ModelOptions::implicit_type,

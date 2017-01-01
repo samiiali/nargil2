@@ -21,23 +21,6 @@ enum options
   HDG_dof_numbering = 1 << 8
 };
 }
-
-namespace bases
-{
-//
-//
-/**
- * @brief The BasesOptions enum
- */
-enum basis_options
-{
-  HDG = 1 << 0,
-  LDG = 1 << 1,
-  nodal = 1 << 2,
-  modal = 1 << 3,
-  polynomial = 1 << 4
-};
-}
 }
 
 #endif

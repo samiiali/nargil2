@@ -1,9 +1,73 @@
-#include "../../include/bases/bases.hpp"
+#include "../../include/elements/diffusion.hpp"
+
+//
+//
 
 template <int dim, int spacedim>
-nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::hdg_diffusion_polybasis(
+nargil::diffusion<dim, spacedim>::diffusion(dealii_cell_type &inp_cell,
+                                            const unsigned id_num_,
+                                            basis<dim, spacedim> *basis,
+                                            base_model *model_,
+                                            bases_options::options basis_opts)
+  : cell<dim, spacedim>(inp_cell, id_num_, model_),
+    my_basis_opts(basis_opts),
+    my_basis(basis)
+{
+  if (my_basis_opts & hdg_operators::get_options())
+  {
+    my_operators =
+      std::move(std::unique_ptr<hdg_operators>(new hdg_operators(this)));
+  }
+  else
+  {
+    std::cout << "Options in diffusion class constructor were not recognoized."
+              << std::endl;
+  }
+  std::cout << "Constructor of diffusion cell" << std::endl;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename Func>
+void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
+{
+  std::cout << "assign_BC at diffusion_cell" << std::endl;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+unsigned
+nargil::diffusion<dim, spacedim>::get_relevant_dofs_count(const unsigned i_face)
+{
+  unsigned num_dofs_on_face =
+    static_cast<hdg_polybasis *>(my_basis)->get_n_dofs_on_each_face();
+  std::cout << i_face << " " << num_dofs_on_face << std::endl;
+  return num_dofs_on_face;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::diffusion<dim, spacedim>::assemble_globals()
+{
+}
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim>
+nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   const unsigned poly_order, const unsigned quad_order)
-  : _poly_order(poly_order),
+  : basis<dim, spacedim>(),
+    _poly_order(poly_order),
     _quad_order(quad_order),
     u_basis(poly_order),
     q_basis(u_basis, dim),
@@ -35,7 +99,7 @@ nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::hdg_diffusion_polybasis(
 //
 
 template <int dim, int spacedim>
-void nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::
+void nargil::diffusion<dim, spacedim>::hdg_polybasis::
   adjusted_subface_quad_points(const dealii::Point<dim - 1> &in_point,
                                const unsigned half_range)
 {
@@ -83,7 +147,7 @@ void nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::
 
 template <int dim, int spacedim>
 unsigned
-nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::get_n_dofs_on_each_face()
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_on_each_face()
 {
   return uhat_basis.dofs_per_cell;
 }
@@ -92,9 +156,31 @@ nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::get_n_dofs_on_each_face()
 //
 
 template <int dim, int spacedim>
-nargil::bases::basis_options
-nargil::bases::hdg_diffusion_polybasis<dim, spacedim>::get_options()
+nargil::bases_options::options
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_options()
 {
-  return (bases::basis_options)(basis_options::HDG | basis_options::nodal |
-                                basis_options::polynomial);
+  return (bases_options::options)(bases_options::HDG | bases_options::nodal |
+                                  bases_options::polynomial);
+}
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim>
+nargil::diffusion<dim, spacedim>::hdg_operators::hdg_operators(
+  nargil::cell<dim, spacedim> *in_cell)
+  : cell_operators<dim, spacedim>(in_cell)
+{
+}
+
+//
+//
+
+template <int dim, int spacedim>
+int nargil::diffusion<dim, spacedim>::hdg_operators::get_options()
+{
+  return (bases_options::HDG);
 }

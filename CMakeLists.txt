@@ -77,7 +77,6 @@ DEAL_II_INVOKE_AUTOPILOT()
 # We want to include all of the pure header files, i.e. class templates
 # in the source tree
 #
-add_subdirectory(source/bases)
 add_subdirectory(source/elements)
 add_subdirectory(source/mesh)
 add_subdirectory(source/models)

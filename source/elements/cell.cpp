@@ -1,6 +1,19 @@
 #include "../../include/elements/cell.hpp"
 
 template <int dim, int spacedim>
+nargil::cell_operators<dim, spacedim>::cell_operators(
+  nargil::cell<dim, spacedim> *const in_cell)
+  : my_cell(in_cell)
+{
+}
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim>
 nargil::cell<dim, spacedim>::cell(dealii_cell_type &inp_cell,
                                   const unsigned id_num_,
                                   base_model *model_)
@@ -139,55 +152,4 @@ void nargil::cell<dim, spacedim>::assign_local_cell_data(
   half_range_flag[i_face] = half_range_;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
-}
-
-//
-//
-//
-//
-//
-template <int dim, int spacedim>
-nargil::diffusion_cell<dim, spacedim>::diffusion_cell(
-  dealii_cell_type &inp_cell,
-  const unsigned id_num_,
-  bases::basis<dim, spacedim> *basis,
-  base_model *model_,
-  bases::basis_options basis_opts)
-  : cell<dim, spacedim>(inp_cell, id_num_, model_),
-    my_basis(basis),
-    my_basis_opts(basis_opts)
-{
-  std::cout << "Constructor of diffusion cell" << std::endl;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-template <typename Func>
-void nargil::diffusion_cell<dim, spacedim>::assign_BCs(Func f)
-{
-  std::cout << "assign_BC at diffusion_cell" << std::endl;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-unsigned nargil::diffusion_cell<dim, spacedim>::get_relevant_dofs_count(
-  const unsigned i_face)
-{
-  unsigned num_dofs_on_face =
-    static_cast<bases::hdg_diffusion_polybasis<dim, spacedim> *>(my_basis)
-      ->get_n_dofs_on_each_face();
-  std::cout << i_face << " " << num_dofs_on_face << std::endl;
-  return num_dofs_on_face;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::diffusion_cell<dim, spacedim>::assemble_globals()
-{
 }

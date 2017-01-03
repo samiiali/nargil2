@@ -2,51 +2,92 @@
 #include <memory>
 #include <type_traits>
 
-#ifndef CELL_CLASS_HPP
-#define CELL_CLASS_HPP
-
-#include "../bases/bases.hpp"
 #include "../models/dof_numbering.hpp"
 #include "../models/model_options.hpp"
 
+#ifndef CELL_CLASS_HPP
+#define CELL_CLASS_HPP
+
 namespace nargil
 {
+//
+//
+// Forward declerations of cell to be used in cell_operators.
+template <int dim, int spacedim> struct cell;
 
 //
 //
-// Forward decleration of BaseModel. The model, which all other models
-// are based on it.
+// Forward decleration of BaseModel to be used in cell.
 struct base_model;
 
+//
+//
 /**
- * \defgroup modelelements Model Elements
- * \brief This group contains different model elements and the relevant
+ * @brief Base class for all other basis types.
+ */
+template <int dim, int spacedim> struct basis
+{
+  //
+  //
+  /**
+   * @brief Constructor of the class
+   */
+  basis() {}
+
+  //
+  //
+  /**
+   * @brief Deconstrcutor of the class
+   */
+  ~basis() {}
+};
+
+//
+//
+/**
+ * @brief Base class for all operators in elements
+ */
+template <int dim, int spacedim> struct cell_operators
+{
+  //
+  //
+  /**
+   * @brief Constructor of the class
+   */
+  cell_operators(cell<dim, spacedim> *const);
+
+  //
+  //
+  /**
+   * @brief Deconstructor of the class
+   */
+  ~cell_operators() {}
+
+  //
+  //
+  /**
+   * @brief A pointer to the cell which contains the operators
+   */
+  cell<dim, spacedim> *my_cell;
+};
+
+/**
+ * @defgroup modelelements Model Elements
+ * @brief Contains different elements.
+ *
+ * @defgroup modelbases Model Bases
+ * @brief Contains bases for different models
+ *
+ * This group contains different model elements and the relevant
  * structures used to solve different model problems.
  */
 
 //
 //
 /**
- * \brief The enum which contains different boundary conditions.
- */
-enum class boundary_condition
-{
-  not_set = ~(1 << 0),
-  essential = 1 << 0,
-  flux_bc = 1 << 1,
-  periodic = 1 << 2,
-  in_out_BC = 1 << 3,
-  inflow_BC = 1 << 4,
-  outflow_BC = 1 << 5,
-  solid_wall = 1 << 6,
-};
-
-//
-//
-/**
- * \brief Contains most of the required data about a generic
+ * @brief Contains most of the required data about a generic
  * element in the mesh.
- * \ingroup modelelements
+ * @ingroup modelelements
  */
 template <int dim, int spacedim = dim> struct cell
 {
@@ -61,7 +102,6 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details
    * We remove the default constructor to avoid uninitialized creation of Cell
    * objects.
    */
@@ -70,7 +110,6 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details
    * The constructor of this class takes a deal.II cell and creates the cell.
    */
   cell(dealii_cell_type &inp_cell, const unsigned id_num_, base_model *model_);
@@ -78,7 +117,6 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details
    * We remove the copy constructor of this class to avoid unnecessary copies
    * (specially unintentional ones).
    */
@@ -87,7 +125,6 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details
    * We need a move constructor, to be able to pass this class as function
    * arguments efficiently. Maybe, you say that this does not help efficiency
    * that much, but we are using it for semantic constraints.
@@ -106,7 +143,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief This is the factory function which creates a cell of type
+   * This is the factory function which creates a cell of type
    * ModelEq (the template parameter). This function is called by
    * Model::init_mesh_containers.
    */
@@ -119,7 +156,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details Updates the FEValues which are connected to the current element
+   * Updates the FEValues which are connected to the current element
    * (not the FEFaceValues.)
    */
   void reinit_cell_fe_vals();
@@ -127,7 +164,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * \details Updates the FEFaceValues which are connected to a given face of
+   * Updates the FEFaceValues which are connected to a given face of
    * the current element.
    */
   void reinit_face_fe_vals(unsigned);
@@ -135,15 +172,9 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief n_faces
+   * @brief number of element faces = 2 * dim
    */
   const unsigned n_faces;
-
-  //
-  //
-  //  unsigned poly_order;
-
-  //  unsigned n_face_bases, n_cell_bases;
 
   //
   //
@@ -253,88 +284,8 @@ template <int dim, int spacedim = dim> struct cell
    */
   base_model *my_model;
 };
-
-//
-//
-//
-//
-/**
- * This the diffusion model problem. The original method of solving this is
- * based on hybridized DG.
- * \ingroup modelelements
- */
-template <int dim, int spacedim = dim>
-struct diffusion_cell : public cell<dim, spacedim>
-{
-  //
-  //
-  /**
-   * @brief We use the same typename as we defined in base class.
-   */
-  using typename cell<dim, spacedim>::dealii_cell_type;
-
-  //
-  //
-  /**
-   * @brief The constructor of the class.
-   */
-  diffusion_cell(dealii_cell_type &inp_cell,
-                 const unsigned id_num_,
-                 bases::basis<dim, spacedim> *basis,
-                 base_model *model_,
-                 bases::basis_options basis_opts);
-
-  //
-  //
-  /**
-   * @brief The destructor of the class.
-   */
-  ~diffusion_cell() {}
-
-  //
-  //
-  /**
-   *
-   */
-  template <typename Func> void assign_BCs(Func f);
-
-  //
-  //
-  /**
-   *
-   */
-  void assemble_globals();
-
-  //
-  //
-  /*
-   *
-   */
-  unsigned get_relevant_dofs_count(const unsigned);
-
-  //
-  //
-  /**
-   * @brief my_basis
-   */
-  bases::basis<dim, spacedim> *my_basis;
-
-  //
-  //
-  /**
-   *
-   */
-  bases::basis_options my_basis_opts;
-};
-
-//
-//
-//
-//
-/**
- *
- */
 }
 
 #include "../../source/elements/cell.cpp"
+
 #endif // CELL_CLASS_HPP

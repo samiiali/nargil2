@@ -17,7 +17,7 @@ namespace nargil
 // Forward declerations
 template <int dim, int spacedim> struct mesh;
 template <int dim, int spacedim> struct dof_numbering;
-template <int dim, int spacedim> struct implicit_HDG_dof_numbering;
+template <int dim, int spacedim> struct implicit_hybridized_dof_numbering;
 
 //
 //
@@ -57,7 +57,7 @@ struct model : public base_model
   /**
    * @brief Constructor of the class.
    */
-  model(mesh<dim, spacedim> *const, const model_options::options);
+  model(mesh<dim, spacedim> *const);
 
   //
   //
@@ -76,6 +76,17 @@ struct model : public base_model
    * it anywhere else.
    */
   void set_dof_numbering_type();
+
+  //
+  //
+  /**
+   * @brief Assigns the dof_numbering type. The user first creates a special
+   * type of dof_numbering and then assign it to the model.
+   * @todo Adding the capability to have more than one dof_numbering and being
+   * able to change between them.
+   */
+  template <typename DOF_NUMBERING>
+  void set_dof_numbering(std::unique_ptr<DOF_NUMBERING>);
 
   //
   //
@@ -131,7 +142,7 @@ struct model : public base_model
   //
   //
   /**
-   *
+   * @brief my_opts
    */
   model_options::options my_opts;
 };

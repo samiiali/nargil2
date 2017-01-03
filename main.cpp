@@ -1,7 +1,8 @@
-#include <boost/dynamic_bitset.hpp>
 #include <cstdio>
 #include <fstream>
 #include <vector>
+
+#include <boost/dynamic_bitset.hpp>
 
 #include <petsc.h>
 
@@ -9,6 +10,7 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
 
+#include "include/elements/diffusion.hpp"
 #include "include/mesh/mesh_handler.hpp"
 #include "include/models/model.hpp"
 
@@ -34,7 +36,7 @@ template <int dim, int spacedim = dim> struct Problem
   /**
    * @brief dofs_on_nodes
    */
-  boost::dynamic_bitset<> dofs_on_nodes()
+  static boost::dynamic_bitset<> assign_BCs()
   {
     boost::dynamic_bitset<> dof_names_on_nodes(1);
     dof_names_on_nodes[0] = 1;
@@ -91,18 +93,16 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    nargil::model_options::options options1 = (nargil::model_options::options)(
-      nargil::model_options::implicit_time_integration |
-      nargil::model_options::HDG_dof_numbering);
-    nargil::model<nargil::diffusion_cell<2>, 2> model1(&mesh1, options1);
+    std::unique_ptr<nargil::implicit_hybridized_dof_numbering<2> >
+      p_dof_counter(new nargil::implicit_hybridized_dof_numbering<2>());
 
-    nargil::bases::hdg_diffusion_polybasis<2> bases1(3, 4);
+    nargil::model<nargil::diffusion<2>, 2> model1(&mesh1);
+
+    model1.set_dof_numbering(std::move(p_dof_counter));
+
+    nargil::diffusion<2>::hdg_polybasis bases1(3, 4);
     model1.init_model_elements(&bases1);
     model1.count_globals();
-
-    //    cell_container<2> cont1;
-    //    cont1.set_dof_numbering(ModelOptions::implicit_type,
-    //                            ModelOptions::hybridized_DG);
 
     //
     // We can also use a functor to generate the mesh.

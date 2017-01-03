@@ -7,6 +7,9 @@
 //
 nargil::base_model::base_model() {}
 
+//
+//
+
 nargil::base_model::~base_model() {}
 
 //
@@ -15,34 +18,33 @@ nargil::base_model::~base_model() {}
 //
 //
 template <typename ModelEq, int dim, int spacedim>
-nargil::model<ModelEq, dim, spacedim>::model(
-  mesh<dim, spacedim> *const mesh_, const model_options::options options)
-  : my_mesh(mesh_),
-    my_dof_counter(new dof_numbering<dim, spacedim>()),
-    my_opts(options)
+nargil::model<ModelEq, dim, spacedim>::model(mesh<dim, spacedim> *const mesh_)
+  : my_mesh(mesh_)
 {
-  set_dof_numbering_type();
 }
+
+//
+//
 
 template <typename ModelEq, int dim, int spacedim>
 nargil::model<ModelEq, dim, spacedim>::~model()
 {
 }
 
+//
+//
+
 template <typename ModelEq, int dim, int spacedim>
-void nargil::model<ModelEq, dim, spacedim>::set_dof_numbering_type()
+template <typename DOF_NUMBERING>
+void nargil::model<ModelEq, dim, spacedim>::set_dof_numbering(
+  std::unique_ptr<DOF_NUMBERING> dof_counter)
 {
-  if (my_opts == implicit_HDG_dof_numbering<dim, spacedim>::options())
-  {
-    my_dof_counter =
-      std::move(std::unique_ptr<implicit_HDG_dof_numbering<dim, spacedim> >(
-        new implicit_HDG_dof_numbering<dim, spacedim>()));
-  }
-  else
-  {
-    assert(false && "The options for the dof numbering were not recognized.");
-  }
+  my_opts = DOF_NUMBERING::get_options();
+  my_dof_counter = std::move(dof_counter);
 }
+
+//
+//
 
 template <typename ModelEq, int dim, int spacedim>
 template <typename BasisType>
@@ -62,6 +64,9 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
   }
 }
 
+//
+//
+
 template <typename ModelEq, int dim, int spacedim>
 template <typename Func>
 void nargil::model<ModelEq, dim, spacedim>::set_boundary_indicator(Func f)
@@ -72,12 +77,16 @@ void nargil::model<ModelEq, dim, spacedim>::set_boundary_indicator(Func f)
   }
 }
 
+//
+//
+
 template <typename ModelEq, int dim, int spacedim>
 void nargil::model<ModelEq, dim, spacedim>::count_globals()
 {
-  if (my_opts == implicit_HDG_dof_numbering<dim, spacedim>::options())
+  if (my_opts ==
+      implicit_hybridized_dof_numbering<dim, spacedim>::get_options())
   {
-    static_cast<implicit_HDG_dof_numbering<dim, spacedim> *>(
+    static_cast<implicit_hybridized_dof_numbering<dim, spacedim> *>(
       my_dof_counter.get())
       ->template count_globals<model<ModelEq, dim, spacedim>, ModelEq>(this);
   }

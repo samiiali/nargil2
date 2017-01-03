@@ -99,28 +99,28 @@ template <int dim, int spacedim = dim> struct dof_numbering
  * hybridized DG elements.
  */
 template <int dim, int spacedim = dim>
-struct implicit_HDG_dof_numbering : public dof_numbering<dim, spacedim>
+struct implicit_hybridized_dof_numbering : public dof_numbering<dim, spacedim>
 {
   //
   //
   /**
    * @brief The constructor of the class.
    */
-  implicit_HDG_dof_numbering();
+  implicit_hybridized_dof_numbering();
 
   //
   //
   /**
    * @brief The destructor of the class.
    */
-  ~implicit_HDG_dof_numbering();
+  ~implicit_hybridized_dof_numbering();
 
   //
   //
   /**
-   *
+   * @brief get_options
    */
-  static model_options::options options();
+  static model_options::options get_options();
 
   //
   //

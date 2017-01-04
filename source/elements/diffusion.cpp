@@ -172,8 +172,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_options()
 template <int dim, int spacedim>
 nargil::diffusion<dim, spacedim>::hdg_operators::hdg_operators(
   nargil::cell<dim, spacedim> *in_cell)
-  : cell_operators<dim, spacedim>(in_cell), dof_names_on_faces(2 * dim)
-// 2 * dim is actually the number of element faces.
+  : cell_operators<dim, spacedim>(in_cell)
 {
 }
 

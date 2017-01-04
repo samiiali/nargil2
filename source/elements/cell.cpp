@@ -150,9 +150,16 @@ void nargil::cell<dim, spacedim>::assign_local_cell_data(
   const int &comm_rank_,
   const unsigned &half_range_)
 {
+<<<<<<< HEAD
   //  face_owner_rank[i_face] = comm_rank_;
   //  half_range_flag[i_face] = half_range_;
   //  for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count();
   //  ++i_dof)
   //    dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
+=======
+  face_owner_rank[i_face] = comm_rank_;
+  half_range_flag[i_face] = half_range_;
+  for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
+    dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
+>>>>>>> aa2b09de15e38bbfa49319eaad6375082ee8d2ab
 }

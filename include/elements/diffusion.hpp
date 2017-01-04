@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 #include <boost/dynamic_bitset.hpp>
 
+=======
+>>>>>>> aa2b09de15e38bbfa49319eaad6375082ee8d2ab
 #include <deal.II/fe/fe_values.h>
 #include <deal.II/grid/tria_accessor.h>
 
@@ -239,6 +242,7 @@ struct diffusion : public cell<dim, spacedim>
      * @brief Deconstructor of the class
      */
     ~hdg_operators() {}
+<<<<<<< HEAD
 
     //
     //
@@ -249,6 +253,8 @@ struct diffusion : public cell<dim, spacedim>
      * is restrained.
      */
     std::vector<boost::dynamic_bitset<> > dof_names_on_faces;
+=======
+>>>>>>> aa2b09de15e38bbfa49319eaad6375082ee8d2ab
   };
 
   //

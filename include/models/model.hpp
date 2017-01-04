@@ -16,17 +16,9 @@ namespace nargil
 //
 //
 //
-<<<<<<< HEAD
-=======
 // Forward declerations
-template <int dim, int spacedim> struct mesh;
-template <int dim, int spacedim> struct dof_numbering;
-template <int dim, int spacedim> struct implicit_hybridized_dof_numbering;
 
 //
-//
-//
->>>>>>> aa2b09de15e38bbfa49319eaad6375082ee8d2ab
 //
 /**
  * This is an abstract model that all other models will be based on it.

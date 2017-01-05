@@ -13,10 +13,9 @@ nargil::diffusion<dim, spacedim>::diffusion(dealii_cell_type &inp_cell,
     my_basis_opts(basis_opts),
     my_basis(basis)
 {
-  if (my_basis_opts & hdg_operators::get_options())
+  if (my_basis_opts & hdg_worker::get_options())
   {
-    my_operators =
-      std::move(std::unique_ptr<hdg_operators>(new hdg_operators(this)));
+    my_worker = std::move(std::unique_ptr<hdg_worker>(new hdg_worker(this)));
   }
   else
   {
@@ -33,7 +32,15 @@ template <int dim, int spacedim>
 template <typename Func>
 void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
 {
-  std::cout << "assign_BC at diffusion_cell" << std::endl;
+  if (my_basis_opts & hdg_worker::get_options())
+  {
+    static_cast<hdg_worker *>(my_worker.get())->assign_BCs(f);
+  }
+  else
+  {
+    std::cout << "Options in diffusion assign_BCs were not recognized."
+              << std::endl;
+  }
 }
 
 //
@@ -55,6 +62,24 @@ nargil::diffusion<dim, spacedim>::get_relevant_dofs_count(const unsigned i_face)
 template <int dim, int spacedim>
 void nargil::diffusion<dim, spacedim>::assemble_globals()
 {
+}
+
+//
+//
+
+template <int dim, int spacedim>
+nargil::cell_worker<dim, spacedim> *
+nargil::diffusion<dim, spacedim>::get_worker()
+{
+  //  if (my_basis_opts & hdg_worker::get_options())
+  //  {
+  return static_cast<hdg_worker *>(my_worker.get());
+  //  }
+  //  else
+  //  {
+  //    std::cout << "Options in diffusion get_worker were not recognized."
+  //              << std::endl;
+  //  }
 }
 
 //
@@ -170,9 +195,13 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_options()
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::hdg_operators::hdg_operators(
+nargil::diffusion<dim, spacedim>::hdg_worker::hdg_worker(
   nargil::cell<dim, spacedim> *in_cell)
-  : cell_operators<dim, spacedim>(in_cell), dof_names_on_faces(2 * dim)
+  : cell_worker<dim, spacedim>(in_cell),
+    dofs_ID_in_this_rank(2 * dim),
+    dofs_ID_in_all_ranks(2 * dim),
+    BCs(2 * dim, boundary_condition::not_set),
+    dof_names_on_faces(2 * dim)
 // 2 * dim is actually the number of element faces.
 {
 }
@@ -181,7 +210,28 @@ nargil::diffusion<dim, spacedim>::hdg_operators::hdg_operators(
 //
 
 template <int dim, int spacedim>
-int nargil::diffusion<dim, spacedim>::hdg_operators::get_options()
+nargil::diffusion<dim, spacedim>::hdg_worker::~hdg_worker()
+{
+}
+
+//
+//
+
+template <int dim, int spacedim>
+int nargil::diffusion<dim, spacedim>::hdg_worker::get_options()
 {
   return (bases_options::HDG);
 }
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename Func>
+void nargil::diffusion<dim, spacedim>::hdg_worker::assign_BCs(Func f)
+{
+  f(this);
+}
+
+//
+//

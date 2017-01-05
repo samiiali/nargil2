@@ -219,12 +219,19 @@ struct diffusion : public cell<dim, spacedim>
   /**
    * @brief The hdg_operations struct
    */
-  struct hdg_operators : cell_operators<dim, spacedim>
+  struct hdg_worker : cell_worker<dim, spacedim>
   {
     /**
-     * @brief hdg_operators
+     * @brief hdg_worker
      */
-    hdg_operators(cell<dim, spacedim> *);
+    hdg_worker(cell<dim, spacedim> *);
+
+    //
+    //
+    /**
+     * @brief Deconstructor of the class
+     */
+    ~hdg_worker();
 
     //
     //
@@ -236,9 +243,31 @@ struct diffusion : public cell<dim, spacedim>
     //
     //
     /**
-     * @brief Deconstructor of the class
+     *
      */
-    ~hdg_operators() {}
+    template <typename Func> void assign_BCs(Func f);
+
+    //
+    //
+    /**
+     * @brief dofs_ID_in_this_rank
+     */
+    std::vector<std::vector<int> > dofs_ID_in_this_rank;
+
+    //
+    //
+    /**
+     * @brief dofs_ID_in_all_ranks
+     */
+    std::vector<std::vector<int> > dofs_ID_in_all_ranks;
+
+    //
+    //
+    /**
+     * @brief Contains all of the boundary conditions of on the faces of this
+     * Cell.
+     */
+    std::vector<boundary_condition> BCs;
 
     //
     //
@@ -254,6 +283,13 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  cell_worker<dim, spacedim> *get_worker();
+
+  //
+  //
+  /**
    * @brief my_basis
    */
   basis<dim, spacedim> *my_basis;
@@ -261,9 +297,9 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
-   * @brief my_operators
+   * @brief my_worker
    */
-  std::unique_ptr<cell_operators<dim, spacedim> > my_operators;
+  std::unique_ptr<cell_worker<dim, spacedim> > my_worker;
 };
 }
 

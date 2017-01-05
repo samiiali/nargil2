@@ -1,19 +1,43 @@
 #ifndef IMPLICIT_DOF_NUM_HPP
 #define IMPLICIT_DOF_NUM_HPP
 
+#include <map>
+#include <memory>
+#include <vector>
+
+#include <deal.II/base/point.h>
+#include <deal.II/grid/tria.h>
+
+#include "../../include/elements/cell.hpp"
 #include "model_options.hpp"
 
 namespace nargil
 {
 //
 //
+// Forward declerations
+template <typename ModelEq, int dim, int spacedim> struct model;
+//
+//
 /**
  * The base class for numbering the degrees of freedom of the model. It is
  * not supposed to be used by the user. It will be contained inside the Model
- * class.
+ * class. It might seem ok to include a pointer to the containing
+ * nargil::base_model in the dof_numbering. But it is totally not required.
+ * Because the user wil interact with model object and not the dof_numbering
+ * object. So, when the user calls a method in nargil::model, we decide which
+ *dof_numbering to call based on the stored key of the dof_numbering.
  */
 template <int dim, int spacedim = dim> struct dof_numbering
 {
+  //
+  //
+  /**
+   * @brief The deal.II cell iterator type.
+   */
+  typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
+    dealii_cell_type;
+
   //
   //
   /**
@@ -94,6 +118,8 @@ template <int dim, int spacedim = dim> struct dof_numbering
 
 //
 //
+//
+//
 /**
  * This class enumerate the unknowns in a model which contains
  * hybridized DG elements.
@@ -101,6 +127,14 @@ template <int dim, int spacedim = dim> struct dof_numbering
 template <int dim, int spacedim = dim>
 struct implicit_hybridized_dof_numbering : public dof_numbering<dim, spacedim>
 {
+  //
+  //
+  /**
+   *
+   */
+  using dealii_cell_type =
+    typename dof_numbering<dim, spacedim>::dealii_cell_type;
+
   //
   //
   /**
@@ -126,10 +160,14 @@ struct implicit_hybridized_dof_numbering : public dof_numbering<dim, spacedim>
   //
   /**
    * This function counts the unknowns according to the model type and
-   * model equation. It is called from Model::count_globals.
+   * model equation. It is called from model::count_globals().
+   *
+   * @todo We cast dof_numbering::my_model to nargil::model. This can be
+   * avoided. We use the same basis for ghost cells as regular cells. This can
+   * be avoided as well.
    */
-  template <typename ModelType, typename ModelEq>
-  void count_globals(ModelType *model);
+  template <typename ModelEq, typename ModelType>
+  void count_globals(ModelType *my_model);
 };
 }
 

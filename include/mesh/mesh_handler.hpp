@@ -99,7 +99,15 @@ template <int dim, int spacedim = dim> struct mesh
    * This is an std::map which maps the dealii cell ID of each
    * cell to the innerCPU number for that cell.
    */
-  std::map<std::string, int> cell_ID_to_num;
+  std::map<std::string, int> owned_cell_ID_to_num;
+
+  //
+  //
+  /**
+   * This is an std::map which maps the dealii cell ID of each
+   * cell to the innerCPU number for that cell.
+   */
+  std::map<std::string, int> ghost_cell_ID_to_num;
 
   //
   //

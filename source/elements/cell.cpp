@@ -1,7 +1,7 @@
 #include "../../include/elements/cell.hpp"
 
 template <int dim, int spacedim>
-nargil::cell_operators<dim, spacedim>::cell_operators(
+nargil::cell_worker<dim, spacedim>::cell_worker(
   nargil::cell<dim, spacedim> *const in_cell)
   : my_cell(in_cell)
 {
@@ -26,9 +26,9 @@ nargil::cell<dim, spacedim>::cell(dealii_cell_type &inp_cell,
     half_range_flag(n_faces, 0),
     face_owner_rank(n_faces, -1),
     dealii_cell(inp_cell),
-    dofs_ID_in_this_rank(n_faces),
-    dofs_ID_in_all_ranks(n_faces),
-    BCs(n_faces, boundary_condition::not_set),
+    //    dofs_ID_in_this_rank(n_faces),
+    //    dofs_ID_in_all_ranks(n_faces),
+    //    BCs(n_faces, boundary_condition::not_set),
     my_model(model_)
 {
   std::stringstream ss_id;
@@ -51,9 +51,9 @@ nargil::cell<dim, spacedim>::cell(cell &&inp_cell) noexcept
     half_range_flag(std::move(inp_cell.half_range_flag)),
     face_owner_rank(std::move(inp_cell.face_owner_rank)),
     dealii_cell(std::move(inp_cell.dealii_cell)),
-    dofs_ID_in_this_rank(std::move(inp_cell.dofs_ID_in_this_rank)),
-    dofs_ID_in_all_ranks(std::move(inp_cell.dofs_ID_in_all_ranks)),
-    BCs(std::move(inp_cell.BCs)),
+    //    dofs_ID_in_this_rank(std::move(inp_cell.dofs_ID_in_this_rank)),
+    //    dofs_ID_in_all_ranks(std::move(inp_cell.dofs_ID_in_all_ranks)),
+    //    BCs(std::move(inp_cell.BCs)),
     my_model(inp_cell.my_model)
 {
 }

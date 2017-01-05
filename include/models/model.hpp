@@ -15,11 +15,6 @@ namespace nargil
 {
 //
 //
-//
-// Forward declerations
-
-//
-//
 /**
  * This is an abstract model that all other models will be based on it.
  * Thus it palys the rule of an interface for the developers (and not the
@@ -99,7 +94,7 @@ struct model : public base_model
   /**
    * @brief Here, we set the boundary indicator of each face on the boundary.
    */
-  template <typename Func> void set_boundary_indicator(Func f);
+  template <typename Func> void assign_BCs(Func f);
 
   //
   //
@@ -128,6 +123,13 @@ struct model : public base_model
    * This is a std::vector containing all of the Cell classes in the model.
    */
   std::vector<std::unique_ptr<cell<dim, spacedim> > > all_owned_cells;
+
+  //
+  //
+  /**
+   *
+   */
+  std::vector<std::unique_ptr<cell<dim, spacedim> > > all_ghost_cells;
 
   //
   //

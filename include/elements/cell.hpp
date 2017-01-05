@@ -2,7 +2,8 @@
 #include <memory>
 #include <type_traits>
 
-#include "../models/dof_numbering.hpp"
+#include <deal.II/grid/tria.h>
+
 #include "../models/model_options.hpp"
 
 #ifndef CELL_CLASS_HPP
@@ -12,7 +13,7 @@ namespace nargil
 {
 //
 //
-// Forward declerations of cell to be used in cell_operators.
+// Forward declerations of cell to be used in cell_worker.
 template <int dim, int spacedim> struct cell;
 
 //
@@ -45,30 +46,30 @@ template <int dim, int spacedim> struct basis
 //
 //
 /**
- * @brief Base class for all operators in elements
+ * @brief Base class for all worker in elements
  */
-template <int dim, int spacedim> struct cell_operators
+template <int dim, int spacedim> struct cell_worker
 {
   //
   //
   /**
    * @brief Constructor of the class
    */
-  cell_operators(cell<dim, spacedim> *const);
+  cell_worker(cell<dim, spacedim> *const);
 
   //
   //
   /**
    * @brief Deconstructor of the class
    */
-  ~cell_operators() {}
+  ~cell_worker() {}
 
   //
   //
   /**
-   * @brief A pointer to the cell which contains the operators
+   * @brief A pointer to the cell which contains the worker
    */
-  cell<dim, spacedim> *my_cell;
+  cell<dim, spacedim> *const my_cell;
 };
 
 /**
@@ -242,28 +243,6 @@ template <int dim, int spacedim = dim> struct cell
    * @brief An iterator to the deal.II element corresponding to this Cell.
    */
   dealii_cell_type dealii_cell;
-
-  //
-  //
-  /**
-   * @brief dofs_ID_in_this_rank
-   */
-  std::vector<std::vector<int> > dofs_ID_in_this_rank;
-
-  //
-  //
-  /**
-   * @brief dofs_ID_in_all_ranks
-   */
-  std::vector<std::vector<int> > dofs_ID_in_all_ranks;
-
-  //
-  //
-  /**
-   * @brief Contains all of the boundary conditions of on the faces of this
-   * Cell.
-   */
-  std::vector<boundary_condition> BCs;
 
   //
   //

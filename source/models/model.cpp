@@ -35,11 +35,11 @@ nargil::model<ModelEq, dim, spacedim>::~model()
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename DOF_NUMBERING>
+template <typename T>
 void nargil::model<ModelEq, dim, spacedim>::set_dof_numbering(
-  std::unique_ptr<DOF_NUMBERING> dof_counter)
+  std::unique_ptr<T> dof_counter)
 {
-  my_opts = DOF_NUMBERING::get_options();
+  my_opts = T::get_options();
   my_dof_counter = std::move(dof_counter);
 }
 
@@ -51,15 +51,23 @@ template <typename BasisType>
 void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
   BasisType *basis)
 {
-  all_owned_cells.reserve(my_mesh->tria.n_locally_owned_active_cells());
-  unsigned n_owned_cell = 0;
+  all_owned_cells.reserve(my_mesh->n_owned_cell);
+  all_ghost_cells.reserve(my_mesh->n_ghost_cell);
+  unsigned i_owned_cell = 0;
+  unsigned i_ghost_cell = 0;
   for (dealii_cell_type &&i_cell : my_mesh->tria.active_cell_iterators())
   {
     if (i_cell->is_locally_owned())
     {
       all_owned_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        i_cell, n_owned_cell, basis, this));
-      ++n_owned_cell;
+        i_cell, i_owned_cell, basis, this));
+      ++i_owned_cell;
+    }
+    if (i_cell->is_ghost())
+    {
+      all_ghost_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
+        i_cell, i_ghost_cell, basis, this));
+      ++i_ghost_cell;
     }
   }
 }
@@ -69,12 +77,13 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
 
 template <typename ModelEq, int dim, int spacedim>
 template <typename Func>
-void nargil::model<ModelEq, dim, spacedim>::set_boundary_indicator(Func f)
+void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
 {
-  for (dealii_cell_type &&cell : all_owned_cells)
-  {
-    static_cast<ModelEq *>(cell.get())->assign_BCs(f);
-  }
+  for (auto &&i_cell : all_owned_cells)
+    static_cast<ModelEq *>(i_cell.get())->assign_BCs(f);
+  // Applying the BCs on ghost cells.
+  for (auto &&i_cell : all_ghost_cells)
+    static_cast<ModelEq *>(i_cell.get())->assign_BCs(f);
 }
 
 //
@@ -88,7 +97,7 @@ void nargil::model<ModelEq, dim, spacedim>::count_globals()
   {
     static_cast<implicit_hybridized_dof_numbering<dim, spacedim> *>(
       my_dof_counter.get())
-      ->template count_globals<model<ModelEq, dim, spacedim>, ModelEq>(this);
+      ->template count_globals<ModelEq>(this);
   }
   else
   {

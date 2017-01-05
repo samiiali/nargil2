@@ -36,11 +36,30 @@ template <int dim, int spacedim = dim> struct Problem
   /**
    * @brief dofs_on_nodes
    */
-  static boost::dynamic_bitset<> assign_BCs()
+  static void assign_BCs(
+    typename nargil::diffusion<dim, spacedim>::hdg_worker *const worker)
   {
-    boost::dynamic_bitset<> dof_names_on_nodes(1);
-    dof_names_on_nodes[0] = 1;
-    return dof_names_on_nodes;
+    for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+    {
+      auto &&face = worker->my_cell->dealii_cell->face(i_face);
+      if (face->at_boundary())
+      {
+        if (fabs(face->center()[0] > 1 - 1.E-4))
+        {
+          worker->BCs[i_face] = nargil::boundary_condition::essential;
+          worker->dof_names_on_faces[i_face].resize(1, 0);
+        }
+        else
+        {
+          worker->BCs[i_face] = nargil::boundary_condition::essential;
+          worker->dof_names_on_faces[i_face].resize(1, 0);
+        }
+      }
+      else
+      {
+        worker->dof_names_on_faces[i_face].resize(1, 1);
+      }
+    }
   }
 
   //
@@ -93,15 +112,16 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
+    nargil::model<nargil::diffusion<2>, 2> model1(&mesh1);
+
     std::unique_ptr<nargil::implicit_hybridized_dof_numbering<2> >
       p_dof_counter(new nargil::implicit_hybridized_dof_numbering<2>());
-
-    nargil::model<nargil::diffusion<2>, 2> model1(&mesh1);
 
     model1.set_dof_numbering(std::move(p_dof_counter));
 
     nargil::diffusion<2>::hdg_polybasis bases1(3, 4);
     model1.init_model_elements(&bases1);
+    model1.assign_BCs(Problem<2>::assign_BCs);
     model1.count_globals();
 
     //

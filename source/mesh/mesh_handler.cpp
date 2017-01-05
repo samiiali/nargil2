@@ -62,18 +62,22 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
   unsigned n_cell = 0;
   n_owned_cell = 0;
   n_ghost_cell = 0;
-  for (dealii_cell_type &&cell : tria.active_cell_iterators())
+  for (dealii_cell_type &&i_cell : tria.active_cell_iterators())
   {
-    if (cell->is_locally_owned())
+    if (i_cell->is_locally_owned())
     {
       std::stringstream ss_id;
-      ss_id << cell->id();
+      ss_id << i_cell->id();
       std::string cell_id = ss_id.str();
-      cell_ID_to_num[cell_id] = n_owned_cell;
+      owned_cell_ID_to_num[cell_id] = n_owned_cell;
       ++n_owned_cell;
     }
-    if (cell->is_ghost())
+    if (i_cell->is_ghost())
     {
+      std::stringstream ss_id;
+      ss_id << i_cell->id();
+      std::string cell_id = ss_id.str();
+      ghost_cell_ID_to_num[cell_id] = n_ghost_cell;
       ++n_ghost_cell;
     }
     ++n_cell;

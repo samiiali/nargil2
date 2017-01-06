@@ -219,7 +219,7 @@ struct diffusion : public cell<dim, spacedim>
   /**
    * @brief The hdg_operations struct
    */
-  struct hdg_worker : cell_worker<dim, spacedim>
+  struct hdg_worker : base_hdg_worker<dim, spacedim>
   {
     /**
      * @brief hdg_worker
@@ -246,38 +246,6 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     template <typename Func> void assign_BCs(Func f);
-
-    //
-    //
-    /**
-     * @brief dofs_ID_in_this_rank
-     */
-    std::vector<std::vector<int> > dofs_ID_in_this_rank;
-
-    //
-    //
-    /**
-     * @brief dofs_ID_in_all_ranks
-     */
-    std::vector<std::vector<int> > dofs_ID_in_all_ranks;
-
-    //
-    //
-    /**
-     * @brief Contains all of the boundary conditions of on the faces of this
-     * Cell.
-     */
-    std::vector<boundary_condition> BCs;
-
-    //
-    //
-    /**
-     * We want to know which degrees of freedom are restrained and which are
-     * open. Hence, we store a bitset which has its size equal to the number of
-     * dofs of each face of the cell and it is 1 if the dof is open, and 0 if it
-     * is restrained.
-     */
-    std::vector<boost::dynamic_bitset<> > dof_names_on_faces;
   };
 
   //
@@ -285,7 +253,7 @@ struct diffusion : public cell<dim, spacedim>
   /**
    *
    */
-  cell_worker<dim, spacedim> *get_worker();
+  template <typename CellWorker> CellWorker *get_worker();
 
   //
   //

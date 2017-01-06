@@ -122,7 +122,9 @@ int main(int argc, char **argv)
     nargil::diffusion<2>::hdg_polybasis bases1(3, 4);
     model1.init_model_elements(&bases1);
     model1.assign_BCs(Problem<2>::assign_BCs);
-    model1.count_globals();
+
+    typedef nargil::diffusion<2>::hdg_worker cell_worker_type;
+    model1.count_globals<cell_worker_type>();
 
     //
     // We can also use a functor to generate the mesh.

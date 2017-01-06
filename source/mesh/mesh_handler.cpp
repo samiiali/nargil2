@@ -3,8 +3,8 @@
 template <int dim, int spacedim> void nargil::mesh<dim, spacedim>::write_grid()
 {
   int comm_rank, comm_size, refn_cycle;
-  MPI_Comm_rank(*comm, &comm_rank);
-  MPI_Comm_size(*comm, &comm_size);
+  MPI_Comm_rank(*my_comm, &comm_rank);
+  MPI_Comm_size(*my_comm, &comm_size);
   refn_cycle = 0;
   dealii::GridOut Grid1_Out;
   dealii::GridOutFlags::Svg svg_flags(
@@ -41,17 +41,17 @@ template <int dim, int spacedim>
 nargil::mesh<dim, spacedim>::mesh(const MPI_Comm &comm_,
                                   const unsigned n_threads_,
                                   const bool adaptive_on_)
-  : comm(&comm_),
+  : my_comm(&comm_),
     adaptive_on(adaptive_on_),
     n_threads(n_threads_),
-    tria(*comm,
+    tria(*my_comm,
          typename dealii::Triangulation<dim>::MeshSmoothing(
            dealii::Triangulation<dim>::smoothing_on_refinement |
            dealii::Triangulation<dim>::smoothing_on_coarsening))
 {
-  int comm_rank, comm_size;
-  MPI_Comm_rank(*comm, &comm_rank);
-  MPI_Comm_size(*comm, &comm_size);
+  //  int comm_rank, comm_size;
+  //  MPI_Comm_rank(*comm, &comm_rank);
+  //  MPI_Comm_size(*comm, &comm_size);
 }
 
 template <int dim, int spacedim> nargil::mesh<dim, spacedim>::~mesh() {}

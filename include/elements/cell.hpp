@@ -72,6 +72,85 @@ template <int dim, int spacedim> struct cell_worker
   cell<dim, spacedim> *const my_cell;
 };
 
+template <int dim, int spacedim>
+struct base_hdg_worker : public cell_worker<dim, spacedim>
+{
+  base_hdg_worker(cell<dim, spacedim> *);
+  ~base_hdg_worker();
+
+  /**
+   * @brief assign_local_global_cell_data
+   */
+  void assign_local_global_cell_data(const unsigned &i_face,
+                                     const unsigned &local_num_,
+                                     const unsigned &global_num_,
+                                     const unsigned &comm_rank_,
+                                     const unsigned &half_range_);
+
+  /**
+   * @brief assign_local_cell_data
+   */
+  void assign_local_cell_data(const unsigned &i_face,
+                              const unsigned &local_num_,
+                              const int &comm_rank_,
+                              const unsigned &half_range_);
+
+  /**
+   * @brief assign_ghost_cell_data
+   */
+  void assign_ghost_cell_data(const unsigned &i_face,
+                              const int &local_num_,
+                              const int &global_num_,
+                              const unsigned &comm_rank_,
+                              const unsigned &half_range_);
+
+  //
+  //
+  /**
+   * @brief dofs_ID_in_this_rank
+   */
+  std::vector<std::vector<int> > dofs_ID_in_this_rank;
+
+  //
+  //
+  /**
+   * @brief dofs_ID_in_all_ranks
+   */
+  std::vector<std::vector<int> > dofs_ID_in_all_ranks;
+
+  //
+  //
+  /**
+   * @brief Contains all of the boundary conditions of on the faces of this
+   * Cell.
+   */
+  std::vector<boundary_condition> BCs;
+
+  //
+  //
+  /**
+   * We want to know which degrees of freedom are restrained and which are
+   * open. Hence, we store a bitset which has its size equal to the number of
+   * dofs of each face of the cell and it is 1 if the dof is open, and 0 if it
+   * is restrained.
+   */
+  std::vector<boost::dynamic_bitset<> > dof_names_on_faces;
+
+  //
+  //
+  /**
+   * @brief Decides if the current face has a coarser neighbor.
+   */
+  std::vector<unsigned> half_range_flag;
+
+  //
+  //
+  /**
+   * @brief The CPU number of the processor which owns the current face.
+   */
+  std::vector<unsigned> face_owner_rank;
+};
+
 /**
  * @defgroup modelelements Model Elements
  * @brief Contains different elements.
@@ -185,57 +264,11 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief assign_local_global_cell_data
-   */
-  void assign_local_global_cell_data(const unsigned &i_face,
-                                     const unsigned &local_num_,
-                                     const unsigned &global_num_,
-                                     const unsigned &comm_rank_,
-                                     const unsigned &half_range_);
-
-  //
-  //
-  /**
-   * @brief assign_local_cell_data
-   */
-  void assign_local_cell_data(const unsigned &i_face,
-                              const unsigned &local_num_,
-                              const int &comm_rank_,
-                              const unsigned &half_range_);
-
-  //
-  //
-  /**
-   * @brief assign_ghost_cell_data
-   */
-  void assign_ghost_cell_data(const unsigned &i_face,
-                              const int &local_num_,
-                              const int &global_num_,
-                              const unsigned &comm_rank_,
-                              const unsigned &half_range_);
-
-  //
-  //
-  /**
    * A unique ID of each cell, which is taken from the dealii cell
    * corresponding to the current cell. This ID is unique in the
    * interCPU space.
    */
   std::string cell_id;
-
-  //
-  //
-  /**
-   * @brief Decides if the current face has a coarser neighbor.
-   */
-  std::vector<unsigned> half_range_flag;
-
-  //
-  //
-  /**
-   * @brief The CPU number of the processor which owns the current face.
-   */
-  std::vector<unsigned> face_owner_rank;
 
   //
   //

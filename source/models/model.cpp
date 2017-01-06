@@ -90,6 +90,7 @@ void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
 //
 
 template <typename ModelEq, int dim, int spacedim>
+template <typename CellWorker>
 void nargil::model<ModelEq, dim, spacedim>::count_globals()
 {
   if (my_opts ==
@@ -97,7 +98,7 @@ void nargil::model<ModelEq, dim, spacedim>::count_globals()
   {
     static_cast<implicit_hybridized_dof_numbering<dim, spacedim> *>(
       my_dof_counter.get())
-      ->template count_globals<ModelEq>(this);
+      ->template count_globals<CellWorker, ModelEq>(this);
   }
   else
   {

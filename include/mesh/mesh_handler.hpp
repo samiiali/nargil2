@@ -77,7 +77,7 @@ template <int dim, int spacedim = dim> struct mesh
   /**
    * A pointer to the mpi communicator.
    */
-  const MPI_Comm *comm;
+  const MPI_Comm *my_comm;
 
   //
   //

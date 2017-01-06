@@ -101,7 +101,7 @@ struct model : public base_model
   /**
    * @brief Here we count the global DOFs of the mesh.
    */
-  void count_globals();
+  template <typename CellWorker> void count_globals();
 
   //
   //

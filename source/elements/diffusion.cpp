@@ -68,18 +68,10 @@ void nargil::diffusion<dim, spacedim>::assemble_globals()
 //
 
 template <int dim, int spacedim>
-nargil::cell_worker<dim, spacedim> *
-nargil::diffusion<dim, spacedim>::get_worker()
+template <typename CellWorker>
+CellWorker *nargil::diffusion<dim, spacedim>::get_worker()
 {
-  //  if (my_basis_opts & hdg_worker::get_options())
-  //  {
-  return static_cast<hdg_worker *>(my_worker.get());
-  //  }
-  //  else
-  //  {
-  //    std::cout << "Options in diffusion get_worker were not recognized."
-  //              << std::endl;
-  //  }
+  return static_cast<CellWorker *>(my_worker.get());
 }
 
 //
@@ -197,11 +189,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_options()
 template <int dim, int spacedim>
 nargil::diffusion<dim, spacedim>::hdg_worker::hdg_worker(
   nargil::cell<dim, spacedim> *in_cell)
-  : cell_worker<dim, spacedim>(in_cell),
-    dofs_ID_in_this_rank(2 * dim),
-    dofs_ID_in_all_ranks(2 * dim),
-    BCs(2 * dim, boundary_condition::not_set),
-    dof_names_on_faces(2 * dim)
+  : base_hdg_worker<dim, spacedim>(in_cell)
 // 2 * dim is actually the number of element faces.
 {
 }

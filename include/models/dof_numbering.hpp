@@ -55,13 +55,6 @@ template <int dim, int spacedim = dim> struct dof_numbering
   //
   //
   /**
-   * @brief Rank number of the CPU containing the Model.
-   */
-  unsigned comm_rank;
-
-  //
-  //
-  /**
    * @brief Number of DOFs which are owned by this CPU.
    */
   unsigned n_global_DOFs_rank_owns;
@@ -138,6 +131,13 @@ struct implicit_hybridized_dof_numbering : public dof_numbering<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  typedef base_hdg_worker<dim, spacedim> worker_type;
+
+  //
+  //
+  /**
    * @brief The constructor of the class.
    */
   implicit_hybridized_dof_numbering();
@@ -166,7 +166,7 @@ struct implicit_hybridized_dof_numbering : public dof_numbering<dim, spacedim>
    * avoided. We use the same basis for ghost cells as regular cells. This can
    * be avoided as well.
    */
-  template <typename ModelEq, typename ModelType>
+  template <typename CellWorker, typename ModelEq, typename ModelType>
   void count_globals(ModelType *my_model);
 };
 }

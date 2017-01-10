@@ -4,74 +4,53 @@
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::diffusion(dealii_cell_type &inp_cell,
-                                            const unsigned id_num_,
-                                            basis<dim, spacedim> *basis,
-                                            base_model *model_,
-                                            bases_options::options basis_opts)
-  : cell<dim, spacedim>(inp_cell, id_num_, model_),
-    my_basis_opts(basis_opts),
-    my_basis(basis)
+nargil::diffusion<dim, spacedim>::diffusion(
+  dealii_cell_type &inp_cell,
+  const unsigned in_id_num,
+  const base_basis<dim, spacedim> *in_basis,
+  base_model *model_)
+  : cell<dim, spacedim>(inp_cell, in_id_num, model_), my_basis(in_basis)
 {
-  if (my_basis_opts & hdg_worker::get_options())
-  {
-    my_worker = std::move(std::unique_ptr<hdg_worker>(new hdg_worker(this)));
-  }
-  else
-  {
-    std::cout << "Options in diffusion class constructor were not recognoized."
-              << std::endl;
-  }
   std::cout << "Constructor of diffusion cell" << std::endl;
 }
 
 //
 //
 
+template <int dim, int spacedim> nargil::diffusion<dim, spacedim>::~diffusion()
+{
+}
+
+//
+//
+
 template <int dim, int spacedim>
-template <typename Func>
+template <typename CellManagerType>
+void nargil::diffusion<dim, spacedim>::diffusion::init_manager()
+{
+  my_manager =
+    std::move(std::unique_ptr<CellManagerType>(new CellManagerType(this)));
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType, typename Func>
 void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
 {
-  if (my_basis_opts & hdg_worker::get_options())
-  {
-    static_cast<hdg_worker *>(my_worker.get())->assign_BCs(f);
-  }
-  else
-  {
-    std::cout << "Options in diffusion assign_BCs were not recognized."
-              << std::endl;
-  }
+  static_cast<typename BasisType::required_manager_type *>(my_manager.get())
+    ->assign_BCs(f);
 }
 
 //
 //
 
 template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::get_relevant_dofs_count(const unsigned i_face)
+template <typename CellManagerType>
+CellManagerType *nargil::diffusion<dim, spacedim>::get_manager()
 {
-  unsigned num_dofs_on_face =
-    static_cast<hdg_polybasis *>(my_basis)->get_n_dofs_on_each_face();
-  std::cout << i_face << " " << num_dofs_on_face << std::endl;
-  return num_dofs_on_face;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::diffusion<dim, spacedim>::assemble_globals()
-{
-}
-
-//
-//
-
-template <int dim, int spacedim>
-template <typename CellWorker>
-CellWorker *nargil::diffusion<dim, spacedim>::get_worker()
-{
-  return static_cast<CellWorker *>(my_worker.get());
+  return static_cast<CellManagerType *>(my_manager.get());
 }
 
 //
@@ -83,7 +62,7 @@ CellWorker *nargil::diffusion<dim, spacedim>::get_worker()
 template <int dim, int spacedim>
 nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   const unsigned poly_order, const unsigned quad_order)
-  : basis<dim, spacedim>(),
+  : base_basis<dim, spacedim>(),
     _poly_order(poly_order),
     _quad_order(quad_order),
     u_basis(poly_order),
@@ -110,6 +89,14 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
     u_on_faces[i_face] = std::move(u_on_i_face);
     q_on_faces[i_face] = std::move(q_on_i_face);
   }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+nargil::diffusion<dim, spacedim>::hdg_polybasis::~hdg_polybasis()
+{
 }
 
 //
@@ -164,33 +151,21 @@ void nargil::diffusion<dim, spacedim>::hdg_polybasis::
 
 template <int dim, int spacedim>
 unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_on_each_face()
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_on_each_face() const
 {
   return uhat_basis.dofs_per_cell;
 }
 
 //
 //
-
-template <int dim, int spacedim>
-nargil::bases_options::options
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_options()
-{
-  return (bases_options::options)(bases_options::HDG | bases_options::nodal |
-                                  bases_options::polynomial);
-}
-
-//
-//
 //
 //
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::hdg_worker::hdg_worker(
-  nargil::cell<dim, spacedim> *in_cell)
-  : base_hdg_worker<dim, spacedim>(in_cell)
-// 2 * dim is actually the number of element faces.
+nargil::diffusion<dim, spacedim>::hdg_manager::hdg_manager(
+  const nargil::diffusion<dim, spacedim> *in_cell)
+  : hybridized_cell_manager<dim, spacedim>(in_cell)
 {
 }
 
@@ -198,17 +173,8 @@ nargil::diffusion<dim, spacedim>::hdg_worker::hdg_worker(
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::hdg_worker::~hdg_worker()
+nargil::diffusion<dim, spacedim>::hdg_manager::~hdg_manager()
 {
-}
-
-//
-//
-
-template <int dim, int spacedim>
-int nargil::diffusion<dim, spacedim>::hdg_worker::get_options()
-{
-  return (bases_options::HDG);
 }
 
 //
@@ -216,7 +182,7 @@ int nargil::diffusion<dim, spacedim>::hdg_worker::get_options()
 
 template <int dim, int spacedim>
 template <typename Func>
-void nargil::diffusion<dim, spacedim>::hdg_worker::assign_BCs(Func f)
+void nargil::diffusion<dim, spacedim>::hdg_manager::assign_BCs(Func f)
 {
   f(this);
 }

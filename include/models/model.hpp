@@ -9,7 +9,7 @@
 
 #include "../elements/cell.hpp"
 #include "../mesh/mesh_handler.hpp"
-#include "dof_numbering.hpp"
+#include "dof_counter.hpp"
 
 namespace nargil
 {
@@ -49,7 +49,7 @@ struct model : public base_model
   /**
    * @brief Constructor of the class.
    */
-  model(mesh<dim, spacedim> *const);
+  model(const mesh<dim, spacedim> &);
 
   //
   //
@@ -61,47 +61,25 @@ struct model : public base_model
   //
   //
   /**
-   * This function sets how we should choose the Model::dof_counter.
-   * This is called in the constructor.
-   *
-   * @todo We should assert if dof_counter is set here, before using
-   * it anywhere else.
-   */
-  void set_dof_numbering_type();
-
-  //
-  //
-  /**
-   * @brief Assigns the dof_numbering type. The user first creates a special
-   * type of dof_numbering and then assign it to the model.
-   * @todo Adding the capability to have more than one dof_numbering and being
-   * able to change between them.
-   */
-  template <typename DOF_NUMBERING>
-  void set_dof_numbering(std::unique_ptr<DOF_NUMBERING>);
-
-  //
-  //
-  /**
    * This function initiates the member Model::all_owned_cells, based on the
    * equation that we want to solve. This is called in the constructor of the
    * class.
    */
-  template <typename BasisType> void init_model_elements(BasisType *);
+  template <typename BasisType> void init_model_elements(const BasisType &);
 
   //
   //
   /**
    * @brief Here, we set the boundary indicator of each face on the boundary.
    */
-  template <typename Func> void assign_BCs(Func f);
+  template <typename BasisType, typename Func> void assign_BCs(Func f);
 
   //
   //
   /**
    * @brief Here we count the global DOFs of the mesh.
    */
-  template <typename CellWorker> void count_globals();
+  template <typename DoFCounterType> void count_globals(DoFCounterType &);
 
   //
   //
@@ -115,7 +93,7 @@ struct model : public base_model
   /**
    * @brief This is a pointer to the mesh that the model is working on.
    */
-  mesh<dim, spacedim> *my_mesh;
+  const mesh<dim, spacedim> *my_mesh;
 
   //
   //
@@ -127,28 +105,21 @@ struct model : public base_model
   //
   //
   /**
-   *
+   * This is a std::vector containing all of the ghost cells in the model.
    */
   std::vector<std::unique_ptr<cell<dim, spacedim> > > all_ghost_cells;
 
   //
   //
   /**
-   * This is an instance of the dof_numbering class.
+   * This is an instance of the dof_counter class.
    */
-  std::unique_ptr<dof_numbering<dim, spacedim> > my_dof_counter;
-
-  //
-  //
-  /**
-   * @brief my_opts
-   */
-  model_options::options my_opts;
+  std::unique_ptr<dof_counter<dim, spacedim> > my_dof_counter;
 };
 }
 
 #include "../../source/models/model.cpp"
 
-#include "dof_numbering.hpp"
+#include "dof_counter.hpp"
 
 #endif

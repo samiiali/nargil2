@@ -81,19 +81,6 @@ add_subdirectory(source/elements)
 add_subdirectory(source/mesh)
 add_subdirectory(source/models)
 
-# add_subdirectory(src/poly_bases)
-
-# add_custom_target(DUMMY SOURCES
-#                   src/solution_manager.hpp
-#                   src/solution_manager.cpp
-#                   src/lib_headers.hpp
-#                   src/support_classes.hpp
-#                   src/support_classes.cpp
-#                   src/solvers.hpp
-#                   src/solvers.cpp
-#                   src/time_integrators.hpp
-#                   src/time_integrators.cpp)
-
 include(CMakeLocals/CMakeFlags.txt)
 
 #set(CMAKE_CXX_FLAGS " -O2 -openmp -std=c++0x ${CMAKE_CXX_FLAGS}")

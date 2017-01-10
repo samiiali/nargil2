@@ -1,3 +1,5 @@
+#include <type_traits>
+
 #include <boost/dynamic_bitset.hpp>
 
 #include <deal.II/fe/fe_values.h>
@@ -45,47 +47,40 @@ struct diffusion : public cell<dim, spacedim>
   /**
    * @brief The constructor of the class.
    */
-  diffusion(dealii_cell_type &inp_cell,
+  diffusion(dealii_cell_type &in_cell,
             const unsigned id_num_,
-            basis<dim, spacedim> *basis,
-            base_model *model_,
-            bases_options::options basis_opts);
+            const base_basis<dim, spacedim> *base_basis,
+            base_model *in_model);
 
   //
   //
   /**
    * @brief The destructor of the class.
    */
-  ~diffusion() {}
+  virtual ~diffusion() final;
+
+  //
+  //
+  /**
+   * This function is called from cell::create. This function cannot
+   * be const, because the diffusion::my_manager is changed in this
+   * function.
+   */
+  template <typename CellManagerType> void init_manager();
 
   //
   //
   /**
    * @brief Assigns the boundary condition to different DOFs.
    */
-  template <typename Func> void assign_BCs(Func f);
+  template <typename BasisType, typename Func> void assign_BCs(Func f);
 
   //
   //
   /**
-   * @brief Assembles the global matrices and vectors for solving the
-   * problem.
+   *
    */
-  void assemble_globals();
-
-  //
-  //
-  /**
-   * @brief Gets the open dofs corresponding to the current basis.
-   */
-  unsigned get_relevant_dofs_count(const unsigned);
-
-  //
-  //
-  /**
-   * @brief Options for the basis.
-   */
-  bases_options::options my_basis_opts;
+  template <typename CellManagerType> CellManagerType *get_manager();
 
   //
   //
@@ -93,13 +88,27 @@ struct diffusion : public cell<dim, spacedim>
    * Polynomial basis of type HDG.
    * @ingroup modelbases
    */
-  struct hdg_polybasis : public basis<dim, spacedim>
+  struct hdg_polybasis : public base_basis<dim, spacedim>
   {
+    //
+    //
+    /**
+     * @brief required_manager_type
+     */
+    typedef typename diffusion::hdg_manager required_manager_type;
+
     //
     /**
      * @brief hdg_polybasis
      */
     hdg_polybasis() = delete;
+
+    //
+    //
+    /**
+     *
+     */
+    virtual ~hdg_polybasis() final;
 
     //
     /**
@@ -196,14 +205,7 @@ struct diffusion : public cell<dim, spacedim>
     /**
      * @brief get_n_dofs_on_each_face
      */
-    unsigned get_n_dofs_on_each_face();
-
-    //
-    //
-    /**
-     * @brief get_options
-     */
-    static bases_options::options get_options();
+    unsigned get_n_dofs_on_each_face() const;
 
     //
     //
@@ -219,26 +221,19 @@ struct diffusion : public cell<dim, spacedim>
   /**
    * @brief The hdg_operations struct
    */
-  struct hdg_worker : base_hdg_worker<dim, spacedim>
+  struct hdg_manager : hybridized_cell_manager<dim, spacedim>
   {
     /**
-     * @brief hdg_worker
+     * @brief hdg_manager
      */
-    hdg_worker(cell<dim, spacedim> *);
+    hdg_manager(const diffusion<dim, spacedim> *);
 
     //
     //
     /**
      * @brief Deconstructor of the class
      */
-    ~hdg_worker();
-
-    //
-    //
-    /**
-     * @brief get_options
-     */
-    static int get_options();
+    virtual ~hdg_manager() final;
 
     //
     //
@@ -251,23 +246,19 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
-   *
-   */
-  template <typename CellWorker> CellWorker *get_worker();
-
-  //
-  //
-  /**
    * @brief my_basis
    */
-  basis<dim, spacedim> *my_basis;
+  const base_basis<dim, spacedim> *my_basis;
 
   //
   //
   /**
-   * @brief my_worker
+   * The manager of this element. The reason to define this manager
+   * as a unique_ptr is we need its polymorphic features in the code.
+   * Hence, we are able to use static_cast to cast this manager to derived
+   * types of cell_manager.
    */
-  std::unique_ptr<cell_worker<dim, spacedim> > my_worker;
+  std::unique_ptr<cell_manager<dim, spacedim> > my_manager;
 };
 }
 

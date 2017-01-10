@@ -1,8 +1,8 @@
 #include "../../include/elements/cell.hpp"
 
 template <int dim, int spacedim>
-nargil::cell_worker<dim, spacedim>::cell_worker(
-  nargil::cell<dim, spacedim> *const in_cell)
+nargil::cell_manager<dim, spacedim>::cell_manager(
+  const cell<dim, spacedim> *in_cell)
   : my_cell(in_cell)
 {
 }
@@ -14,9 +14,9 @@ nargil::cell_worker<dim, spacedim>::cell_worker(
 //
 
 template <int dim, int spacedim>
-nargil::base_hdg_worker<dim, spacedim>::base_hdg_worker(
-  cell<dim, spacedim> *in_cell)
-  : cell_worker<dim, spacedim>(in_cell),
+nargil::hybridized_cell_manager<dim, spacedim>::hybridized_cell_manager(
+  const cell<dim, spacedim> *in_cell)
+  : cell_manager<dim, spacedim>(in_cell),
     dofs_ID_in_this_rank(2 * dim),
     dofs_ID_in_all_ranks(2 * dim),
     BCs(2 * dim, boundary_condition::not_set),
@@ -30,7 +30,7 @@ nargil::base_hdg_worker<dim, spacedim>::base_hdg_worker(
 //
 
 template <int dim, int spacedim>
-nargil::base_hdg_worker<dim, spacedim>::~base_hdg_worker()
+nargil::hybridized_cell_manager<dim, spacedim>::~hybridized_cell_manager()
 {
 }
 
@@ -38,12 +38,12 @@ nargil::base_hdg_worker<dim, spacedim>::~base_hdg_worker()
 //
 
 template <int dim, int spacedim>
-void nargil::base_hdg_worker<dim, spacedim>::assign_local_global_cell_data(
-  const unsigned &i_face,
-  const unsigned &local_num_,
-  const unsigned &global_num_,
-  const unsigned &comm_rank_,
-  const unsigned &half_range_)
+void nargil::hybridized_cell_manager<dim, spacedim>::
+  assign_local_global_cell_data(const unsigned &i_face,
+                                const unsigned &local_num_,
+                                const unsigned &global_num_,
+                                const unsigned &comm_rank_,
+                                const unsigned &half_range_)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
@@ -58,7 +58,7 @@ void nargil::base_hdg_worker<dim, spacedim>::assign_local_global_cell_data(
 //
 
 template <int dim, int spacedim>
-void nargil::base_hdg_worker<dim, spacedim>::assign_ghost_cell_data(
+void nargil::hybridized_cell_manager<dim, spacedim>::assign_ghost_cell_data(
   const unsigned &i_face,
   const int &local_num_,
   const int &global_num_,
@@ -78,12 +78,15 @@ void nargil::base_hdg_worker<dim, spacedim>::assign_ghost_cell_data(
 //
 
 template <int dim, int spacedim>
-void nargil::base_hdg_worker<dim, spacedim>::assign_local_cell_data(
+void nargil::hybridized_cell_manager<dim, spacedim>::assign_local_cell_data(
   const unsigned &i_face,
   const unsigned &local_num_,
   const int &comm_rank_,
   const unsigned &half_range_)
 {
+
+  std::cout << " local numbering func " << std::endl;
+
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
@@ -99,28 +102,12 @@ void nargil::base_hdg_worker<dim, spacedim>::assign_local_cell_data(
 template <int dim, int spacedim>
 nargil::cell<dim, spacedim>::cell(dealii_cell_type &inp_cell,
                                   const unsigned id_num_,
-                                  base_model *model_)
-  : n_faces(dealii::GeometryInfo<dim>::faces_per_cell),
-    id_num(id_num_),
-    dealii_cell(inp_cell),
-    my_model(model_)
+                                  const base_model *model_)
+  : n_faces(2 * dim), id_num(id_num_), dealii_cell(inp_cell), my_model(model_)
 {
   std::stringstream ss_id;
   ss_id << inp_cell->id();
   cell_id = ss_id.str();
-}
-
-//
-//
-
-template <int dim, int spacedim>
-nargil::cell<dim, spacedim>::cell(cell &&inp_cell) noexcept
-  : n_faces(std::move(inp_cell.n_faces)),
-    id_num(std::move(inp_cell.id_num)),
-    cell_id(std::move(inp_cell.cell_id)),
-    dealii_cell(std::move(inp_cell.dealii_cell)),
-    my_model(inp_cell.my_model)
-{
 }
 
 //
@@ -134,13 +121,15 @@ template <int dim, int spacedim> nargil::cell<dim, spacedim>::~cell() {}
 template <int dim, int spacedim>
 template <typename ModelEq, typename BasisType>
 std::unique_ptr<ModelEq>
-nargil::cell<dim, spacedim>::create(dealii_cell_type &inp_cell,
+nargil::cell<dim, spacedim>::create(dealii_cell_type &in_cell,
                                     const unsigned id_num_,
-                                    BasisType *basis,
-                                    base_model *model_)
+                                    const BasisType &basis,
+                                    base_model *in_model)
 {
-  return std::unique_ptr<ModelEq>(
-    new ModelEq(inp_cell, id_num_, basis, model_, BasisType::get_options()));
+  std::unique_ptr<ModelEq> the_cell(
+    new ModelEq(in_cell, id_num_, &basis, in_model));
+  the_cell->template init_manager<typename BasisType::required_manager_type>();
+  return std::move(the_cell);
 }
 
 //

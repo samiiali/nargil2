@@ -84,6 +84,40 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
   }
 }
 
+//
+//
+
+template <int dim, int spacedim>
+int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
+  const dealii_cell_type &in_dealii_cell, const bool cell_is_owned) const
+{
+  if (cell_is_owned)
+  {
+    std::stringstream cell_id;
+    cell_id << in_dealii_cell->id();
+    std::string cell_str_id = cell_id.str();
+    auto it_1 = owned_cell_ID_to_num.find(cell_str_id);
+    if (it_1 != owned_cell_ID_to_num.end())
+      return it_1->second;
+    else
+      return -1;
+  }
+  else
+  {
+    std::stringstream cell_id;
+    cell_id << in_dealii_cell->id();
+    std::string cell_str_id = cell_id.str();
+    auto it_1 = owned_cell_ID_to_num.find(cell_str_id);
+    if (it_1 != ghost_cell_ID_to_num.end())
+      return it_1->second;
+    else
+      return -1;
+  }
+}
+
+//
+//
+
 template <int dim, int spacedim>
 template <typename F>
 void nargil::mesh<dim, spacedim>::generate_mesh(F generate_mesh_)

@@ -37,27 +37,27 @@ template <int dim, int spacedim = dim> struct Problem
    * @brief dofs_on_nodes
    */
   static void assign_BCs(
-    typename nargil::diffusion<dim, spacedim>::hdg_worker *const worker)
+    typename nargil::diffusion<dim, spacedim>::hdg_manager *const manager)
   {
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
-      auto &&face = worker->my_cell->dealii_cell->face(i_face);
+      auto &&face = manager->my_cell->dealii_cell->face(i_face);
       if (face->at_boundary())
       {
         if (fabs(face->center()[0] > 1 - 1.E-4))
         {
-          worker->BCs[i_face] = nargil::boundary_condition::essential;
-          worker->dof_names_on_faces[i_face].resize(1, 0);
+          manager->BCs[i_face] = nargil::boundary_condition::essential;
+          manager->dof_names_on_faces[i_face].resize(1, 0);
         }
         else
         {
-          worker->BCs[i_face] = nargil::boundary_condition::essential;
-          worker->dof_names_on_faces[i_face].resize(1, 0);
+          manager->BCs[i_face] = nargil::boundary_condition::essential;
+          manager->dof_names_on_faces[i_face].resize(1, 0);
         }
       }
       else
       {
-        worker->dof_names_on_faces[i_face].resize(1, 1);
+        manager->dof_names_on_faces[i_face].resize(1, 1);
       }
     }
   }
@@ -112,19 +112,15 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    nargil::model<nargil::diffusion<2>, 2> model1(&mesh1);
+    nargil::model<nargil::diffusion<2>, 2> model1(mesh1);
 
-    std::unique_ptr<nargil::implicit_hybridized_dof_numbering<2> >
-      p_dof_counter(new nargil::implicit_hybridized_dof_numbering<2>());
+    typedef nargil::diffusion<2>::hdg_polybasis basis_type;
+    basis_type basis1(3, 4);
+    model1.init_model_elements(basis1);
+    model1.assign_BCs<basis_type>(Problem<2>::assign_BCs);
 
-    model1.set_dof_numbering(std::move(p_dof_counter));
-
-    nargil::diffusion<2>::hdg_polybasis bases1(3, 4);
-    model1.init_model_elements(&bases1);
-    model1.assign_BCs(Problem<2>::assign_BCs);
-
-    typedef nargil::diffusion<2>::hdg_worker cell_worker_type;
-    model1.count_globals<cell_worker_type>();
+    nargil::implicit_hybridized_numbering<2> dof_counter1;
+    model1.count_globals(dof_counter1);
 
     //
     // We can also use a functor to generate the mesh.

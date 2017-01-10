@@ -75,6 +75,17 @@ template <int dim, int spacedim = dim> struct mesh
   //
   //
   /**
+   * This function gives the integer ID of the corresponding input dealii cell.
+   * When the cell is owned by this rank, then we should pass cell_is_owned as
+   * true to this function; otherwise, this function assumes that the cell is a
+   * ghost cell.
+   */
+  int cell_id_to_num_finder(const dealii_cell_type &dealii_cell_,
+                            const bool cell_is_owned) const;
+
+  //
+  //
+  /**
    * A pointer to the mpi communicator.
    */
   const MPI_Comm *my_comm;

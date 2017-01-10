@@ -18,8 +18,8 @@ nargil::base_model::~base_model() {}
 //
 //
 template <typename ModelEq, int dim, int spacedim>
-nargil::model<ModelEq, dim, spacedim>::model(mesh<dim, spacedim> *const mesh_)
-  : my_mesh(mesh_)
+nargil::model<ModelEq, dim, spacedim>::model(const mesh<dim, spacedim> &in_mesh)
+  : my_mesh(&in_mesh)
 {
 }
 
@@ -35,21 +35,9 @@ nargil::model<ModelEq, dim, spacedim>::~model()
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename T>
-void nargil::model<ModelEq, dim, spacedim>::set_dof_numbering(
-  std::unique_ptr<T> dof_counter)
-{
-  my_opts = T::get_options();
-  my_dof_counter = std::move(dof_counter);
-}
-
-//
-//
-
-template <typename ModelEq, int dim, int spacedim>
 template <typename BasisType>
 void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
-  BasisType *basis)
+  const BasisType &basis)
 {
   all_owned_cells.reserve(my_mesh->n_owned_cell);
   all_ghost_cells.reserve(my_mesh->n_ghost_cell);
@@ -76,32 +64,23 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename Func>
+template <typename BasisType, typename Func>
 void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
 {
   for (auto &&i_cell : all_owned_cells)
-    static_cast<ModelEq *>(i_cell.get())->assign_BCs(f);
+    static_cast<ModelEq *>(i_cell.get())->assign_BCs<BasisType>(f);
   // Applying the BCs on ghost cells.
   for (auto &&i_cell : all_ghost_cells)
-    static_cast<ModelEq *>(i_cell.get())->assign_BCs(f);
+    static_cast<ModelEq *>(i_cell.get())->assign_BCs<BasisType>(f);
 }
 
 //
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename CellWorker>
-void nargil::model<ModelEq, dim, spacedim>::count_globals()
+template <typename DoFCounterType>
+void nargil::model<ModelEq, dim, spacedim>::count_globals(
+  DoFCounterType &dof_counter)
 {
-  if (my_opts ==
-      implicit_hybridized_dof_numbering<dim, spacedim>::get_options())
-  {
-    static_cast<implicit_hybridized_dof_numbering<dim, spacedim> *>(
-      my_dof_counter.get())
-      ->template count_globals<CellWorker, ModelEq>(this);
-  }
-  else
-  {
-    assert(false && "The options for the dof numbering were not recognized.");
-  }
+  dof_counter.count_globals<ModelEq>(this);
 }

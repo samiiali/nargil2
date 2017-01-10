@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <functional>
 #include <memory>
 #include <type_traits>
 
@@ -13,7 +14,7 @@ namespace nargil
 {
 //
 //
-// Forward declerations of cell to be used in cell_worker.
+// Forward declerations of cell to be used in cell_manager.
 template <int dim, int spacedim> struct cell;
 
 //
@@ -26,58 +27,71 @@ struct base_model;
 /**
  * @brief Base class for all other basis types.
  */
-template <int dim, int spacedim> struct basis
+template <int dim, int spacedim> struct base_basis
 {
   //
   //
   /**
    * @brief Constructor of the class
    */
-  basis() {}
+  base_basis() {}
 
   //
   //
   /**
    * @brief Deconstrcutor of the class
    */
-  ~basis() {}
+  virtual ~base_basis() {}
 };
 
 //
 //
 /**
- * @brief Base class for all worker in elements
+ * @brief Base class for all cell_manager in elements
  */
-template <int dim, int spacedim> struct cell_worker
+template <int dim, int spacedim> struct cell_manager
 {
   //
   //
   /**
    * @brief Constructor of the class
    */
-  cell_worker(cell<dim, spacedim> *const);
+  cell_manager(const cell<dim, spacedim> *);
 
   //
   //
   /**
    * @brief Deconstructor of the class
    */
-  ~cell_worker() {}
+  virtual ~cell_manager() {}
 
   //
   //
   /**
-   * @brief A pointer to the cell which contains the worker
+   * @brief A pointer to the cell which contains the cell_manager
    */
-  cell<dim, spacedim> *const my_cell;
+  const cell<dim, spacedim> *my_cell;
 };
 
 template <int dim, int spacedim>
-struct base_hdg_worker : public cell_worker<dim, spacedim>
+struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 {
-  base_hdg_worker(cell<dim, spacedim> *);
-  ~base_hdg_worker();
+  //
+  //
+  /**
+   * The constructor of the class
+   */
+  hybridized_cell_manager(const cell<dim, spacedim> *);
 
+  //
+  //
+  /**
+   * The destructor of the class.
+   */
+  virtual ~hybridized_cell_manager();
+
+  //
+  //
   /**
    * @brief assign_local_global_cell_data
    */
@@ -87,6 +101,8 @@ struct base_hdg_worker : public cell_worker<dim, spacedim>
                                      const unsigned &comm_rank_,
                                      const unsigned &half_range_);
 
+  //
+  //
   /**
    * @brief assign_local_cell_data
    */
@@ -95,6 +111,8 @@ struct base_hdg_worker : public cell_worker<dim, spacedim>
                               const int &comm_rank_,
                               const unsigned &half_range_);
 
+  //
+  //
   /**
    * @brief assign_ghost_cell_data
    */
@@ -192,26 +210,9 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * The constructor of this class takes a deal.II cell and creates the cell.
    */
-  cell(dealii_cell_type &inp_cell, const unsigned id_num_, base_model *model_);
-
-  //
-  //
-  /**
-   * We remove the copy constructor of this class to avoid unnecessary copies
-   * (specially unintentional ones).
-   */
-  cell(const cell &inp_cell) = delete;
-
-  //
-  //
-  /**
-   * We need a move constructor, to be able to pass this class as function
-   * arguments efficiently. Maybe, you say that this does not help efficiency
-   * that much, but we are using it for semantic constraints.
-   * \param inp_cell An object of the \c Cell_Class type which we steal its
-   * guts.
-   */
-  cell(cell &&inp_cell) noexcept;
+  cell(dealii_cell_type &inp_cell,
+       const unsigned id_num_,
+       const base_model *model_);
 
   //
   //
@@ -229,7 +230,7 @@ template <int dim, int spacedim = dim> struct cell
    */
   template <typename ModelEq, typename BasisType>
   static std::unique_ptr<ModelEq>
-  create(dealii_cell_type &, const unsigned, BasisType *, base_model *);
+  create(dealii_cell_type &, const unsigned, const BasisType &, base_model *);
 
   //
   //
@@ -282,7 +283,7 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * @brief A pointer to the BaseModel object which contains this Cell.
    */
-  base_model *my_model;
+  const base_model *my_model;
 };
 }
 

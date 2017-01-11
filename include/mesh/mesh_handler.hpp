@@ -51,6 +51,13 @@ template <int dim, int spacedim = dim> struct mesh
   //
   //
   /**
+   * The class destructor.
+   */
+  virtual ~mesh();
+
+  //
+  //
+  /**
    * This function generate the mesh using the function given as its argument.
    * It will also call init_Cell_ID_to_num.
    */
@@ -86,6 +93,14 @@ template <int dim, int spacedim = dim> struct mesh
   //
   //
   /**
+   *
+   */
+  int cell_id_to_num_finder(const std::string &dealii_cell_,
+                            const bool cell_is_owned) const;
+
+  //
+  //
+  /**
    * A pointer to the mpi communicator.
    */
   const MPI_Comm *my_comm;
@@ -103,22 +118,6 @@ template <int dim, int spacedim = dim> struct mesh
    * This is the number of shared memory (such as OMP, CUDA or TBB) threads.
    */
   unsigned n_threads;
-
-  //
-  //
-  /**
-   * This is an std::map which maps the dealii cell ID of each
-   * cell to the innerCPU number for that cell.
-   */
-  std::map<std::string, int> owned_cell_ID_to_num;
-
-  //
-  //
-  /**
-   * This is an std::map which maps the dealii cell ID of each
-   * cell to the innerCPU number for that cell.
-   */
-  std::map<std::string, int> ghost_cell_ID_to_num;
 
   //
   //
@@ -144,9 +143,26 @@ template <int dim, int spacedim = dim> struct mesh
   //
   //
   /**
-   * The class destructor.
+   * @brief The refinement cycle of the triangulation.
    */
-  virtual ~mesh();
+  unsigned refn_cycle;
+
+private:
+  //
+  //
+  /**
+   * This is an std::map which maps the dealii cell ID of each
+   * cell to the innerCPU number for that cell.
+   */
+  std::map<std::string, int> owned_cell_ID_to_num;
+
+  //
+  //
+  /**
+   * This is an std::map which maps the dealii cell ID of each
+   * cell to the innerCPU number for that cell.
+   */
+  std::map<std::string, int> ghost_cell_ID_to_num;
 };
 }
 

@@ -80,6 +80,7 @@ DEAL_II_INVOKE_AUTOPILOT()
 add_subdirectory(source/elements)
 add_subdirectory(source/mesh)
 add_subdirectory(source/models)
+add_subdirectory(source/misc)
 
 include(CMakeLocals/CMakeFlags.txt)
 

@@ -5,10 +5,13 @@
 #include <memory>
 #include <vector>
 
+#include <mpi.h>
+
 #include <deal.II/base/point.h>
 #include <deal.II/grid/tria.h>
 
 #include "../../include/elements/cell.hpp"
+#include "../../include/misc/utils.hpp"
 
 namespace nargil
 {

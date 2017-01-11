@@ -84,9 +84,6 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_local_cell_data(
   const int &comm_rank_,
   const unsigned &half_range_)
 {
-
-  std::cout << " local numbering func " << std::endl;
-
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)

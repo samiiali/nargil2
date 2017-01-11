@@ -47,7 +47,8 @@ nargil::mesh<dim, spacedim>::mesh(const MPI_Comm &comm_,
     tria(*my_comm,
          typename dealii::Triangulation<dim>::MeshSmoothing(
            dealii::Triangulation<dim>::smoothing_on_refinement |
-           dealii::Triangulation<dim>::smoothing_on_coarsening))
+           dealii::Triangulation<dim>::smoothing_on_coarsening)),
+    refn_cycle(0)
 {
   //  int comm_rank, comm_size;
   //  MPI_Comm_rank(*comm, &comm_rank);
@@ -97,22 +98,81 @@ int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
     cell_id << in_dealii_cell->id();
     std::string cell_str_id = cell_id.str();
     auto it_1 = owned_cell_ID_to_num.find(cell_str_id);
-    if (it_1 != owned_cell_ID_to_num.end())
-      return it_1->second;
-    else
-      return -1;
+    try
+    {
+      if (it_1 != owned_cell_ID_to_num.end())
+        return it_1->second;
+      else
+        throw 101;
+    }
+    catch (int)
+    {
+      std::cout << "The owned cell is not found in mesh. Contact Ali."
+                << std::endl;
+    }
   }
   else
   {
     std::stringstream cell_id;
     cell_id << in_dealii_cell->id();
     std::string cell_str_id = cell_id.str();
-    auto it_1 = owned_cell_ID_to_num.find(cell_str_id);
-    if (it_1 != ghost_cell_ID_to_num.end())
-      return it_1->second;
-    else
-      return -1;
+    auto it_1 = ghost_cell_ID_to_num.find(cell_str_id);
+    try
+    {
+      if (it_1 != ghost_cell_ID_to_num.end())
+        return it_1->second;
+      else
+        throw 102;
+    }
+    catch (int)
+    {
+      std::cout << "The owned cell is not found in mesh. Contact Ali."
+                << std::endl;
+    }
   }
+  return -1;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
+  const std::string &cell_str_id, const bool cell_is_owned) const
+{
+  if (cell_is_owned)
+  {
+    auto it_1 = owned_cell_ID_to_num.find(cell_str_id);
+    try
+    {
+      if (it_1 != owned_cell_ID_to_num.end())
+        return it_1->second;
+      else
+        throw 101;
+    }
+    catch (int)
+    {
+      std::cout << "The owned cell is not found in mesh. Contact Ali."
+                << std::endl;
+    }
+  }
+  else
+  {
+    auto it_1 = ghost_cell_ID_to_num.find(cell_str_id);
+    try
+    {
+      if (it_1 != ghost_cell_ID_to_num.end())
+        return it_1->second;
+      else
+        throw 102;
+    }
+    catch (int)
+    {
+      std::cout << "The owned cell is not found in mesh. Contact Ali."
+                << std::endl;
+    }
+  }
+  return -1;
 }
 
 //

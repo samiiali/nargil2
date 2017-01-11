@@ -11,7 +11,6 @@ nargil::diffusion<dim, spacedim>::diffusion(
   base_model *model_)
   : cell<dim, spacedim>(inp_cell, in_id_num, model_), my_basis(in_basis)
 {
-  std::cout << "Constructor of diffusion cell" << std::endl;
 }
 
 //

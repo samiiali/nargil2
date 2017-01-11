@@ -167,6 +167,8 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * @brief The CPU number of the processor which owns the current face.
    */
   std::vector<unsigned> face_owner_rank;
+
+  int iii;
 };
 
 /**

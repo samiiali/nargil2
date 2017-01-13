@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <bitset>
 #include <functional>
 #include <memory>
 #include <type_traits>
@@ -125,6 +126,13 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  bool face_is_not_visited(const unsigned);
+
+  //
+  //
+  /**
    * @brief dofs_ID_in_this_rank
    */
   std::vector<std::vector<int> > dofs_ID_in_this_rank;
@@ -157,6 +165,13 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  std::bitset<2 * dim> face_visited;
+
+  //
+  //
+  /**
    * @brief Decides if the current face has a coarser neighbor.
    */
   std::vector<unsigned> half_range_flag;
@@ -167,8 +182,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * @brief The CPU number of the processor which owns the current face.
    */
   std::vector<unsigned> face_owner_rank;
-
-  int iii;
 };
 
 /**
@@ -198,6 +211,14 @@ template <int dim, int spacedim = dim> struct cell
    */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
     dealii_cell_type;
+
+  //
+  //
+  /**
+   *
+   */
+  typedef
+    typename std::vector<std::unique_ptr<cell> >::iterator vec_iter_ptr_type;
 
   //
   //

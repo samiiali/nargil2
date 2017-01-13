@@ -78,9 +78,28 @@ void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename DoFCounterType>
-void nargil::model<ModelEq, dim, spacedim>::count_globals(
-  DoFCounterType &dof_counter)
+template <typename CellManagerType, typename InputType>
+CellManagerType *nargil::model<ModelEq, dim, spacedim>::get_owned_cell_manager(
+  const InputType &cell_id) const
 {
-  dof_counter.count_globals<ModelEq>(this);
+  int num_id = my_mesh->cell_id_to_num_finder(cell_id, true);
+  CellManagerType *i_manager =
+    static_cast<ModelEq *>(all_owned_cells[num_id].get())
+      ->template get_manager<CellManagerType>();
+  return i_manager;
+}
+
+//
+//
+
+template <typename ModelEq, int dim, int spacedim>
+template <typename CellManagerType, typename InputType>
+CellManagerType *nargil::model<ModelEq, dim, spacedim>::get_ghost_cell_manager(
+  const InputType &cell_id) const
+{
+  int num_id = my_mesh->cell_id_to_num_finder(cell_id, false);
+  CellManagerType *i_manager =
+    static_cast<ModelEq *>(all_ghost_cells[num_id].get())
+      ->template get_manager<CellManagerType>();
+  return i_manager;
 }

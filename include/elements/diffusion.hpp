@@ -85,6 +85,13 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  template <typename BasisType> const BasisType *get_basis() const;
+
+  //
+  //
+  /**
    * Polynomial basis of type HDG.
    * @ingroup modelbases
    */
@@ -93,9 +100,9 @@ struct diffusion : public cell<dim, spacedim>
     //
     //
     /**
-     * @brief required_manager_type
+     * @brief relevant_manager_type
      */
-    typedef typename diffusion::hdg_manager required_manager_type;
+    typedef typename diffusion::hdg_manager relevant_manager_type;
 
     //
     /**
@@ -214,6 +221,13 @@ struct diffusion : public cell<dim, spacedim>
      */
     void adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
                                       const unsigned half_range);
+
+    //
+    //
+    /**
+     *
+     */
+    unsigned n_unknowns_for_ith_dof(const unsigned i_dof) const;
   };
 
   //

@@ -1,5 +1,4 @@
 #include "../../include/models/dof_counter.hpp"
-#include <typeinfo>
 
 template <int dim, int spacedim>
 nargil::dof_counter<dim, spacedim>::dof_counter()
@@ -41,10 +40,11 @@ nargil::implicit_hybridized_numbering<dim, spacedim>::
 //
 
 template <int dim, int spacedim>
-template <typename ModelEq, typename ModelType>
+template <typename BasisType, typename ModelEq>
 void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
-  ModelType *my_model)
+  nargil::model<ModelEq, dim, spacedim> *my_model)
 {
+  typedef typename BasisType::relevant_manager_type cell_manager_type;
   int comm_rank, comm_size;
   const MPI_Comm *my_comm = my_model->my_mesh->my_comm;
   MPI_Comm_rank(*my_comm, &comm_rank);
@@ -57,6 +57,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   unsigned mpi_request_counter = 0;
   unsigned mpi_status_counter = 0;
   std::map<unsigned, bool> is_there_a_msg_from_rank;
+  std::vector<boost::dynamic_bitset<> > face_of_owned_cell_counted(
+    my_model->all_owned_cells.size(), boost::dynamic_bitset<>(dim * 2, 0));
+  std::vector<boost::dynamic_bitset<> > face_of_ghost_cell_counted(
+    my_model->all_ghost_cells.size(), boost::dynamic_bitset<>(dim * 2, 0));
+  unsigned cell_counter = 0;
 
   //
   //   Notes for developer 1:
@@ -78,11 +83,15 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   {
     auto i_manager = static_cast<ModelEq *>(i_cell.get())
                        ->template get_manager<cell_manager_type>();
+    auto *i_basis =
+      static_cast<ModelEq *>(i_cell.get())->template get_basis<BasisType>();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
-      if (i_manager->dofs_ID_in_this_rank[i_face].size() == 0)
+      if (i_manager->face_is_not_visited(i_face))
       {
         const auto &face_i1 = i_cell->dealii_cell->face(i_face);
+        unsigned n_open_dofs_on_this_face =
+          i_manager->dof_names_on_faces[i_face].count();
         //
         // The basic case corresponds to face_i1 being on the boundary.
         // In this case we only need to set the number of current face,
@@ -101,10 +110,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                                                    global_dof_num_on_this_rank,
                                                    comm_rank,
                                                    0);
-          local_dof_num_on_this_rank +=
-            i_manager->dof_names_on_faces[i_face].count();
-          global_dof_num_on_this_rank +=
-            i_manager->dof_names_on_faces[i_face].count();
+          local_dof_num_on_this_rank += n_open_dofs_on_this_face;
+          global_dof_num_on_this_rank += n_open_dofs_on_this_face;
         }
         else
         {
@@ -156,12 +163,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 nb_i1->neighbor_child_on_subface(face_nb_num, i_nb_subface);
               if (nb_of_nb_i1->subdomain_id() == comm_rank)
               {
-                unsigned nb_of_nb_num =
-                  my_model->my_mesh->cell_id_to_num_finder(nb_of_nb_i1, true);
                 auto nb_of_nb_manager =
-                  static_cast<ModelEq *>(
-                    my_model->all_owned_cells[nb_of_nb_num].get())
-                    ->template get_manager<cell_manager_type>();
+                  my_model->template get_owned_cell_manager<cell_manager_type>(
+                    nb_of_nb_i1);
                 nb_of_nb_manager->assign_local_cell_data(
                   nb_face_of_nb_num,
                   local_dof_num_on_this_rank,
@@ -173,8 +177,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 ++mpi_status_counter;
               }
             }
-            local_dof_num_on_this_rank +=
-              i_manager->dof_names_on_faces[i_face].count();
+            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
           }
           //
           // The second case is that the neighbor is finer than this cell.
@@ -200,12 +203,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
               std::string nb_str_id = nb_ss_id.str();
               if (nb_i1->subdomain_id() == comm_rank)
               {
-                int nb_i1_num =
-                  my_model->my_mesh->cell_id_to_num_finder(nb_str_id, true);
-                my_model->my_mesh->cell_id_to_num_finder(nb_str_id, true);
-                auto nb_manager = static_cast<ModelEq *>(
-                                    my_model->all_owned_cells[nb_i1_num].get())
-                                    ->template get_manager<cell_manager_type>();
+                auto nb_manager =
+                  my_model->template get_owned_cell_manager<cell_manager_type>(
+                    nb_str_id);
                 nb_manager->assign_local_global_cell_data(
                   face_nb_i1,
                   local_dof_num_on_this_rank,
@@ -216,16 +216,14 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
               else
               {
                 //
-                // Here, we are sure that the face is owned by this rank.
-                // Also, we know our cell is coarser than nb_i1.
+                // Here, we are sure that the neighbor is not owned by this
+                // rank. Also, we know our cell is coarser than nb_i1.
                 // Hence, we do not bother to know if the rank of neighbor
                 // subdomain is greater or smaller than the current rank.
                 //
-                unsigned nb_i1_num =
-                  my_model->my_mesh->cell_id_to_num_finder(nb_str_id, false);
-                auto nb_manager = static_cast<ModelEq *>(
-                                    my_model->all_ghost_cells[nb_i1_num].get())
-                                    ->template get_manager<cell_manager_type>();
+                auto nb_manager =
+                  my_model->template get_ghost_cell_manager<cell_manager_type>(
+                    nb_str_id);
                 nb_manager->assign_local_global_cell_data(
                   face_nb_i1,
                   local_dof_num_on_this_rank,
@@ -248,10 +246,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 ++mpi_request_counter;
               }
             }
-            local_dof_num_on_this_rank +=
-              i_manager->dof_names_on_faces[i_face].count();
-            global_dof_num_on_this_rank +=
-              i_manager->dof_names_on_faces[i_face].count();
+            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
+            global_dof_num_on_this_rank += n_open_dofs_on_this_face;
           }
           //
           // The third case is that the neighbor has the same level of
@@ -266,25 +262,22 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             std::string nb_str_id = nb_ss_id.str();
             if (nb_i1->subdomain_id() == comm_rank)
             {
-              int nb_i1_num =
-                my_model->my_mesh->cell_id_to_num_finder(nb_str_id, true);
+              auto nb_manager =
+                my_model->template get_owned_cell_manager<cell_manager_type>(
+                  nb_str_id);
               i_manager->assign_local_global_cell_data(
                 i_face,
                 local_dof_num_on_this_rank,
                 global_dof_num_on_this_rank,
                 comm_rank,
                 0);
-              auto nb_manager = static_cast<ModelEq *>(
-                                  my_model->all_owned_cells[nb_i1_num].get())
-                                  ->template get_manager<cell_manager_type>();
               nb_manager->assign_local_global_cell_data(
                 face_nb_i1,
                 local_dof_num_on_this_rank,
                 global_dof_num_on_this_rank,
                 comm_rank,
                 0);
-              global_dof_num_on_this_rank +=
-                nb_manager->dof_names_on_faces[i_face].count();
+              global_dof_num_on_this_rank += n_open_dofs_on_this_face;
             }
             else
             {
@@ -297,18 +290,15 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                   global_dof_num_on_this_rank,
                   comm_rank,
                   0);
-                unsigned nb_i1_num =
-                  my_model->my_mesh->cell_id_to_num_finder(nb_str_id, false);
-                auto nb_manager = static_cast<ModelEq *>(
-                                    my_model->all_ghost_cells[nb_i1_num].get())
-                                    ->template get_manager<cell_manager_type>();
+                auto nb_manager =
+                  my_model->template get_ghost_cell_manager<cell_manager_type>(
+                    nb_str_id);
                 nb_manager->assign_local_global_cell_data(
                   face_nb_i1,
                   local_dof_num_on_this_rank,
                   global_dof_num_on_this_rank,
                   comm_rank,
                   0);
-
                 //
                 // Now we send id, face id, subface(=0), and neighbor face
                 // number to the corresponding rank.
@@ -322,8 +312,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                               0,
                               global_dof_num_on_this_rank);
                 face_to_rank_sender[nb_i1->subdomain_id()].push_back(buffer);
-                global_dof_num_on_this_rank +=
-                  i_manager->dof_names_on_faces[i_face].count();
+                global_dof_num_on_this_rank += n_open_dofs_on_this_face;
                 ++mpi_request_counter;
               }
               else
@@ -336,12 +325,12 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 ++mpi_status_counter;
               }
             }
-            local_dof_num_on_this_rank +=
-              i_manager->dof_names_on_faces[i_face].count();
+            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
           }
         }
       }
     }
+    ++cell_counter;
   }
 
   //
@@ -400,7 +389,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                            ->template get_manager<cell_manager_type>();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
-      if (ghost_manager->dofs_ID_in_this_rank[i_face].size() == 0)
+      unsigned n_open_dofs_on_this_face =
+        ghost_manager->dof_names_on_faces[i_face].count();
+      if (ghost_manager->face_is_not_visited(i_face))
       {
         const auto &face_i1 = ghost_cell->dealii_cell->face(i_face);
         //
@@ -418,8 +409,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
               ghost_dofs_counter,
               ghost_cell->dealii_cell->subdomain_id(),
               0);
-            ghost_dofs_counter -=
-              ghost_manager->dof_names_on_faces[i_face].count();
+            ghost_dofs_counter -= n_open_dofs_on_this_face;
           }
         }
         else
@@ -448,12 +438,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                                                                    i_subface);
               if (nb_subface->is_ghost())
               {
-                unsigned nb_subface_num =
-                  my_model->my_mesh->cell_id_to_num_finder(nb_subface, false);
                 auto nb_manager =
-                  static_cast<ModelEq *>(
-                    my_model->all_ghost_cells[nb_subface_num].get())
-                    ->template get_manager<cell_manager_type>();
+                  my_model->template get_ghost_cell_manager<cell_manager_type>(
+                    nb_subface);
                 nb_manager->assign_ghost_cell_data(face_nb_subface,
                                                    ghost_dofs_counter,
                                                    ghost_dofs_counter,
@@ -467,11 +454,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             dealii_cell_type &&nb_i1 =
               ghost_cell->dealii_cell->neighbor(i_face);
             int face_nb_i1 = ghost_cell->dealii_cell->neighbor_face_no(i_face);
-            unsigned nb_i1_num =
-              my_model->my_mesh->cell_id_to_num_finder(nb_i1, false);
             auto nb_manager =
-              static_cast<ModelEq *>(my_model->all_ghost_cells[nb_i1_num].get())
-                ->template get_manager<cell_manager_type>();
+              my_model->template get_ghost_cell_manager<cell_manager_type>(
+                nb_i1);
             assert(nb_manager->dofs_ID_in_this_rank[face_nb_i1].size() == 0);
             assert(nb_manager->dofs_ID_in_all_ranks[face_nb_i1].size() == 0);
             nb_manager->assign_ghost_cell_data(face_nb_i1,
@@ -480,8 +465,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                                                nb_i1->subdomain_id(),
                                                0);
           }
-          ghost_dofs_counter -=
-            ghost_manager->dof_names_on_faces[i_face].count();
+          ghost_dofs_counter -= n_open_dofs_on_this_face;
         }
       }
     }
@@ -575,12 +559,10 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         Tokenize(buffer, tokens, "#");
         assert(tokens.size() == 4);
         std::string cell_unique_id = tokens[0];
-        int i_cell_number =
-          my_model->my_mesh->cell_id_to_num_finder(cell_unique_id, true);
         unsigned face_num = std::stoi(tokens[1]);
         auto i_manager =
-          static_cast<ModelEq *>(my_model->all_owned_cells[i_cell_number].get())
-            ->template get_manager<cell_manager_type>();
+          my_model->template get_owned_cell_manager<cell_manager_type>(
+            cell_unique_id);
         assert(i_manager->dofs_ID_in_all_ranks[face_num].size() == 0);
         assert(i_manager->dof_names_on_faces[face_num].count() != 0);
         //
@@ -669,12 +651,10 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         Tokenize(buffer, tokens, "#");
         assert(tokens.size() == 4);
         std::string cell_unique_id = tokens[0];
-        int i_cell_number =
-          my_model->my_mesh->cell_id_to_num_finder(cell_unique_id, true);
         unsigned face_num = std::stoi(tokens[1]);
         auto i_manager =
-          static_cast<ModelEq *>(my_model->all_owned_cells[i_cell_number].get())
-            ->template get_manager<cell_manager_type>();
+          my_model->template get_owned_cell_manager<cell_manager_type>(
+            cell_unique_id);
         assert(i_manager->dof_names_on_faces[face_num].count() != 0);
         assert(i_manager->dofs_ID_in_all_ranks[face_num].size() == 0);
         //
@@ -691,6 +671,239 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
       i_recv->second = false;
     }
   }
-  //  static_cast<ModelEq *>(my_model->all_owned_cells[0].get())
-  //    ->get_relevant_dofs_count(0);
+
+  //
+  // Before contnuing with the rest of this function, we deefine a
+  // structure which serves as a generic DoF, which stores such things
+  // as the parent cell of each DoF, and the corresponding face.
+  //
+
+  using vec_iter_ptr_type = typename cell<dim, spacedim>::vec_iter_ptr_type;
+  struct dof_properties
+  {
+    dof_properties() : n_local_connected_DOFs(0), n_nonlocal_connected_DOFs(0)
+    {
+    }
+    unsigned n_local_connected_DOFs;
+    unsigned n_nonlocal_connected_DOFs;
+    std::vector<vec_iter_ptr_type> parent_cells;
+    std::vector<unsigned> connected_face_of_parent_cell;
+    std::vector<vec_iter_ptr_type> parent_ghosts;
+    std::vector<unsigned> connected_face_of_parent_ghost;
+  };
+
+  //
+  //         THESE NEXT LOOPS ARE JUST FOR THE SOLVER !!
+  //
+  // When you want to preallocate stiffness matrix in PETSc, it
+  // accpet an argument which contains the number of DOFs connected to
+  // the DOF in each row. According to PETSc, if you let it know
+  // about this preallocation, you will get a noticeable performance
+  // boost.
+  //
+  // Now, we want to know, each face belonging to the current
+  // rank is connected to how many faces from the current rank and
+  // how many faces from other ranks. So, if for example, we are on
+  // rank 1, we want to be able to count the innerFaces and
+  // interFaces shown below (This is especilly a challange,
+  // because the faces of elements on the right are connected to
+  // faces of elements in the left via two middle ghost elements.):
+  //
+  //               ---------------------------
+  //                rank 1 | rank 2 | rank 1
+  //               --------|--------|---------
+  //                rank 1 | rank 2 | rank 1
+  //               ----------------------------
+  //
+  // To this end, Let us build a vector containing each unique
+  // face which belongs to this rank (So those faces which do
+  // not belong to this rank are not present in this vector !).
+  // Then, fill the GenericFace::Parent_Cells vector with
+  // those parent cells which also belongs to the current rank.
+  // Also, we fill GenericFace::Parent_Ghosts with ghost cells
+  // connected to the current face.
+  //
+  std::vector<dof_properties> all_owned_dofs(global_dof_num_on_this_rank);
+  for (vec_iter_ptr_type cell_it = my_model->all_owned_cells.begin();
+       cell_it != my_model->all_owned_cells.end();
+       ++cell_it)
+  {
+    auto i_manager = static_cast<ModelEq *>(cell_it->get())
+                       ->template get_manager<cell_manager_type>();
+    /*
+        for (unsigned i_face = 0; i_face < (*cell_it)->n_faces; ++i_face)
+        {
+          if ((*cell_it)->face_owner_rank[i_face] == this->comm_rank)
+          {
+            for (unsigned i_dof = 0;
+                 i_dof < (*cell_it)->dofs_ID_in_all_ranks[i_face].size();
+                 ++i_dof)
+            {
+              int dof_i1 = (*cell_it)->dofs_ID_in_all_ranks[i_face][i_dof] -
+                           dofs_count_be4_rank[this->comm_rank];
+              all_owned_dofs[dof_i1].parent_cells.push_back(cell_it);
+              all_owned_dofs[dof_i1].connected_face_of_parent_cell.push_back(
+                i_face);
+              //
+              // Here, we just add the open DoFs on the face itself. The reason
+              // for this is to avoid
+              //
+              if (all_owned_dofs[dof_i1].n_local_connected_DOFs == 0)
+                all_owned_dofs[dof_i1].n_local_connected_DOFs =
+                  (*cell_it)->dof_names_on_faces[i_face].count();
+            }
+          }
+        }
+        */
+  }
+  /*
+    for (typename GenericCell<dim>::vec_iter_ptr_type ghost_cell_it =
+           all_ghost_cells.begin();
+         ghost_cell_it != all_ghost_cells.end();
+         ++ghost_cell_it)
+    {
+      for (unsigned i_face = 0; i_face < (*ghost_cell_it)->n_faces; ++i_face)
+      {
+        if ((*ghost_cell_it)->face_owner_rank[i_face] == this->comm_rank)
+        {
+          for (unsigned i_dof = 0;
+               i_dof < (*ghost_cell_it)->dofs_ID_in_all_ranks[i_face].size();
+               ++i_dof)
+          {
+            int dof_i1 = (*ghost_cell_it)->dofs_ID_in_all_ranks[i_face][i_dof] -
+                         dofs_count_be4_rank[this->comm_rank];
+            all_owned_dofs[dof_i1].parent_ghosts.push_back(ghost_cell_it);
+            all_owned_dofs[dof_i1].connected_face_of_parent_ghost.push_back(
+              i_face);
+            if (all_owned_dofs[dof_i1].n_local_connected_DOFs == 0)
+            {
+              std::cout << "This is a curious case which should not happen. "
+                           "How is that a ghost cell can give a face ownership?"
+                        << std::endl;
+              assert(all_owned_dofs[dof_i1].n_local_connected_DOFs != 0);
+            }
+          }
+        }
+      }
+    }
+
+    this->n_global_DOFs_rank_owns = n_dofs_this_rank_owns * n_face_bases;
+
+    //
+    //
+    //
+    for (GenericDOF<dim> &dof : all_owned_dofs)
+    {
+      std::map<int, unsigned> local_dofs_num_map;
+      std::map<int, unsigned> nonlocal_dofs_num_map;
+      for (unsigned i_parent_cell = 0; i_parent_cell < dof.parent_cells.size();
+           ++i_parent_cell)
+      {
+        auto parent_cell = dof.parent_cells[i_parent_cell];
+        for (unsigned j_face = 0; j_face < n_faces_per_cell; ++j_face)
+        {
+          unsigned face_ij = dof.connected_face_of_parent_cell[i_parent_cell];
+          if (j_face != face_ij)
+            for (unsigned i_dof = 0;
+                 i_dof < (*parent_cell)->dofs_ID_in_all_ranks[j_face].size();
+                 ++i_dof)
+            {
+              if ((*parent_cell)->face_owner_rank[j_face] == this->comm_rank)
+                local_dofs_num_map[(*parent_cell)
+                                     ->dofs_ID_in_all_ranks[j_face][i_dof]]++;
+              else
+                nonlocal_dofs_num_map[(*parent_cell)
+                                        ->dofs_ID_in_all_ranks[j_face][i_dof]]++;
+            }
+        }
+      }
+
+      for (unsigned i_parent_ghost = 0; i_parent_ghost <
+    dof.parent_ghosts.size();
+           ++i_parent_ghost)
+      {
+        auto parent_ghost = dof.parent_ghosts[i_parent_ghost];
+        for (unsigned j_face = 0; j_face < n_faces_per_cell; ++j_face)
+        {
+          unsigned face_ij = dof.connected_face_of_parent_ghost[i_parent_ghost];
+          if (j_face != face_ij)
+            for (unsigned i_dof = 0;
+                 i_dof < (*parent_ghost)->dof_names_on_faces[j_face].count();
+                 ++i_dof)
+            {
+              if ((*parent_ghost)->face_owner_rank[j_face] == this->comm_rank)
+                local_dofs_num_map[(*parent_ghost)
+                                     ->dofs_ID_in_all_ranks[j_face][i_dof]]++;
+              else
+                nonlocal_dofs_num_map[(*parent_ghost)
+                                        ->dofs_ID_in_all_ranks[j_face][i_dof]]++;
+            }
+        }
+      }
+      dof.n_local_connected_DOFs += local_dofs_num_map.size();
+      dof.n_nonlocal_connected_DOFs = nonlocal_dofs_num_map.size();
+    }
+
+    MPI_Allreduce(&this->n_global_DOFs_rank_owns,
+                  &this->n_global_DOFs_on_all_ranks,
+                  1,
+                  MPI_UNSIGNED,
+                  MPI_SUM,
+                  this->manager->comm);
+
+    int dof_counter = 0;
+    this->n_local_DOFs_connected_to_DOF.resize(this->n_global_DOFs_rank_owns);
+    this->n_nonlocal_DOFs_connected_to_DOF.resize(this->n_global_DOFs_rank_owns);
+    for (GenericDOF<dim> &dof : all_owned_dofs)
+    {
+      for (unsigned unknown = 0; unknown < n_face_bases; ++unknown)
+      {
+        this->n_local_DOFs_connected_to_DOF[dof_counter + unknown] +=
+          dof.n_local_connected_DOFs * n_face_bases;
+        this->n_nonlocal_DOFs_connected_to_DOF[dof_counter + unknown] +=
+          dof.n_nonlocal_connected_DOFs * n_face_bases;
+      }
+      dof_counter += n_face_bases;
+    }
+
+    std::map<unsigned, unsigned> map_from_local_to_global;
+    for (std::unique_ptr<GenericCell<dim> > &cell : all_owned_cells)
+    {
+      for (unsigned i_face = 0; i_face < n_faces_per_cell; ++i_face)
+      {
+        for (unsigned i_dof = 0;
+             i_dof < cell->dofs_ID_in_this_rank[i_face].size();
+             ++i_dof)
+        {
+          int index1 = cell->dofs_ID_in_this_rank[i_face][i_dof];
+          int index2 = cell->dofs_ID_in_all_ranks[i_face][i_dof];
+          assert(index1 >= 0 && index2 >= 0);
+          map_from_local_to_global[index1] = index2;
+        }
+      }
+    }
+    assert(map_from_local_to_global.size() == local_dof_num_on_this_rank);
+
+    this->n_local_DOFs_on_this_rank = local_dof_num_on_this_rank * n_face_bases;
+    this->scatter_from.reserve(this->n_local_DOFs_on_this_rank);
+    this->scatter_to.reserve(this->n_local_DOFs_on_this_rank);
+    for (const auto &map_it : map_from_local_to_global)
+    {
+      for (unsigned i_polyface = 0; i_polyface < n_face_bases; ++i_polyface)
+      {
+        this->scatter_to.push_back(map_it.first * n_face_bases + i_polyface);
+        this->scatter_from.push_back(map_it.second * n_face_bases + i_polyface);
+      }
+    }
+
+    char buffer[100];
+    std::snprintf(buffer,
+                  100,
+                  "Number of DOFs in this rank is: %d and number of dofs "
+                  "in all "
+                  "ranks is : %d",
+                  this->n_global_DOFs_rank_owns,
+                  this->n_global_DOFs_on_all_ranks);
+    this->manager->out_logger(this->manager->execution_time, buffer, true);
+    */
 }

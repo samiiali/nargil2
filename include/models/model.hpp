@@ -2,6 +2,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 #ifndef GENERIC_DOF_NUM_HPP
@@ -77,9 +78,19 @@ struct model : public base_model
   //
   //
   /**
-   * @brief Here we count the global DOFs of the mesh.
+   * @brief Returns the manager of the cell. The input is either a
+   * dealii cell or a cellID of a dealii cell.
    */
-  template <typename DoFCounterType> void count_globals(DoFCounterType &);
+  template <typename CellManagerType, typename InputType>
+  CellManagerType *get_owned_cell_manager(const InputType &) const;
+
+  //
+  //
+  /**
+   * @brief Returns the manager of the cell.
+   */
+  template <typename CellManagerType, typename InputType>
+  CellManagerType *get_ghost_cell_manager(const InputType &) const;
 
   //
   //

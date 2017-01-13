@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+#include <boost/dynamic_bitset.hpp>
+
 #include <mpi.h>
 
 #include <deal.II/base/point.h>
@@ -133,13 +135,6 @@ struct implicit_hybridized_numbering : public dof_counter<dim, spacedim>
   //
   //
   /**
-   *
-   */
-  typedef hybridized_cell_manager<dim, spacedim> cell_manager_type;
-
-  //
-  //
-  /**
    * @brief The constructor of the class.
    */
   implicit_hybridized_numbering();
@@ -161,8 +156,8 @@ struct implicit_hybridized_numbering : public dof_counter<dim, spacedim>
    * avoided. We use the same basis for ghost cells as regular cells. This can
    * be avoided as well.
    */
-  template <typename ModelEq, typename ModelType>
-  void count_globals(ModelType *my_model);
+  template <typename BasisType, typename ModelEq>
+  void count_globals(model<ModelEq, dim, spacedim> *my_model);
 };
 }
 

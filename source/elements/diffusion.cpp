@@ -38,7 +38,7 @@ template <int dim, int spacedim>
 template <typename BasisType, typename Func>
 void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
 {
-  static_cast<typename BasisType::required_manager_type *>(my_manager.get())
+  static_cast<typename BasisType::relevant_manager_type *>(my_manager.get())
     ->assign_BCs(f);
 }
 
@@ -50,6 +50,16 @@ template <typename CellManagerType>
 CellManagerType *nargil::diffusion<dim, spacedim>::get_manager()
 {
   return static_cast<CellManagerType *>(my_manager.get());
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+const BasisType *nargil::diffusion<dim, spacedim>::get_basis() const
+{
+  return static_cast<const BasisType *>(my_basis);
 }
 
 //
@@ -157,6 +167,17 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_on_each_face() const
 
 //
 //
+
+template <int dim, int spacedim>
+unsigned
+nargil::diffusion<dim, spacedim>::hdg_polybasis::n_unknowns_for_ith_dof(
+  const unsigned i_dof) const
+{
+  return pow(this->_poly_order, dim - 1);
+}
+
+//
+//
 //
 //
 //
@@ -185,6 +206,3 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::assign_BCs(Func f)
 {
   f(this);
 }
-
-//
-//

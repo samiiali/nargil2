@@ -47,6 +47,7 @@ void nargil::hybridized_cell_manager<dim, spacedim>::
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
+  face_visited[i_face] = 1;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
   {
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
@@ -67,6 +68,7 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_ghost_cell_data(
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
+  face_visited[i_face] = 1;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
   {
     dofs_ID_in_this_rank[i_face].push_back(local_num_ - i_dof);
@@ -86,8 +88,16 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_local_cell_data(
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
+  face_visited[i_face] = 1;
   for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
+}
+
+template <int dim, int spacedim>
+bool nargil::hybridized_cell_manager<dim, spacedim>::face_is_not_visited(
+  const unsigned i_face)
+{
+  return !(face_visited[i_face]);
 }
 
 //
@@ -125,7 +135,7 @@ nargil::cell<dim, spacedim>::create(dealii_cell_type &in_cell,
 {
   std::unique_ptr<ModelEq> the_cell(
     new ModelEq(in_cell, id_num_, &basis, in_model));
-  the_cell->template init_manager<typename BasisType::required_manager_type>();
+  the_cell->template init_manager<typename BasisType::relevant_manager_type>();
   return std::move(the_cell);
 }
 

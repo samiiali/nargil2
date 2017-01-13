@@ -25,7 +25,7 @@ template <int dim, int spacedim = dim> struct Problem
   static void generate_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> repeats(dim, 100);
+    std::vector<unsigned> repeats(dim, 10);
     dealii::Point<spacedim> point_1, point_2;
     point_1 = {-1.0, -1.0};
     point_2 = {1.0, 1.0};
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
     model1.assign_BCs<basis_type>(Problem<2>::assign_BCs);
 
     nargil::implicit_hybridized_numbering<2> dof_counter1;
-    model1.count_globals(dof_counter1);
+    dof_counter1.count_globals<basis_type>(&model1);
 
     //
     // We can also use a functor to generate the mesh.

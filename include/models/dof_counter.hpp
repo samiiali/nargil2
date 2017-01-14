@@ -127,7 +127,7 @@ struct implicit_hybridized_numbering : public dof_counter<dim, spacedim>
   //
   //
   /**
-   *
+   * dealii_cell_type
    */
   using dealii_cell_type =
     typename dof_counter<dim, spacedim>::dealii_cell_type;

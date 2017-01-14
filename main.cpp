@@ -19,6 +19,9 @@
  */
 template <int dim, int spacedim = dim> struct Problem
 {
+  typedef nargil::diffusion<2> model_eq;
+  typedef nargil::model<model_eq, 2> model_type;
+  typedef model_eq::hdg_polybasis basis_type;
   /**
    * @brief generate_mesh
    */
@@ -36,28 +39,31 @@ template <int dim, int spacedim = dim> struct Problem
   /**
    * @brief dofs_on_nodes
    */
-  static void assign_BCs(
-    typename nargil::diffusion<dim, spacedim>::hdg_manager *const manager)
+  static void assign_BCs(nargil::cell<dim, spacedim> *in_cell)
   {
+    unsigned n_dof_per_face = basis_type::get_n_dofs_per_face();
+    auto i_manager =
+      static_cast<model_eq *>(in_cell)
+        ->template get_manager<typename basis_type::relevant_manager_type>();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
-      auto &&face = manager->my_cell->dealii_cell->face(i_face);
+      auto &&face = i_manager->my_cell->dealii_cell->face(i_face);
       if (face->at_boundary())
       {
         if (fabs(face->center()[0] > 1 - 1.E-4))
         {
-          manager->BCs[i_face] = nargil::boundary_condition::essential;
-          manager->dof_names_on_faces[i_face].resize(1, 0);
+          i_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          i_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
         else
         {
-          manager->BCs[i_face] = nargil::boundary_condition::essential;
-          manager->dof_names_on_faces[i_face].resize(1, 0);
+          i_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          i_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
       }
       else
       {
-        manager->dof_names_on_faces[i_face].resize(1, 1);
+        i_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
       }
     }
   }
@@ -86,16 +92,6 @@ template <int dim, int spacedim = dim> struct Problem
                                                         point_1, point_2, true);
     }
   };
-
-  /**
-   * @brief BCs_on_face
-   */
-  std::vector<nargil::boundary_condition> BCs_on_face()
-  {
-    std::vector<nargil::boundary_condition> BCs(
-      1, nargil::boundary_condition::essential);
-    return BCs;
-  }
 };
 
 /**
@@ -112,15 +108,14 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    nargil::model<nargil::diffusion<2>, 2> model1(mesh1);
+    Problem<2>::model_type model1(mesh1);
 
-    typedef nargil::diffusion<2>::hdg_polybasis basis_type;
-    basis_type basis1(3, 4);
+    Problem<2>::basis_type basis1(3, 4);
     model1.init_model_elements(basis1);
-    model1.assign_BCs<basis_type>(Problem<2>::assign_BCs);
+    model1.assign_BCs<Problem<2>::basis_type>(Problem<2>::assign_BCs);
 
     nargil::implicit_hybridized_numbering<2> dof_counter1;
-    dof_counter1.count_globals<basis_type>(&model1);
+    dof_counter1.count_globals<Problem<2>::basis_type>(&model1);
 
     //
     // We can also use a functor to generate the mesh.

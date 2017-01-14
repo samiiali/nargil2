@@ -93,9 +93,10 @@ template <int dim, int spacedim = dim> struct mesh
   //
   //
   /**
-   *
+   * Given the string ID of the cell, this function returns the local
+   * integer number associated with
    */
-  int cell_id_to_num_finder(const std::string &dealii_cell_,
+  int cell_id_to_num_finder(const std::string &str_id,
                             const bool cell_is_owned) const;
 
   //

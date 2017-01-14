@@ -13,6 +13,17 @@
 
 namespace nargil
 {
+/**
+ * @defgroup CellManagers Cell Managers
+ * @brief All cell manager structures.
+ *
+ * @defgroup modelelements Model Elements
+ * @brief Contains different elements.
+ *
+ * @defgroup modelbases Model Bases
+ * @brief Contains bases for different models
+ */
+
 //
 //
 // Forward declerations of cell to be used in cell_manager.
@@ -26,54 +37,68 @@ struct base_model;
 //
 //
 /**
- * @brief Base class for all other basis types.
+ * Base class for all other basis types.
  */
 template <int dim, int spacedim> struct base_basis
 {
   //
   //
   /**
-   * @brief Constructor of the class
+   * Constructor of the class
    */
   base_basis() {}
 
   //
   //
   /**
-   * @brief Deconstrcutor of the class
+   * Deconstrcutor of the class
    */
   virtual ~base_basis() {}
 };
 
 //
 //
+//
+//
 /**
- * @brief Base class for all cell_manager in elements
+ * Base class for all cell_manager in elements.
+ *
+ * @ingroup CellManagers
  */
 template <int dim, int spacedim> struct cell_manager
 {
   //
   //
   /**
-   * @brief Constructor of the class
+   * Constructor of the class
    */
   cell_manager(const cell<dim, spacedim> *);
 
   //
   //
   /**
-   * @brief Deconstructor of the class
+   * Deconstructor of the class
    */
   virtual ~cell_manager() {}
 
   //
   //
   /**
-   * @brief A pointer to the cell which contains the cell_manager
+   * A pointer to the cell which contains the cell_manager
    */
   const cell<dim, spacedim> *my_cell;
 };
 
+//
+//
+//
+//
+/**
+ * This is the base class for all nargil::cell_manager 's with
+ * their global unknowns on their faces.
+ *
+ * @ingroup CellManagers
+ */
 template <int dim, int spacedim>
 struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 {
@@ -94,60 +119,88 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   //
   //
   /**
-   * @brief assign_local_global_cell_data
+   * assign_local_global_cell_data
    */
-  void assign_local_global_cell_data(const unsigned &i_face,
-                                     const unsigned &local_num_,
-                                     const unsigned &global_num_,
-                                     const unsigned &comm_rank_,
-                                     const unsigned &half_range_);
+  void
+  assign_local_global_cell_data(const unsigned &i_face,
+                                const unsigned &local_num_,
+                                const unsigned &global_num_,
+                                const unsigned &comm_rank_,
+                                const unsigned &half_range_,
+                                const std::vector<unsigned> &n_unkns_per_dof);
 
   //
   //
   /**
-   * @brief assign_local_cell_data
+   * assign_local_cell_data
    */
   void assign_local_cell_data(const unsigned &i_face,
                               const unsigned &local_num_,
                               const int &comm_rank_,
-                              const unsigned &half_range_);
+                              const unsigned &half_range_,
+                              const std::vector<unsigned> &n_unkns_per_dof);
 
   //
   //
   /**
-   * @brief assign_ghost_cell_data
+   * assign_ghost_cell_data
    */
   void assign_ghost_cell_data(const unsigned &i_face,
                               const int &local_num_,
                               const int &global_num_,
                               const unsigned &comm_rank_,
-                              const unsigned &half_range_);
+                              const unsigned &half_range_,
+                              const std::vector<unsigned> &n_unkns_per_dof);
 
   //
   //
   /**
-   *
+   * This function is used when counting the unknowns of the model. Since
+   * we should number the unknown only once, if a common face of two elements
+   * is visited once, we should not recount its unknowns again.
    */
   bool face_is_not_visited(const unsigned);
 
   //
   //
   /**
-   * @brief dofs_ID_in_this_rank
+   *
+   */
+  template <typename BasisType>
+  unsigned get_n_open_unknowns_on_face(const unsigned, const BasisType &);
+
+  //
+  //
+  /**
+   * dofs_ID_in_this_rank
    */
   std::vector<std::vector<int> > dofs_ID_in_this_rank;
 
   //
   //
   /**
-   * @brief dofs_ID_in_all_ranks
+   * dofs_ID_in_all_ranks
    */
   std::vector<std::vector<int> > dofs_ID_in_all_ranks;
 
   //
   //
   /**
-   * @brief Contains all of the boundary conditions of on the faces of this
+   * The local integer ID of the unknowns in this rank.
+   */
+  std::vector<std::vector<int> > unkns_id_in_this_rank;
+
+  //
+  //
+  /**
+   * The global integer ID of the unknowns in this rank.
+   */
+  std::vector<std::vector<int> > unkns_id_in_all_ranks;
+
+  //
+  //
+  /**
+   * Contains all of the boundary conditions of on the faces of this
    * Cell.
    */
   std::vector<boundary_condition> BCs;
@@ -160,46 +213,40 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * dofs of each face of the cell and it is 1 if the dof is open, and 0 if it
    * is restrained.
    */
-  std::vector<boost::dynamic_bitset<> > dof_names_on_faces;
+  std::vector<boost::dynamic_bitset<> > dof_status_on_faces;
 
   //
   //
   /**
-   *
+   * A bitset storing if the face has been counted during the unknown
+   * counting procedure in for example
+   * implicit_hybridized_numbering::count_globals().
    */
   std::bitset<2 * dim> face_visited;
 
   //
   //
   /**
-   * @brief Decides if the current face has a coarser neighbor.
+   * Decides if the current face has a coarser neighbor.
    */
   std::vector<unsigned> half_range_flag;
 
   //
   //
   /**
-   * @brief The CPU number of the processor which owns the current face.
+   * The CPU number of the processor which owns the current face.
    */
   std::vector<unsigned> face_owner_rank;
 };
 
-/**
- * @defgroup modelelements Model Elements
- * @brief Contains different elements.
- *
- * @defgroup modelbases Model Bases
- * @brief Contains bases for different models
- *
- * This group contains different model elements and the relevant
- * structures used to solve different model problems.
- */
-
+//
+//
 //
 //
 /**
- * @brief Contains most of the required data about a generic
+ * Contains most of the required data about a generic
  * element in the mesh.
+ *
  * @ingroup modelelements
  */
 template <int dim, int spacedim = dim> struct cell
@@ -207,7 +254,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief The deal.II cell iterator type.
+   * The deal.II cell iterator type.
    */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
     dealii_cell_type;
@@ -215,7 +262,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   *
+   * The type of iterator for a vector of unique_ptr's to elements.
    */
   typedef
     typename std::vector<std::unique_ptr<cell> >::iterator vec_iter_ptr_type;
@@ -240,7 +287,7 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief The destructor of the class.
+   * The destructor of the class.
    */
   virtual ~cell();
 
@@ -274,14 +321,14 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief number of element faces = 2 * dim
+   * number of element faces = 2 * dim
    */
   const unsigned n_faces;
 
   //
   //
   /**
-   * @brief id_num
+   * id_num
    */
   unsigned id_num;
 
@@ -297,14 +344,14 @@ template <int dim, int spacedim = dim> struct cell
   //
   //
   /**
-   * @brief An iterator to the deal.II element corresponding to this Cell.
+   * An iterator to the deal.II element corresponding to this Cell.
    */
   dealii_cell_type dealii_cell;
 
   //
   //
   /**
-   * @brief A pointer to the BaseModel object which contains this Cell.
+   * A pointer to the BaseModel object which contains this Cell.
    */
   const base_model *my_model;
 };

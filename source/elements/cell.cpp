@@ -20,7 +20,7 @@ nargil::hybridized_cell_manager<dim, spacedim>::hybridized_cell_manager(
     dofs_ID_in_this_rank(2 * dim),
     dofs_ID_in_all_ranks(2 * dim),
     BCs(2 * dim, boundary_condition::not_set),
-    dof_names_on_faces(2 * dim),
+    dof_status_on_faces(2 * dim),
     half_range_flag(2 * dim, 0),
     face_owner_rank(2 * dim, -1)
 {
@@ -38,17 +38,18 @@ nargil::hybridized_cell_manager<dim, spacedim>::~hybridized_cell_manager()
 //
 
 template <int dim, int spacedim>
-void nargil::hybridized_cell_manager<dim, spacedim>::
-  assign_local_global_cell_data(const unsigned &i_face,
-                                const unsigned &local_num_,
-                                const unsigned &global_num_,
-                                const unsigned &comm_rank_,
-                                const unsigned &half_range_)
+void nargil::hybridized_cell_manager<
+  dim, spacedim>::assign_local_global_cell_data(const unsigned &i_face,
+                                                const unsigned &local_num_,
+                                                const unsigned &global_num_,
+                                                const unsigned &comm_rank_,
+                                                const unsigned &half_range_,
+                                                const std::vector<unsigned> &)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   face_visited[i_face] = 1;
-  for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
+  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
   {
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
     dofs_ID_in_all_ranks[i_face].push_back(global_num_ + i_dof);
@@ -60,16 +61,14 @@ void nargil::hybridized_cell_manager<dim, spacedim>::
 
 template <int dim, int spacedim>
 void nargil::hybridized_cell_manager<dim, spacedim>::assign_ghost_cell_data(
-  const unsigned &i_face,
-  const int &local_num_,
-  const int &global_num_,
-  const unsigned &comm_rank_,
-  const unsigned &half_range_)
+  const unsigned &i_face, const int &local_num_, const int &global_num_,
+  const unsigned &comm_rank_, const unsigned &half_range_,
+  const std::vector<unsigned> &)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   face_visited[i_face] = 1;
-  for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
+  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
   {
     dofs_ID_in_this_rank[i_face].push_back(local_num_ - i_dof);
     dofs_ID_in_all_ranks[i_face].push_back(global_num_ - i_dof);
@@ -84,20 +83,43 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_local_cell_data(
   const unsigned &i_face,
   const unsigned &local_num_,
   const int &comm_rank_,
-  const unsigned &half_range_)
+  const unsigned &half_range_,
+  const std::vector<unsigned> &)
 {
   face_owner_rank[i_face] = comm_rank_;
   half_range_flag[i_face] = half_range_;
   face_visited[i_face] = 1;
-  for (unsigned i_dof = 0; i_dof < dof_names_on_faces[i_face].count(); ++i_dof)
+  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
     dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
 }
+
+//
+//
 
 template <int dim, int spacedim>
 bool nargil::hybridized_cell_manager<dim, spacedim>::face_is_not_visited(
   const unsigned i_face)
 {
   return !(face_visited[i_face]);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+unsigned
+nargil::hybridized_cell_manager<dim, spacedim>::get_n_open_unknowns_on_face(
+  const unsigned i_face, const BasisType &i_basis)
+{
+  unsigned n_unkns = 0;
+  std::vector<unsigned> n_unkns_per_dofs = i_basis->get_n_unkns_per_dofs();
+  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].size(); ++i_dof)
+  {
+    unsigned dof_is_open = (unsigned)dof_status_on_faces[i_face][i_dof];
+    n_unkns += dof_is_open * n_unkns_per_dofs[i_dof];
+  }
+  return n_unkns;
 }
 
 //

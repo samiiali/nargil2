@@ -68,10 +68,10 @@ template <typename BasisType, typename Func>
 void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
 {
   for (auto &&i_cell : all_owned_cells)
-    static_cast<ModelEq *>(i_cell.get())->assign_BCs<BasisType>(f);
+    f(i_cell.get());
   // Applying the BCs on ghost cells.
   for (auto &&i_cell : all_ghost_cells)
-    static_cast<ModelEq *>(i_cell.get())->assign_BCs<BasisType>(f);
+    f(i_cell.get());
 }
 
 //

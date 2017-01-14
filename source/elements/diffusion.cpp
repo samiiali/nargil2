@@ -159,21 +159,22 @@ void nargil::diffusion<dim, spacedim>::hdg_polybasis::
 //
 
 template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_on_each_face() const
+unsigned nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_per_face()
 {
-  return uhat_basis.dofs_per_cell;
+  return 1;
 }
 
 //
 //
 
 template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::n_unknowns_for_ith_dof(
-  const unsigned i_dof) const
+std::vector<unsigned>
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_unkns_per_dofs() const
 {
-  return pow(this->_poly_order, dim - 1);
+  // Here, we will have copy elision, DO NOT try to optimize using move
+  // semantics.
+  std::vector<unsigned> n_unkns_per_dofs(1, uhat_basis.dofs_per_cell);
+  return n_unkns_per_dofs;
 }
 
 //

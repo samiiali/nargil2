@@ -25,11 +25,12 @@ struct base_model;
 
 //
 //
+//
+//
 /**
- * @brief The element to be used for solving the diffusion equation.
+ * The element to be used for solving the diffusion equation.
+ * The first method of solving this is based on hybridized DG.
  *
- * The original method of solving this is
- * based on hybridized DG.
  * \ingroup modelelements
  */
 template <int dim, int spacedim = dim>
@@ -38,14 +39,15 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
-   * @brief We use the same typename as we defined in the base class (cell).
+   * We use the same typename as we defined in the base class
+   * (nargil::cell).
    */
   using typename cell<dim, spacedim>::dealii_cell_type;
 
   //
   //
   /**
-   * @brief The constructor of the class.
+   * The constructor of the class.
    */
   diffusion(dealii_cell_type &in_cell,
             const unsigned id_num_,
@@ -55,7 +57,7 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
-   * @brief The destructor of the class.
+   * The destructor of the class.
    */
   virtual ~diffusion() final;
 
@@ -71,196 +73,30 @@ struct diffusion : public cell<dim, spacedim>
   //
   //
   /**
-   * @brief Assigns the boundary condition to different DOFs.
+   *  Assigns the boundary condition to different DOFs.
    */
   template <typename BasisType, typename Func> void assign_BCs(Func f);
 
   //
   //
   /**
-   *
+   * This function static_cast the manager of this cell to an appropriate
+   * type and return it to the user.
    */
   template <typename CellManagerType> CellManagerType *get_manager();
 
   //
   //
   /**
-   *
+   * This function static_cast the basis of this cell to an appropriate
+   * type and return it to the user.
    */
   template <typename BasisType> const BasisType *get_basis() const;
 
   //
   //
   /**
-   * Polynomial basis of type HDG.
-   * @ingroup modelbases
-   */
-  struct hdg_polybasis : public base_basis<dim, spacedim>
-  {
-    //
-    //
-    /**
-     * @brief relevant_manager_type
-     */
-    typedef typename diffusion::hdg_manager relevant_manager_type;
-
-    //
-    /**
-     * @brief hdg_polybasis
-     */
-    hdg_polybasis() = delete;
-
-    //
-    //
-    /**
-     *
-     */
-    virtual ~hdg_polybasis() final;
-
-    //
-    /**
-     * @brief Class constructor
-     */
-    hdg_polybasis(const unsigned poly_order, const unsigned quad_order);
-
-    //
-    /**
-     * @brief _poly_order
-     */
-    unsigned _poly_order;
-
-    //
-    /**
-     * @brief _quad_order
-     */
-    unsigned _quad_order;
-
-    //
-    /**
-     * @brief u_basis
-     */
-    dealii::FE_DGQ<dim> u_basis;
-
-    //
-    /**
-     * @brief q_basis
-     */
-    dealii::FESystem<dim> q_basis;
-
-    //
-    /**
-     * @brief uhat_basis
-     */
-    dealii::FE_DGQ<dim - 1> uhat_basis;
-
-    //
-    /**
-     * @brief cell_quad
-     */
-    dealii::QGauss<dim> cell_quad;
-
-    //
-    /**
-     * @brief face_quad
-     */
-    dealii::QGauss<dim - 1> face_quad;
-
-    //
-    /**
-     * @brief projected_face_quad
-     */
-    dealii::Quadrature<dim> projected_face_quad;
-
-    //
-    /**
-     * @brief fe_val_flags
-     */
-    dealii::UpdateFlags fe_val_flags;
-
-    //
-    /**
-     * @brief u_in_cell
-     */
-    dealii::FEValues<dim> u_in_cell;
-
-    //
-    /**
-     * @brief q_in_cell
-     */
-    dealii::FEValues<dim> q_in_cell;
-
-    //
-    /**
-     * @brief uhat_on_face
-     */
-    dealii::FEFaceValues<dim> uhat_on_face;
-
-    //
-    /**
-     * @brief u_on_faces
-     */
-    std::vector<std::unique_ptr<dealii::FEValues<dim> > > u_on_faces;
-
-    //
-    /**
-     * @brief q_on_faces
-     */
-    std::vector<std::unique_ptr<dealii::FEValues<dim> > > q_on_faces;
-
-    //
-    //
-    /**
-     * @brief get_n_dofs_on_each_face
-     */
-    unsigned get_n_dofs_on_each_face() const;
-
-    //
-    //
-    /**
-     * @brief adjusted_subface_quad_points
-     */
-    void adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
-                                      const unsigned half_range);
-
-    //
-    //
-    /**
-     *
-     */
-    unsigned n_unknowns_for_ith_dof(const unsigned i_dof) const;
-  };
-
-  //
-  //
-  /**
-   * @brief The hdg_operations struct
-   */
-  struct hdg_manager : hybridized_cell_manager<dim, spacedim>
-  {
-    /**
-     * @brief hdg_manager
-     */
-    hdg_manager(const diffusion<dim, spacedim> *);
-
-    //
-    //
-    /**
-     * @brief Deconstructor of the class
-     */
-    virtual ~hdg_manager() final;
-
-    //
-    //
-    /**
-     *
-     */
-    template <typename Func> void assign_BCs(Func f);
-  };
-
-  //
-  //
-  /**
-   * @brief my_basis
+   * Contains the basis of the current cell.
    */
   const base_basis<dim, spacedim> *my_basis;
 
@@ -273,6 +109,199 @@ struct diffusion : public cell<dim, spacedim>
    * types of cell_manager.
    */
   std::unique_ptr<cell_manager<dim, spacedim> > my_manager;
+
+  //
+  //
+  //
+  //
+  /**
+   * Polynomial basis of type HDG.
+   *
+   * @ingroup modelbases
+   */
+  struct hdg_polybasis : public base_basis<dim, spacedim>
+  {
+    //
+    //
+    /**
+     *  relevant_manager_type
+     */
+    typedef typename diffusion::hdg_manager relevant_manager_type;
+
+    //
+    //
+    /**
+     *  hdg_polybasis
+     */
+    hdg_polybasis() = delete;
+
+    //
+    //
+    /**
+     *  Class constructor
+     */
+    hdg_polybasis(const unsigned poly_order, const unsigned quad_order);
+
+    //
+    //
+    /**
+     *
+     */
+    virtual ~hdg_polybasis() final;
+
+    //
+    //
+    /**
+     * This function returns the number of dofs on each face of the element.
+     * The term dof refers to the functions which we want to solve a global
+     * equations to obtain them. For example in diffusion equation we solve
+     * for u globally. So, the only global dof is u, and this function
+     * returns 1.
+     */
+    static unsigned get_n_dofs_per_face();
+
+    //
+    //
+    /**
+     *  get_n_unkns_per_dofs
+     */
+    std::vector<unsigned> get_n_unkns_per_dofs() const;
+
+    //
+    //
+    /**
+     *  adjusted_subface_quad_points
+     */
+    void adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
+                                      const unsigned half_range);
+
+    //
+    //
+    /**
+     *  _poly_order
+     */
+    unsigned _poly_order;
+
+    //
+    //
+    /**
+     *  _quad_order
+     */
+    unsigned _quad_order;
+
+    //
+    //
+    /**
+     *  u_basis
+     */
+    dealii::FE_DGQ<dim> u_basis;
+
+    //
+    //
+    /**
+     *  q_basis
+     */
+    dealii::FESystem<dim> q_basis;
+
+    //
+    //
+    /**
+     *  uhat_basis
+     */
+    dealii::FE_DGQ<dim - 1> uhat_basis;
+
+    //
+    //
+    /**
+     *  cell_quad
+     */
+    dealii::QGauss<dim> cell_quad;
+
+    //
+    //
+    /**
+     *  face_quad
+     */
+    dealii::QGauss<dim - 1> face_quad;
+
+    //
+    //
+    /**
+     *  projected_face_quad
+     */
+    dealii::Quadrature<dim> projected_face_quad;
+
+    //
+    //
+    /**
+     *  fe_val_flags
+     */
+    dealii::UpdateFlags fe_val_flags;
+
+    //
+    //
+    /**
+     *  u_in_cell
+     */
+    dealii::FEValues<dim> u_in_cell;
+
+    //
+    //
+    /**
+     *  q_in_cell
+     */
+    dealii::FEValues<dim> q_in_cell;
+
+    //
+    //
+    /**
+     *  uhat_on_face
+     */
+    dealii::FEFaceValues<dim> uhat_on_face;
+
+    //
+    //
+    /**
+     *  u_on_faces
+     */
+    std::vector<std::unique_ptr<dealii::FEValues<dim> > > u_on_faces;
+
+    //
+    //
+    /**
+     *  q_on_faces
+     */
+    std::vector<std::unique_ptr<dealii::FEValues<dim> > > q_on_faces;
+  };
+
+  //
+  //
+  //
+  //
+  /**
+   *  The hdg_manager struct
+   */
+  struct hdg_manager : hybridized_cell_manager<dim, spacedim>
+  {
+    /**
+     *  hdg_manager
+     */
+    hdg_manager(const diffusion<dim, spacedim> *);
+
+    //
+    //
+    /**
+     *  Deconstructor of the class
+     */
+    virtual ~hdg_manager() final;
+
+    //
+    //
+    /**
+     * Sets the boundary conditions of the cell.
+     */
+    template <typename Func> void assign_BCs(Func f);
+  };
 };
 }
 

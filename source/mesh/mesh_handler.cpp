@@ -63,7 +63,7 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
   unsigned n_cell = 0;
   n_owned_cell = 0;
   n_ghost_cell = 0;
-  for (dealii_cell_type &&i_cell : tria.active_cell_iterators())
+  for (dealiiCell &&i_cell : tria.active_cell_iterators())
   {
     if (i_cell->is_locally_owned())
     {
@@ -90,7 +90,7 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
 
 template <int dim, int spacedim>
 int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
-  const dealii_cell_type &in_dealii_cell, const bool cell_is_owned) const
+  const dealiiCell &in_dealii_cell, const bool cell_is_owned) const
 {
   if (cell_is_owned)
   {

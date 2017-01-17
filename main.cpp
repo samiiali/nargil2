@@ -19,9 +19,9 @@
  */
 template <int dim, int spacedim = dim> struct Problem
 {
-  typedef nargil::diffusion<2> model_eq;
-  typedef nargil::model<model_eq, 2> model_type;
-  typedef model_eq::hdg_polybasis basis_type;
+  typedef nargil::diffusion<2> ModelEq;
+  typedef nargil::model<ModelEq, 2> ModelType;
+  typedef ModelEq::hdg_polybasis BasisType;
   /**
    * @brief generate_mesh
    */
@@ -41,10 +41,10 @@ template <int dim, int spacedim = dim> struct Problem
    */
   static void assign_BCs(nargil::cell<dim, spacedim> *in_cell)
   {
-    unsigned n_dof_per_face = basis_type::get_n_dofs_per_face();
+    unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     auto i_manager =
-      static_cast<model_eq *>(in_cell)
-        ->template get_manager<typename basis_type::relevant_manager_type>();
+      static_cast<ModelEq *>(in_cell)
+        ->template get_manager<typename BasisType::CellManagerType>();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = i_manager->my_cell->dealii_cell->face(i_face);
@@ -108,14 +108,14 @@ int main(int argc, char **argv)
 
     mesh1.generate_mesh(Problem<2>::generate_mesh);
 
-    Problem<2>::model_type model1(mesh1);
+    Problem<2>::ModelType model1(mesh1);
 
-    Problem<2>::basis_type basis1(3, 4);
+    Problem<2>::BasisType basis1(3, 4);
     model1.init_model_elements(basis1);
-    model1.assign_BCs<Problem<2>::basis_type>(Problem<2>::assign_BCs);
+    model1.assign_BCs<Problem<2>::BasisType>(Problem<2>::assign_BCs);
 
     nargil::implicit_hybridized_numbering<2> dof_counter1;
-    dof_counter1.count_globals<Problem<2>::basis_type>(&model1);
+    dof_counter1.count_globals<Problem<2>::BasisType>(&model1);
 
     //
     // We can also use a functor to generate the mesh.

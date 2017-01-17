@@ -119,38 +119,75 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   //
   //
   /**
+   *
+   */
+  void set_cell_properties(const unsigned i_face, const unsigned in_comm_rank,
+                           const unsigned in_half_range);
+
+  //
+  //
+  /**
    * assign_local_global_cell_data
    */
-  void
-  assign_local_global_cell_data(const unsigned &i_face,
-                                const unsigned &local_num_,
-                                const unsigned &global_num_,
-                                const unsigned &comm_rank_,
-                                const unsigned &half_range_,
-                                const std::vector<unsigned> &n_unkns_per_dof);
+  void assign_local_global_cell_data(const unsigned i_face,
+                                     const unsigned local_num_,
+                                     const unsigned global_num_);
 
   //
   //
   /**
    * assign_local_cell_data
    */
-  void assign_local_cell_data(const unsigned &i_face,
-                              const unsigned &local_num_,
-                              const int &comm_rank_,
-                              const unsigned &half_range_,
-                              const std::vector<unsigned> &n_unkns_per_dof);
+  void assign_local_cell_data(const unsigned i_face, const unsigned local_num_);
 
   //
   //
   /**
    * assign_ghost_cell_data
    */
-  void assign_ghost_cell_data(const unsigned &i_face,
-                              const int &local_num_,
-                              const int &global_num_,
-                              const unsigned &comm_rank_,
-                              const unsigned &half_range_,
-                              const std::vector<unsigned> &n_unkns_per_dof);
+  void assign_ghost_cell_data(const unsigned i_face, const int ghost_num_);
+
+  //
+  //
+  /**
+   * assign_local_global_cell_data
+   */
+  void set_owned_unkn_ids(const unsigned i_face,
+                          const unsigned local_num_,
+                          const unsigned global_num_,
+                          const std::vector<unsigned> &n_unkns_per_dof);
+
+  //
+  //
+  /**
+   * assign_local_cell_data
+   */
+  void set_local_unkn_ids(const unsigned i_face,
+                          const unsigned local_num_,
+                          const std::vector<unsigned> &n_unkns_per_dof);
+
+  //
+  //
+  /**
+   * assign_ghost_cell_data
+   */
+  void set_ghost_unkn_ids(const unsigned i_face, const int ghost_num_,
+                          const std::vector<unsigned> &n_unkns_per_dof);
+
+  //
+  //
+  /**
+   * assign_ghost_cell_data
+   */
+  void set_nonlocal_unkn_ids(const unsigned i_face, const int ghost_num_,
+                                  const std::vector<unsigned> &n_unkns_per_dof);
+
+  //
+  //
+  /**
+   *
+   */
+  void offset_global_unkn_ids(const int);
 
   //
   //
@@ -166,8 +203,8 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   /**
    *
    */
-  template <typename BasisType>
-  unsigned get_n_open_unknowns_on_face(const unsigned, const BasisType &);
+  unsigned get_n_open_unknowns_on_face(const unsigned,
+                                       const std::vector<unsigned> &);
 
   //
   //
@@ -257,7 +294,7 @@ template <int dim, int spacedim = dim> struct cell
    * The deal.II cell iterator type.
    */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
-    dealii_cell_type;
+    dealiiCell;
 
   //
   //
@@ -265,7 +302,7 @@ template <int dim, int spacedim = dim> struct cell
    * The type of iterator for a vector of unique_ptr's to elements.
    */
   typedef
-    typename std::vector<std::unique_ptr<cell> >::iterator vec_iter_ptr_type;
+    typename std::vector<std::unique_ptr<cell> >::iterator CellIter;
 
   //
   //
@@ -280,8 +317,7 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * The constructor of this class takes a deal.II cell and creates the cell.
    */
-  cell(dealii_cell_type &inp_cell,
-       const unsigned id_num_,
+  cell(dealiiCell &inp_cell, const unsigned id_num_,
        const base_model *model_);
 
   //
@@ -299,8 +335,8 @@ template <int dim, int spacedim = dim> struct cell
    * Model::init_mesh_containers.
    */
   template <typename ModelEq, typename BasisType>
-  static std::unique_ptr<ModelEq>
-  create(dealii_cell_type &, const unsigned, const BasisType &, base_model *);
+  static std::unique_ptr<ModelEq> create(dealiiCell &, const unsigned,
+                                         const BasisType &, base_model *);
 
   //
   //
@@ -346,7 +382,7 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * An iterator to the deal.II element corresponding to this Cell.
    */
-  dealii_cell_type dealii_cell;
+  dealiiCell dealii_cell;
 
   //
   //

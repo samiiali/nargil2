@@ -5,7 +5,7 @@
 
 template <int dim, int spacedim>
 nargil::diffusion<dim, spacedim>::diffusion(
-  dealii_cell_type &inp_cell,
+  dealiiCell &inp_cell,
   const unsigned in_id_num,
   const base_basis<dim, spacedim> *in_basis,
   base_model *model_)
@@ -38,7 +38,7 @@ template <int dim, int spacedim>
 template <typename BasisType, typename Func>
 void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
 {
-  static_cast<typename BasisType::relevant_manager_type *>(my_manager.get())
+  static_cast<typename BasisType::CellManagerType *>(my_manager.get())
     ->assign_BCs(f);
 }
 

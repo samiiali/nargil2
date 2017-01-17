@@ -42,14 +42,14 @@ struct diffusion : public cell<dim, spacedim>
    * We use the same typename as we defined in the base class
    * (nargil::cell).
    */
-  using typename cell<dim, spacedim>::dealii_cell_type;
+  using typename cell<dim, spacedim>::dealiiCell;
 
   //
   //
   /**
    * The constructor of the class.
    */
-  diffusion(dealii_cell_type &in_cell,
+  diffusion(dealiiCell &in_cell,
             const unsigned id_num_,
             const base_basis<dim, spacedim> *base_basis,
             base_model *in_model);
@@ -124,9 +124,9 @@ struct diffusion : public cell<dim, spacedim>
     //
     //
     /**
-     *  relevant_manager_type
+     *  CellManagerType
      */
-    typedef typename diffusion::hdg_manager relevant_manager_type;
+    typedef typename diffusion::hdg_manager CellManagerType;
 
     //
     //

@@ -44,7 +44,7 @@ template <typename BasisType, typename ModelEq>
 void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   nargil::model<ModelEq, dim, spacedim> *my_model)
 {
-  typedef typename BasisType::relevant_manager_type relevant_manager_type;
+  typedef typename BasisType::CellManagerType CellManagerType;
   int comm_rank, comm_size;
   const MPI_Comm *my_comm = my_model->my_mesh->my_comm;
   MPI_Comm_rank(*my_comm, &comm_rank);
@@ -52,8 +52,10 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
 
   std::map<unsigned, std::vector<std::string> > face_to_rank_sender;
   std::map<unsigned, unsigned> face_to_rank_recver;
-  unsigned local_dof_num_on_this_rank = 0;
-  unsigned global_dof_num_on_this_rank = 0;
+  unsigned i_local_dof_on_this_rank = 0;
+  unsigned i_global_dof_on_this_rank = 0;
+  unsigned i_local_unkn_on_this_rank = 0;
+  unsigned i_global_unkn_on_this_rank = 0;
   unsigned mpi_request_counter = 0;
   unsigned mpi_status_counter = 0;
   std::map<unsigned, bool> is_there_a_msg_from_rank;
@@ -77,7 +79,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
        my_model->all_owned_cells)
   {
     auto i_manager = static_cast<ModelEq *>(i_cell.get())
-                       ->template get_manager<relevant_manager_type>();
+                       ->template get_manager<CellManagerType>();
     auto i_basis =
       static_cast<ModelEq *>(i_cell.get())->template get_basis<BasisType>();
     std::vector<unsigned> n_unkns_per_dofs = i_basis->get_n_unkns_per_dofs();
@@ -89,7 +91,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         unsigned n_open_dofs_on_this_face =
           i_manager->dof_status_on_faces[i_face].count();
         unsigned n_open_unkns_on_this_face =
-          i_manager->get_n_open_unknowns_on_face(i_face, i_basis);
+          i_manager->get_n_open_unknowns_on_face(i_face, n_unkns_per_dofs);
         //
         // The basic case corresponds to face_i1 being on the boundary.
         // In this case we only need to set the number of current face,
@@ -103,11 +105,16 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         if (face_i1->at_boundary() &&
             i_manager->BCs[i_face] != boundary_condition::periodic)
         {
+          i_manager->set_cell_properties(i_face, comm_rank, 0);
+          i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
+                                        i_global_unkn_on_this_rank,
+                                        n_unkns_per_dofs);
           i_manager->assign_local_global_cell_data(
-            i_face, local_dof_num_on_this_rank, global_dof_num_on_this_rank,
-            comm_rank, 0, n_unkns_per_dofs);
-          local_dof_num_on_this_rank += n_open_dofs_on_this_face;
-          global_dof_num_on_this_rank += n_open_dofs_on_this_face;
+            i_face, i_local_dof_on_this_rank, i_global_dof_on_this_rank);
+          i_local_dof_on_this_rank += n_open_dofs_on_this_face;
+          i_global_dof_on_this_rank += n_open_dofs_on_this_face;
+          i_local_unkn_on_this_rank += n_open_unkns_on_this_face;
+          i_global_unkn_on_this_rank += n_open_unkns_on_this_face;
         }
         else
         {
@@ -141,7 +148,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             // The neighbor should be a ghost, because in each subdomain, the
             // elements are ordered from coarse to fine.
             //
-            dealii_cell_type &&nb_i1 = i_cell->dealii_cell->neighbor(i_face);
+            dealiiCell &&nb_i1 = i_cell->dealii_cell->neighbor(i_face);
             assert(nb_i1->is_ghost());
             unsigned face_nb_num =
               i_cell->dealii_cell->neighbor_face_no(i_face);
@@ -151,42 +158,50 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             // is wrong. I do not change it now, but I will do later.
             //
             unsigned nb_face_of_nb_num = nb_i1->neighbor_face_no(face_nb_num);
+            assert(nb_face_of_nb_num == i_face);
             for (unsigned i_nb_subface = 0;
                  i_nb_subface < face_nb->n_children();
                  ++i_nb_subface)
             {
-              const dealii_cell_type &nb_of_nb_i1 =
+              const dealiiCell &nb_of_nb_i1 =
                 nb_i1->neighbor_child_on_subface(face_nb_num, i_nb_subface);
               if (nb_of_nb_i1->subdomain_id() == comm_rank)
               {
                 auto nb_of_nb_manager =
-                  my_model
-                    ->template get_owned_cell_manager<relevant_manager_type>(
-                      nb_of_nb_i1);
+                  my_model->template get_owned_cell_manager<CellManagerType>(
+                    nb_of_nb_i1);
+                nb_of_nb_manager->set_cell_properties(
+                  nb_face_of_nb_num, nb_i1->subdomain_id(), i_nb_subface + 1);
+                nb_of_nb_manager->set_local_unkn_ids(nb_face_of_nb_num,
+                                                     i_local_unkn_on_this_rank,
+                                                     n_unkns_per_dofs);
                 nb_of_nb_manager->assign_local_cell_data(
-                  nb_face_of_nb_num, local_dof_num_on_this_rank,
-                  nb_i1->subdomain_id(), i_nb_subface + 1, n_unkns_per_dofs);
+                  nb_face_of_nb_num, i_local_dof_on_this_rank);
                 face_to_rank_recver[nb_i1->subdomain_id()]++;
                 if (!is_there_a_msg_from_rank[nb_i1->subdomain_id()])
                   is_there_a_msg_from_rank[nb_i1->subdomain_id()] = true;
                 ++mpi_status_counter;
               }
             }
-            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
+            i_local_dof_on_this_rank += n_open_dofs_on_this_face;
+            i_local_unkn_on_this_rank += n_open_unkns_on_this_face;
           }
           //
           // The second case is that the neighbor is finer than this cell.
           //
           else if (face_i1->has_children())
           {
+            i_manager->set_cell_properties(i_face, comm_rank, 0);
+            i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
+                                          i_global_unkn_on_this_rank,
+                                          n_unkns_per_dofs);
             i_manager->assign_local_global_cell_data(
-              i_face, local_dof_num_on_this_rank, global_dof_num_on_this_rank,
-              comm_rank, 0, n_unkns_per_dofs);
+              i_face, i_local_dof_on_this_rank, i_global_dof_on_this_rank);
             for (unsigned i_subface = 0;
                  i_subface < face_i1->number_of_children();
                  ++i_subface)
             {
-              dealii_cell_type &&nb_i1 =
+              dealiiCell &&nb_i1 =
                 i_cell->dealii_cell->neighbor_child_on_subface(i_face,
                                                                i_subface);
               int face_nb_i1 = i_cell->dealii_cell->neighbor_face_no(i_face);
@@ -196,13 +211,16 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
               if (nb_i1->subdomain_id() == comm_rank)
               {
                 auto nb_manager =
-                  my_model
-                    ->template get_owned_cell_manager<relevant_manager_type>(
-                      nb_str_id);
+                  my_model->template get_owned_cell_manager<CellManagerType>(
+                    nb_str_id);
+                nb_manager->set_cell_properties(face_nb_i1, comm_rank,
+                                                i_subface + 1);
+                nb_manager->set_owned_unkn_ids(
+                  face_nb_i1, i_local_unkn_on_this_rank,
+                  i_global_unkn_on_this_rank, n_unkns_per_dofs);
                 nb_manager->assign_local_global_cell_data(
-                  face_nb_i1, local_dof_num_on_this_rank,
-                  global_dof_num_on_this_rank, comm_rank, i_subface + 1,
-                  n_unkns_per_dofs);
+                  face_nb_i1, i_local_dof_on_this_rank,
+                  i_global_dof_on_this_rank);
               }
               else
               {
@@ -213,13 +231,16 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 // subdomain is greater or smaller than the current rank.
                 //
                 auto nb_manager =
-                  my_model
-                    ->template get_ghost_cell_manager<relevant_manager_type>(
-                      nb_str_id);
+                  my_model->template get_ghost_cell_manager<CellManagerType>(
+                    nb_str_id);
+                nb_manager->set_cell_properties(face_nb_i1, comm_rank,
+                                                i_subface + 1);
+                nb_manager->set_owned_unkn_ids(
+                  face_nb_i1, i_local_unkn_on_this_rank,
+                  i_global_unkn_on_this_rank, n_unkns_per_dofs);
                 nb_manager->assign_local_global_cell_data(
-                  face_nb_i1, local_dof_num_on_this_rank,
-                  global_dof_num_on_this_rank, comm_rank, i_subface + 1,
-                  n_unkns_per_dofs);
+                  face_nb_i1, i_local_dof_on_this_rank,
+                  i_global_dof_on_this_rank);
                 //
                 // Now we send id, face id, subface id, and neighbor face number
                 // to the corresponding rank.
@@ -231,13 +252,15 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                               nb_str_id.c_str(),
                               face_nb_i1,
                               i_subface + 1,
-                              global_dof_num_on_this_rank);
+                              i_global_unkn_on_this_rank);
                 face_to_rank_sender[nb_i1->subdomain_id()].push_back(buffer);
                 ++mpi_request_counter;
               }
             }
-            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
-            global_dof_num_on_this_rank += n_open_dofs_on_this_face;
+            i_local_dof_on_this_rank += n_open_dofs_on_this_face;
+            i_global_dof_on_this_rank += n_open_dofs_on_this_face;
+            i_local_unkn_on_this_rank += n_open_unkns_on_this_face;
+            i_global_unkn_on_this_rank += n_open_unkns_on_this_face;
           }
           //
           // The third case is that the neighbor has the same level of
@@ -245,7 +268,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           //
           else
           {
-            dealii_cell_type &&nb_i1 = i_cell->dealii_cell->neighbor(i_face);
+            dealiiCell &&nb_i1 = i_cell->dealii_cell->neighbor(i_face);
             int face_nb_i1 = i_cell->dealii_cell->neighbor_face_no(i_face);
             std::stringstream nb_ss_id;
             nb_ss_id << nb_i1->id();
@@ -253,32 +276,45 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             if (nb_i1->subdomain_id() == comm_rank)
             {
               auto nb_manager =
-                my_model
-                  ->template get_owned_cell_manager<relevant_manager_type>(
-                    nb_str_id);
+                my_model->template get_owned_cell_manager<CellManagerType>(
+                  nb_str_id);
+              i_manager->set_cell_properties(i_face, comm_rank, 0);
+              i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
+                                            i_global_unkn_on_this_rank,
+                                            n_unkns_per_dofs);
               i_manager->assign_local_global_cell_data(
-                i_face, local_dof_num_on_this_rank, global_dof_num_on_this_rank,
-                comm_rank, 0, n_unkns_per_dofs);
+                i_face, i_local_dof_on_this_rank, i_global_dof_on_this_rank);
+              nb_manager->set_cell_properties(face_nb_i1, comm_rank, 0);
+              nb_manager->set_owned_unkn_ids(
+                face_nb_i1, i_local_unkn_on_this_rank,
+                i_global_unkn_on_this_rank, n_unkns_per_dofs);
               nb_manager->assign_local_global_cell_data(
-                face_nb_i1, local_dof_num_on_this_rank,
-                global_dof_num_on_this_rank, comm_rank, 0, n_unkns_per_dofs);
-              global_dof_num_on_this_rank += n_open_dofs_on_this_face;
+                face_nb_i1, i_local_dof_on_this_rank,
+                i_global_dof_on_this_rank);
+              i_global_dof_on_this_rank += n_open_dofs_on_this_face;
+              i_global_unkn_on_this_rank += n_open_unkns_on_this_face;
             }
             else
             {
               assert(nb_i1->is_ghost());
               if (nb_i1->subdomain_id() > comm_rank)
               {
+                i_manager->set_cell_properties(i_face, comm_rank, 0);
+                i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
+                                              i_global_unkn_on_this_rank,
+                                              n_unkns_per_dofs);
                 i_manager->assign_local_global_cell_data(
-                  i_face, local_dof_num_on_this_rank,
-                  global_dof_num_on_this_rank, comm_rank, 0, n_unkns_per_dofs);
+                  i_face, i_local_dof_on_this_rank, i_global_dof_on_this_rank);
                 auto nb_manager =
-                  my_model
-                    ->template get_ghost_cell_manager<relevant_manager_type>(
-                      nb_str_id);
+                  my_model->template get_ghost_cell_manager<CellManagerType>(
+                    nb_str_id);
+                nb_manager->set_cell_properties(face_nb_i1, comm_rank, 0);
+                nb_manager->set_owned_unkn_ids(
+                  face_nb_i1, i_local_unkn_on_this_rank,
+                  i_global_unkn_on_this_rank, n_unkns_per_dofs);
                 nb_manager->assign_local_global_cell_data(
-                  face_nb_i1, local_dof_num_on_this_rank,
-                  global_dof_num_on_this_rank, comm_rank, 0, n_unkns_per_dofs);
+                  face_nb_i1, i_local_dof_on_this_rank,
+                  i_global_dof_on_this_rank);
                 //
                 // Now we send id, face id, subface(=0), and neighbor face
                 // number to the corresponding rank.
@@ -290,28 +326,36 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                               nb_str_id.c_str(),
                               face_nb_i1,
                               0,
-                              global_dof_num_on_this_rank);
+                              i_global_unkn_on_this_rank);
                 face_to_rank_sender[nb_i1->subdomain_id()].push_back(buffer);
-                global_dof_num_on_this_rank += n_open_dofs_on_this_face;
+                i_global_dof_on_this_rank += n_open_dofs_on_this_face;
+                i_global_unkn_on_this_rank += n_open_unkns_on_this_face;
                 ++mpi_request_counter;
               }
               else
               {
-                i_manager->assign_local_cell_data(
-                  i_face, local_dof_num_on_this_rank, nb_i1->subdomain_id(), 0,
-                  n_unkns_per_dofs);
+                i_manager->set_cell_properties(i_face, nb_i1->subdomain_id(),
+                                               0);
+                i_manager->set_local_unkn_ids(i_face, i_local_unkn_on_this_rank,
+                                              n_unkns_per_dofs);
+                i_manager->assign_local_cell_data(i_face,
+                                                  i_local_dof_on_this_rank);
                 face_to_rank_recver[nb_i1->subdomain_id()]++;
                 if (!is_there_a_msg_from_rank[nb_i1->subdomain_id()])
                   is_there_a_msg_from_rank[nb_i1->subdomain_id()] = true;
                 ++mpi_status_counter;
               }
             }
-            local_dof_num_on_this_rank += n_open_dofs_on_this_face;
+            i_local_dof_on_this_rank += n_open_dofs_on_this_face;
+            i_local_unkn_on_this_rank += n_open_unkns_on_this_face;
           }
         }
       }
     }
   }
+
+  printf("%d %d %d %d\n", i_local_dof_on_this_rank, i_global_dof_on_this_rank,
+         i_local_unkn_on_this_rank, i_global_unkn_on_this_rank);
 
   //
   // The next two variables contain num faces from rank zero to the
@@ -319,7 +363,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   //
   std::vector<unsigned> dofs_count_be4_rank(comm_size, 0);
   std::vector<unsigned> dofs_count_up2_rank(comm_size, 0);
-  unsigned n_dofs_this_rank_owns = global_dof_num_on_this_rank;
+  std::vector<unsigned> unkns_count_be4_rank(comm_size, 0);
+  std::vector<unsigned> unkns_count_up2_rank(comm_size, 0);
+  unsigned n_dofs_this_rank_owns = i_global_dof_on_this_rank;
+  unsigned n_unkns_this_rank_owns = i_global_unkn_on_this_rank;
+
   MPI_Allgather(&n_dofs_this_rank_owns,
                 1,
                 MPI_UNSIGNED,
@@ -328,14 +376,26 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 MPI_UNSIGNED,
                 *my_comm);
 
+  MPI_Allgather(&n_unkns_this_rank_owns,
+                1,
+                MPI_UNSIGNED,
+                unkns_count_up2_rank.data(),
+                1,
+                MPI_UNSIGNED,
+                *my_comm);
+
   for (unsigned i_num = 0; i_num < comm_size; ++i_num)
     for (unsigned j_num = 0; j_num < i_num; ++j_num)
+    {
       dofs_count_be4_rank[i_num] += dofs_count_up2_rank[j_num];
+      unkns_count_be4_rank[i_num] += unkns_count_up2_rank[j_num];
+    }
 
   for (std::unique_ptr<cell<dim> > &i_cell : my_model->all_owned_cells)
   {
     auto i_manager = static_cast<ModelEq *>(i_cell.get())
-                       ->template get_manager<relevant_manager_type>();
+                       ->template get_manager<CellManagerType>();
+    i_manager->offset_global_unkn_ids(unkns_count_be4_rank[comm_rank]);
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
       for (unsigned i_dof = 0;
            i_dof < i_manager->dofs_ID_in_all_ranks[i_face].size();
@@ -347,7 +407,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   for (std::unique_ptr<cell<dim> > &ghost_cell : my_model->all_ghost_cells)
   {
     auto ghost_manager = static_cast<ModelEq *>(ghost_cell.get())
-                           ->template get_manager<relevant_manager_type>();
+                           ->template get_manager<CellManagerType>();
+    ghost_manager->offset_global_unkn_ids(unkns_count_be4_rank[comm_rank]);
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
       for (unsigned i_dof = 0;
            i_dof < ghost_manager->dofs_ID_in_all_ranks[i_face].size();
@@ -363,10 +424,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   // numbers from -10, and go down.
   //
   int ghost_dofs_counter = -10;
+  int ghost_unkns_counter = -10;
   for (std::unique_ptr<cell<dim> > &ghost_cell : my_model->all_ghost_cells)
   {
     auto ghost_manager = static_cast<ModelEq *>(ghost_cell.get())
-                           ->template get_manager<relevant_manager_type>();
+                           ->template get_manager<CellManagerType>();
     auto i_basis =
       static_cast<ModelEq *>(ghost_cell.get())->template get_basis<BasisType>();
     std::vector<unsigned> n_unkns_per_dofs = i_basis->get_n_unkns_per_dofs();
@@ -374,6 +436,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
     {
       unsigned n_open_dofs_on_this_face =
         ghost_manager->dof_status_on_faces[i_face].count();
+      unsigned n_open_unkns_on_this_face =
+        ghost_manager->get_n_open_unknowns_on_face(i_face, n_unkns_per_dofs);
       if (ghost_manager->face_is_not_visited(i_face))
       {
         const auto &face_i1 = ghost_cell->dealii_cell->face(i_face);
@@ -386,10 +450,13 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         if (face_i1->at_boundary())
         {
           {
-            ghost_manager->assign_ghost_cell_data(
-              i_face, ghost_dofs_counter, ghost_dofs_counter,
-              ghost_cell->dealii_cell->subdomain_id(), 0, n_unkns_per_dofs);
+            ghost_manager->set_cell_properties(
+              i_face, ghost_cell->dealii_cell->subdomain_id(), 0);
+            ghost_manager->set_ghost_unkn_ids(i_face, ghost_unkns_counter,
+                                              n_unkns_per_dofs);
+            ghost_manager->assign_ghost_cell_data(i_face, ghost_dofs_counter);
             ghost_dofs_counter -= n_open_dofs_on_this_face;
+            ghost_unkns_counter -= n_open_unkns_on_this_face;
           }
         }
         else
@@ -399,9 +466,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           // side of an owned cell, or belongs to a lower rank than the current
           // rank.
           //
-          ghost_manager->assign_ghost_cell_data(
-            i_face, ghost_dofs_counter, ghost_dofs_counter,
-            ghost_cell->dealii_cell->subdomain_id(), 0, n_unkns_per_dofs);
+          ghost_manager->set_cell_properties(
+            i_face, ghost_cell->dealii_cell->subdomain_id(), 0);
+          ghost_manager->set_ghost_unkn_ids(i_face, ghost_unkns_counter,
+                                            n_unkns_per_dofs);
+          ghost_manager->assign_ghost_cell_data(i_face, ghost_dofs_counter);
           if (face_i1->has_children())
           {
             int face_nb_subface =
@@ -410,36 +479,39 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                  i_subface < face_i1->number_of_children();
                  ++i_subface)
             {
-              dealii_cell_type &&nb_subface =
+              dealiiCell &&nb_subface =
                 ghost_cell->dealii_cell->neighbor_child_on_subface(i_face,
                                                                    i_subface);
               if (nb_subface->is_ghost())
               {
                 auto nb_manager =
-                  my_model
-                    ->template get_ghost_cell_manager<relevant_manager_type>(
-                      nb_subface);
-                nb_manager->assign_ghost_cell_data(
-                  face_nb_subface, ghost_dofs_counter, ghost_dofs_counter,
-                  nb_subface->subdomain_id(), i_subface + 1, n_unkns_per_dofs);
+                  my_model->template get_ghost_cell_manager<CellManagerType>(
+                    nb_subface);
+                nb_manager->set_cell_properties(
+                  face_nb_subface, nb_subface->subdomain_id(), i_subface + 1);
+                nb_manager->set_ghost_unkn_ids(
+                  face_nb_subface, ghost_unkns_counter, n_unkns_per_dofs);
+                nb_manager->assign_ghost_cell_data(face_nb_subface,
+                                                   ghost_dofs_counter);
               }
             }
           }
           else if (ghost_cell->dealii_cell->neighbor(i_face)->is_ghost())
           {
-            dealii_cell_type &&nb_i1 =
-              ghost_cell->dealii_cell->neighbor(i_face);
+            dealiiCell &&nb_i1 = ghost_cell->dealii_cell->neighbor(i_face);
             int face_nb_i1 = ghost_cell->dealii_cell->neighbor_face_no(i_face);
             auto nb_manager =
-              my_model->template get_ghost_cell_manager<relevant_manager_type>(
-                nb_i1);
+              my_model->template get_ghost_cell_manager<CellManagerType>(nb_i1);
             assert(nb_manager->dofs_ID_in_this_rank[face_nb_i1].size() == 0);
             assert(nb_manager->dofs_ID_in_all_ranks[face_nb_i1].size() == 0);
-            nb_manager->assign_ghost_cell_data(
-              face_nb_i1, ghost_dofs_counter, ghost_dofs_counter,
-              nb_i1->subdomain_id(), 0, n_unkns_per_dofs);
+            nb_manager->set_cell_properties(face_nb_i1, nb_i1->subdomain_id(),
+                                            0);
+            nb_manager->set_ghost_unkn_ids(face_nb_i1, ghost_unkns_counter,
+                                           n_unkns_per_dofs);
+            nb_manager->assign_ghost_cell_data(face_nb_i1, ghost_dofs_counter);
           }
           ghost_dofs_counter -= n_open_dofs_on_this_face;
+          ghost_unkns_counter -= n_open_unkns_on_this_face;
         }
       }
     }
@@ -535,19 +607,28 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         std::string cell_unique_id = tokens[0];
         unsigned face_num = std::stoi(tokens[1]);
         auto i_manager =
-          my_model->template get_owned_cell_manager<relevant_manager_type>(
+          my_model->template get_owned_cell_manager<CellManagerType>(
             cell_unique_id);
+        auto i_basis =
+          my_model->template get_owned_cell_basis<BasisType>(cell_unique_id);
+        std::vector<unsigned> n_unkns_per_dofs =
+          i_basis->get_n_unkns_per_dofs();
         assert(i_manager->dofs_ID_in_all_ranks[face_num].size() == 0);
         assert(i_manager->dof_status_on_faces[face_num].count() != 0);
         //
         // The DOF data received from other CPU is the ID of the first
         // DOF of this face.
         //
+        i_manager->set_nonlocal_unkn_ids(
+          face_num, std::stoi(tokens[3]) + unkns_count_be4_rank[i_recv->first],
+          n_unkns_per_dofs);
+        /*
         for (unsigned i_dof = 0;
              i_dof < i_manager->dof_status_on_faces[face_num].count();
              ++i_dof)
           i_manager->dofs_ID_in_all_ranks[face_num].push_back(
             std::stoi(tokens[3]) + dofs_count_be4_rank[i_recv->first] + i_dof);
+        */
         ++recv_counter;
       }
       i_recv->second = false;
@@ -627,19 +708,28 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         std::string cell_unique_id = tokens[0];
         unsigned face_num = std::stoi(tokens[1]);
         auto i_manager =
-          my_model->template get_owned_cell_manager<relevant_manager_type>(
+          my_model->template get_owned_cell_manager<CellManagerType>(
             cell_unique_id);
+        auto i_basis =
+          my_model->template get_owned_cell_basis<BasisType>(cell_unique_id);
+        std::vector<unsigned> n_unkns_per_dofs =
+          i_basis->get_n_unkns_per_dofs();
         assert(i_manager->dof_status_on_faces[face_num].count() != 0);
         assert(i_manager->dofs_ID_in_all_ranks[face_num].size() == 0);
         //
         // The DOF data received from other CPU is the ID of the first
         // DOF of this face.
         //
+        i_manager->set_nonlocal_unkn_ids(
+          face_num, std::stoi(tokens[3]) + unkns_count_be4_rank[i_recv->first],
+          n_unkns_per_dofs);
+        /*
         for (unsigned i_dof = 0;
              i_dof < i_manager->dof_status_on_faces[face_num].count();
              ++i_dof)
           i_manager->dofs_ID_in_all_ranks[face_num].push_back(
             std::stoi(tokens[3]) + dofs_count_be4_rank[i_recv->first] + i_dof);
+        */
         ++recv_counter;
       }
       i_recv->second = false;
@@ -652,7 +742,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   // as the parent cell of each DoF, and the corresponding face.
   //
 
-  using vec_iter_ptr_type = typename cell<dim, spacedim>::vec_iter_ptr_type;
+  using CellIter = typename cell<dim, spacedim>::CellIter;
   struct dof_properties
   {
     dof_properties() : n_local_connected_DOFs(0), n_nonlocal_connected_DOFs(0)
@@ -660,9 +750,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
     }
     unsigned n_local_connected_DOFs;
     unsigned n_nonlocal_connected_DOFs;
-    std::vector<vec_iter_ptr_type> parent_cells;
+    std::vector<CellIter> parent_cells;
     std::vector<unsigned> connected_face_of_parent_cell;
-    std::vector<vec_iter_ptr_type> parent_ghosts;
+    std::vector<CellIter> parent_ghosts;
     std::vector<unsigned> connected_face_of_parent_ghost;
   };
 
@@ -697,41 +787,55 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   // Also, we fill GenericFace::Parent_Ghosts with ghost cells
   // connected to the current face.
   //
-  std::vector<dof_properties> all_owned_dofs(global_dof_num_on_this_rank);
-  for (vec_iter_ptr_type cell_it = my_model->all_owned_cells.begin();
+  std::vector<dof_properties> all_owned_dofs(i_global_dof_on_this_rank);
+  for (CellIter cell_it = my_model->all_owned_cells.begin();
        cell_it != my_model->all_owned_cells.end();
        ++cell_it)
   {
     auto i_manager = static_cast<ModelEq *>(cell_it->get())
-                       ->template get_manager<relevant_manager_type>();
+                       ->template get_manager<CellManagerType>();
+
     /*
-        for (unsigned i_face = 0; i_face < (*cell_it)->n_faces; ++i_face)
+    //
+    //
+    //
+
+    for (unsigned i_face = 0; i_face < (*cell_it)->n_faces; ++i_face)
+    {
+      if ((*cell_it)->face_owner_rank[i_face] == this->comm_rank)
+      {
+        for (unsigned i_dof = 0;
+             i_dof < (*cell_it)->dofs_ID_in_all_ranks[i_face].size();
+             ++i_dof)
         {
-          if ((*cell_it)->face_owner_rank[i_face] == this->comm_rank)
-          {
-            for (unsigned i_dof = 0;
-                 i_dof < (*cell_it)->dofs_ID_in_all_ranks[i_face].size();
-                 ++i_dof)
-            {
-              int dof_i1 = (*cell_it)->dofs_ID_in_all_ranks[i_face][i_dof] -
-                           dofs_count_be4_rank[this->comm_rank];
-              all_owned_dofs[dof_i1].parent_cells.push_back(cell_it);
-              all_owned_dofs[dof_i1].connected_face_of_parent_cell.push_back(
-                i_face);
-              //
-              // Here, we just add the open DoFs on the face itself. The reason
-              // for this is to avoid
-              //
-              if (all_owned_dofs[dof_i1].n_local_connected_DOFs == 0)
-                all_owned_dofs[dof_i1].n_local_connected_DOFs =
-                  (*cell_it)->dof_status_on_faces[i_face].count();
-            }
-          }
+          //
+
+          int dof_i1 = (*cell_it)->dofs_ID_in_all_ranks[i_face][i_dof] -
+                       dofs_count_be4_rank[this->comm_rank];
+          all_owned_dofs[dof_i1].parent_cells.push_back(cell_it);
+          all_owned_dofs[dof_i1].connected_face_of_parent_cell.push_back(
+            i_face);
+          //
+          // Here, we just add the open DoFs on the face itself. The reason
+          // for this is to avoid
+          //
+          if (all_owned_dofs[dof_i1].n_local_connected_DOFs == 0)
+            all_owned_dofs[dof_i1].n_local_connected_DOFs =
+              (*cell_it)->dof_status_on_faces[i_face].count();
+
+          //
         }
-        */
+      }
+    }
+
+    //
+    //
+    //
+
+    */
   }
   /*
-    for (typename GenericCell<dim>::vec_iter_ptr_type ghost_cell_it =
+    for (typename GenericCell<dim>::CellIter ghost_cell_it =
            all_ghost_cells.begin();
          ghost_cell_it != all_ghost_cells.end();
          ++ghost_cell_it)

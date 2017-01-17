@@ -43,7 +43,7 @@ struct model : public base_model
    * @brief This typename is used to count and iterate over the deal.II cells.
    */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
-    dealii_cell_type;
+    dealiiCell;
 
   //
   //
@@ -83,6 +83,15 @@ struct model : public base_model
    */
   template <typename CellManagerType, typename InputType>
   CellManagerType *get_owned_cell_manager(const InputType &) const;
+
+  //
+  //
+  /**
+   * @brief Returns the manager of the cell. The input is either a
+   * dealii cell or a cellID of a dealii cell.
+   */
+  template <typename BasisType, typename InputType>
+  const BasisType *get_owned_cell_basis(const InputType &) const;
 
   //
   //

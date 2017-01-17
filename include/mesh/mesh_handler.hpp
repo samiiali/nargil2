@@ -32,7 +32,7 @@ template <int dim, int spacedim = dim> struct mesh
    * @brief This typename is used to count and iterate over the deal.II cells.
    */
   typedef dealii::TriaActiveIterator<dealii::CellAccessor<dim, spacedim> >
-    dealii_cell_type;
+    dealiiCell;
 
   //
   //
@@ -87,7 +87,7 @@ template <int dim, int spacedim = dim> struct mesh
    * true to this function; otherwise, this function assumes that the cell is a
    * ghost cell.
    */
-  int cell_id_to_num_finder(const dealii_cell_type &dealii_cell_,
+  int cell_id_to_num_finder(const dealiiCell &dealii_cell_,
                             const bool cell_is_owned) const;
 
   //

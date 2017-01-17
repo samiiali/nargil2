@@ -43,7 +43,7 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
   all_ghost_cells.reserve(my_mesh->n_ghost_cell);
   unsigned i_owned_cell = 0;
   unsigned i_ghost_cell = 0;
-  for (dealii_cell_type &&i_cell : my_mesh->tria.active_cell_iterators())
+  for (dealiiCell &&i_cell : my_mesh->tria.active_cell_iterators())
   {
     if (i_cell->is_locally_owned())
     {
@@ -87,6 +87,21 @@ CellManagerType *nargil::model<ModelEq, dim, spacedim>::get_owned_cell_manager(
     static_cast<ModelEq *>(all_owned_cells[num_id].get())
       ->template get_manager<CellManagerType>();
   return i_manager;
+}
+
+//
+//
+
+template <typename ModelEq, int dim, int spacedim>
+template <typename BasisType, typename InputType>
+const BasisType *nargil::model<ModelEq, dim, spacedim>::get_owned_cell_basis(
+  const InputType &cell_id) const
+{
+  int num_id = my_mesh->cell_id_to_num_finder(cell_id, true);
+  const BasisType *i_basis =
+    static_cast<ModelEq *>(all_owned_cells[num_id].get())
+      ->template get_basis<BasisType>();
+  return i_basis;
 }
 
 //

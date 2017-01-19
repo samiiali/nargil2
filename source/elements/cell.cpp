@@ -17,8 +17,6 @@ template <int dim, int spacedim>
 nargil::hybridized_cell_manager<dim, spacedim>::hybridized_cell_manager(
   const cell<dim, spacedim> *in_cell)
   : cell_manager<dim, spacedim>(in_cell),
-    dofs_ID_in_this_rank(2 * dim),
-    dofs_ID_in_all_ranks(2 * dim),
     unkns_id_in_this_rank(2 * dim),
     unkns_id_in_all_ranks(2 * dim),
     BCs(2 * dim, boundary_condition::not_set),
@@ -47,47 +45,6 @@ void nargil::hybridized_cell_manager<dim, spacedim>::set_cell_properties(
   face_owner_rank[i_face] = in_comm_rank;
   half_range_flag[i_face] = in_half_range;
   face_visited[i_face] = 1;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::hybridized_cell_manager<
-  dim, spacedim>::assign_local_global_cell_data(const unsigned i_face,
-                                                const unsigned local_num_,
-                                                const unsigned global_num_)
-{
-  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
-  {
-    dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
-    dofs_ID_in_all_ranks[i_face].push_back(global_num_ + i_dof);
-  }
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::hybridized_cell_manager<dim, spacedim>::assign_ghost_cell_data(
-  const unsigned i_face, const int ghost_num_)
-{
-  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
-  {
-    dofs_ID_in_this_rank[i_face].push_back(ghost_num_ - i_dof);
-    dofs_ID_in_all_ranks[i_face].push_back(ghost_num_ - i_dof);
-  }
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::hybridized_cell_manager<dim, spacedim>::assign_local_cell_data(
-  const unsigned i_face, const unsigned local_num_)
-{
-  for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].count(); ++i_dof)
-    dofs_ID_in_this_rank[i_face].push_back(local_num_ + i_dof);
 }
 
 //
@@ -225,7 +182,7 @@ void nargil::hybridized_cell_manager<dim, spacedim>::offset_global_unkn_ids(
   for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     for (unsigned i_unkn = 0; i_unkn < unkns_id_in_all_ranks[i_face].size();
          ++i_unkn)
-      if (unkns_id_in_all_ranks[i_face][i_unkn] > 0)
+      if (unkns_id_in_all_ranks[i_face][i_unkn] >= 0)
         unkns_id_in_all_ranks[i_face][i_unkn] += dofs_count_be4_rank;
 }
 

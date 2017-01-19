@@ -129,29 +129,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
   /**
    * assign_local_global_cell_data
    */
-  void assign_local_global_cell_data(const unsigned i_face,
-                                     const unsigned local_num_,
-                                     const unsigned global_num_);
-
-  //
-  //
-  /**
-   * assign_local_cell_data
-   */
-  void assign_local_cell_data(const unsigned i_face, const unsigned local_num_);
-
-  //
-  //
-  /**
-   * assign_ghost_cell_data
-   */
-  void assign_ghost_cell_data(const unsigned i_face, const int ghost_num_);
-
-  //
-  //
-  /**
-   * assign_local_global_cell_data
-   */
   void set_owned_unkn_ids(const unsigned i_face,
                           const unsigned local_num_,
                           const unsigned global_num_,
@@ -180,12 +157,14 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * assign_ghost_cell_data
    */
   void set_nonlocal_unkn_ids(const unsigned i_face, const int ghost_num_,
-                                  const std::vector<unsigned> &n_unkns_per_dof);
+                             const std::vector<unsigned> &n_unkns_per_dof);
 
   //
   //
   /**
-   *
+   * This function is called after the loop in
+   * hybridized_dof_counter::count_globals() to offset the global numbers of
+   * unknowns on owned and ghost cells.
    */
   void offset_global_unkn_ids(const int);
 
@@ -205,20 +184,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    */
   unsigned get_n_open_unknowns_on_face(const unsigned,
                                        const std::vector<unsigned> &);
-
-  //
-  //
-  /**
-   * dofs_ID_in_this_rank
-   */
-  std::vector<std::vector<int> > dofs_ID_in_this_rank;
-
-  //
-  //
-  /**
-   * dofs_ID_in_all_ranks
-   */
-  std::vector<std::vector<int> > dofs_ID_in_all_ranks;
 
   //
   //
@@ -301,8 +266,7 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * The type of iterator for a vector of unique_ptr's to elements.
    */
-  typedef
-    typename std::vector<std::unique_ptr<cell> >::iterator CellIter;
+  typedef typename std::vector<std::unique_ptr<cell> >::iterator CellIterType;
 
   //
   //
@@ -317,8 +281,7 @@ template <int dim, int spacedim = dim> struct cell
   /**
    * The constructor of this class takes a deal.II cell and creates the cell.
    */
-  cell(dealiiCell &inp_cell, const unsigned id_num_,
-       const base_model *model_);
+  cell(dealiiCell &inp_cell, const unsigned id_num_, const base_model *model_);
 
   //
   //

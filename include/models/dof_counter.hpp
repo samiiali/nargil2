@@ -61,22 +61,21 @@ template <int dim, int spacedim = dim> struct dof_counter
   /**
    * @brief Number of DOFs which are owned by this CPU.
    */
-  unsigned n_global_DOFs_rank_owns;
+  unsigned n_global_unkns_rank_owns;
 
   //
   //
   /**
    * @brief Total number of DOFs on all of the ranks.
    */
-  unsigned n_global_DOFs_on_all_ranks;
+  unsigned n_global_unkns_on_all_ranks;
 
   //
   //
   /**
-   * @brief Number of DOFs on this rank, which are either owned or
-   * not owned by this CPU.
+   * @brief Total number of DOFs on all of the ranks.
    */
-  unsigned n_local_DOFs_on_this_rank;
+  unsigned n_local_unkns_on_this_rank;
 
   //
   //
@@ -85,7 +84,7 @@ template <int dim, int spacedim = dim> struct dof_counter
    * DOFs, which are owned by the current rank and are connected to the
    * @c ith DOF.
    */
-  std::vector<int> n_local_DOFs_connected_to_DOF;
+  std::vector<int> n_local_unkns_connected_to_unkn;
 
   //
   //
@@ -94,7 +93,7 @@ template <int dim, int spacedim = dim> struct dof_counter
    * DOFs, which are NOT owned by the current rank and are connected to the
    * @c ith DOF.
    */
-  std::vector<int> n_nonlocal_DOFs_connected_to_DOF;
+  std::vector<int> n_nonlocal_unkns_connected_to_unkn;
 
   //
   //
@@ -129,8 +128,7 @@ struct implicit_hybridized_numbering : public dof_counter<dim, spacedim>
   /**
    * dealiiCell
    */
-  using dealiiCell =
-    typename dof_counter<dim, spacedim>::dealiiCell;
+  using dealiiCell = typename dof_counter<dim, spacedim>::dealiiCell;
 
   //
   //

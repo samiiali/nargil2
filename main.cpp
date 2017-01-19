@@ -28,7 +28,7 @@ template <int dim, int spacedim = dim> struct Problem
   static void generate_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> repeats(dim, 10);
+    std::vector<unsigned> repeats(dim, 4);
     dealii::Point<spacedim> point_1, point_2;
     point_1 = {-1.0, -1.0};
     point_2 = {1.0, 1.0};
@@ -84,7 +84,7 @@ template <int dim, int spacedim = dim> struct Problem
     void operator()(
       dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
     {
-      std::vector<unsigned> repeats(dim, 10);
+      std::vector<unsigned> repeats(dim, 4);
       dealii::Point<spacedim> point_1, point_2;
       point_1 = {-1.0, -1.0};
       point_2 = {1.0, 1.0};

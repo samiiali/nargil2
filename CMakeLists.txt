@@ -81,6 +81,7 @@ add_subdirectory(source/elements)
 add_subdirectory(source/mesh)
 add_subdirectory(source/models)
 add_subdirectory(source/misc)
+add_subdirectory(source/solvers)
 
 include(CMakeLocals/CMakeFlags.txt)
 

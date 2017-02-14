@@ -68,14 +68,14 @@ namespace nargil
  *    nargil::model, i.e. ModelEq.
  *    A cell based on ModelEq will be ceated, and
  *    the basis will be assigned to it. Next, cell::create calls the
- *    assign_manager function corresponding to the ModelEq class.
- *    For example for diffusion class, diffusion::assign_manager
+ *    init_manager function corresponding to the ModelEq class.
+ *    For example for diffusion class, diffusion::init_manager
  *    will be called. This function assigns the type of the
  *    nargil::cell_manager to the cell. The cell_manager is a class that
  *    performs all of the main tasks of the elements. For example
  *    assembling the element matrices or doing the postprocessing
  *    tasks. The type of the cell_manager is decided based on the type
- *    of basis, which is supported to cell::assign_manager. So, there
+ *    of basis, which is supported to diffusion::init_manager. So, there
  *    should be a well-defined map from basis types to cell_manager types. By
  *    this, we mean the same basis cannot map to two different cell_manager's.
  *

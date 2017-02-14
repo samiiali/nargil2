@@ -1,16 +1,18 @@
 #ifndef MODEL_OPTIONS
 #define MODEL_OPTIONS
 
-/// @defgroup all_enums Enumerations
+/**
+ * @defgroup all_enums Enumerations
+ */
 
 namespace nargil
 {
 
-//
-//
 /**
  * @ingroup all_enums
+ *
  * The enum which contains different boundary conditions.
+ *
  */
 enum class boundary_condition
 {

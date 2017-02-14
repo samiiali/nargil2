@@ -215,18 +215,32 @@ nargil::hybridized_cell_manager<dim, spacedim>::get_n_open_unknowns_on_face(
 
 //
 //
+
+template <int dim, int spacedim>
+void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
+  dealiiDoFCell dealii_local_cell, dealiiDoFCell dealii_trace_cell)
+{
+  my_dealii_local_dofs_cell = dealii_local_cell;
+  my_dealii_trace_dofs_cell = dealii_trace_cell;
+}
+
+//
+//
 //
 //
 //
 
 template <int dim, int spacedim>
-nargil::cell<dim, spacedim>::cell(dealiiCell &inp_cell,
+nargil::cell<dim, spacedim>::cell(dealiiTriCell *inp_cell,
                                   const unsigned id_num_,
                                   const base_model *model_)
-  : n_faces(2 * dim), id_num(id_num_), dealii_cell(inp_cell), my_model(model_)
+  : n_faces(2 * dim),
+    id_num(id_num_),
+    my_dealii_cell(*inp_cell),
+    my_model(model_)
 {
   std::stringstream ss_id;
-  ss_id << inp_cell->id();
+  ss_id << my_dealii_cell->id();
   cell_id = ss_id.str();
 }
 
@@ -241,34 +255,14 @@ template <int dim, int spacedim> nargil::cell<dim, spacedim>::~cell() {}
 template <int dim, int spacedim>
 template <typename ModelEq, typename BasisType>
 std::unique_ptr<ModelEq>
-nargil::cell<dim, spacedim>::create(dealiiCell &in_cell, const unsigned id_num_,
-                                    const BasisType &basis,
+nargil::cell<dim, spacedim>::create(dealiiTriCell *in_cell,
+                                    const unsigned id_num_, BasisType *basis,
                                     base_model *in_model)
 {
   std::unique_ptr<ModelEq> the_cell(
-    new ModelEq(in_cell, id_num_, &basis, in_model));
+    new ModelEq(in_cell, id_num_, basis, in_model));
   the_cell->template init_manager<typename BasisType::CellManagerType>();
   return std::move(the_cell);
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::cell<dim, spacedim>::reinit_cell_fe_vals()
-{
-  // cell_quad_fe_vals->reinit(dealii_cell);
-  // cell_supp_fe_vals->reinit(dealii_cell);
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::cell<dim, spacedim>::reinit_face_fe_vals(unsigned)
-{
-  // face_quad_fe_vals->reinit(dealii_cell, i_face);
-  // face_supp_fe_vals->reinit(dealii_cell, i_face);
 }
 
 //

@@ -44,10 +44,7 @@ nargil::mesh<dim, spacedim>::mesh(const MPI_Comm &comm_,
   : my_comm(&comm_),
     adaptive_on(adaptive_on_),
     n_threads(n_threads_),
-    tria(*my_comm,
-         typename dealii::Triangulation<dim>::MeshSmoothing(
-           dealii::Triangulation<dim>::smoothing_on_refinement |
-           dealii::Triangulation<dim>::smoothing_on_coarsening)),
+    tria(*my_comm),
     refn_cycle(0)
 {
   //  int comm_rank, comm_size;
@@ -63,7 +60,7 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
   unsigned n_cell = 0;
   n_owned_cell = 0;
   n_ghost_cell = 0;
-  for (dealiiCell &&i_cell : tria.active_cell_iterators())
+  for (dealiiTriCell &&i_cell : tria.active_cell_iterators())
   {
     if (i_cell->is_locally_owned())
     {
@@ -90,7 +87,7 @@ void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
 
 template <int dim, int spacedim>
 int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
-  const dealiiCell &in_dealii_cell, const bool cell_is_owned) const
+  const dealiiTriCell &in_dealii_cell, const bool cell_is_owned) const
 {
   if (cell_is_owned)
   {
@@ -126,7 +123,7 @@ int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
     }
     catch (int)
     {
-      std::cout << "The owned cell is not found in mesh. Contact Ali."
+      std::cout << "The ghost cell is not found in mesh. Contact Ali."
                 << std::endl;
     }
   }
@@ -168,7 +165,7 @@ int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
     }
     catch (int)
     {
-      std::cout << "The owned cell is not found in mesh. Contact Ali."
+      std::cout << "The ghost cell is not found in mesh. Contact Ali."
                 << std::endl;
     }
   }
@@ -180,9 +177,9 @@ int nargil::mesh<dim, spacedim>::cell_id_to_num_finder(
 
 template <int dim, int spacedim>
 template <typename F>
-void nargil::mesh<dim, spacedim>::generate_mesh(F generate_mesh_)
+void nargil::mesh<dim, spacedim>::generate_mesh(F mesh_gen_func)
 {
-  generate_mesh_(tria);
+  mesh_gen_func(tria);
   init_cell_ID_to_num();
   write_grid();
 }

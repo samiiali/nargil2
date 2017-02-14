@@ -9,11 +9,6 @@ nargil::base_model::base_model() {}
 
 //
 //
-
-nargil::base_model::~base_model() {}
-
-//
-//
 //
 //
 //
@@ -37,24 +32,25 @@ nargil::model<ModelEq, dim, spacedim>::~model()
 template <typename ModelEq, int dim, int spacedim>
 template <typename BasisType>
 void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
-  const BasisType &basis)
+  BasisType *basis)
 {
   all_owned_cells.reserve(my_mesh->n_owned_cell);
   all_ghost_cells.reserve(my_mesh->n_ghost_cell);
   unsigned i_owned_cell = 0;
   unsigned i_ghost_cell = 0;
-  for (dealiiCell &&i_cell : my_mesh->tria.active_cell_iterators())
+
+  for (dealiiTriCell &&i_cell : my_mesh->tria.active_cell_iterators())
   {
     if (i_cell->is_locally_owned())
     {
       all_owned_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        i_cell, i_owned_cell, basis, this));
+        &i_cell, i_owned_cell, basis, this));
       ++i_owned_cell;
     }
     if (i_cell->is_ghost())
     {
       all_ghost_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        i_cell, i_ghost_cell, basis, this));
+        &i_cell, i_ghost_cell, basis, this));
       ++i_ghost_cell;
     }
   }

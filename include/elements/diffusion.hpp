@@ -7,13 +7,17 @@
 
 #include <deal.II/base/qprojector.h>
 #include <deal.II/base/quadrature_lib.h>
+
 #include <deal.II/fe/fe_dgq.h>
 #include <deal.II/fe/fe_face.h>
 #include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/fe_values_extractors.h>
 
+#include <deal.II/numerics/data_out.h>
+
 #include <Eigen/Dense>
 
+#include "../misc/utils.hpp"
 #include "../models/model_options.hpp"
 #include "cell.hpp"
 
@@ -243,6 +247,13 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * fe_vals of local dofs inside the cells.
+     *
+     */
+    std::unique_ptr<dealii::FEValues<dim> > local_fe_val_at_cell_supp;
+
+    /**
+     *
      * fe_vals of trace dofs on the faces of cell.
      *
      */
@@ -379,6 +390,21 @@ struct diffusion : public cell<dim, spacedim>
   {
     /**
      *
+     * funcType with double output
+     *
+     */
+    typedef std::function<double(dealii::Point<spacedim>)> funcType;
+
+    /**
+     *
+     * funcType with std::vector output
+     *
+     */
+    typedef std::function<std::vector<double>(dealii::Point<spacedim>)>
+      vectorFuncType;
+
+    /**
+     *
      * hdg_manager
      *
      */
@@ -400,19 +426,10 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     *
-     *
-     */
-    template <typename Func>
-    std::vector<double> interpolate_to_trace_unkns(const Func func,
-                                                   const unsigned i_face);
-
-    /**
-     *
-     *
+     * This function assigns the local_interior_unkn_idx.
      *
      */
-    void set_trace_unkns(const std::vector<double> &values);
+    void assign_local_interior_unkn_id(unsigned *local_num);
 
     /**
      *
@@ -430,24 +447,6 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     *
-     *
-     */
-    std::vector<double>
-    compute_local_errors(const dealii::Function<dim> &exact_sol_func);
-
-    /**
-     *
-     *
-     *
-     */
-    template <typename Func> static void set_exact_uhat_func(Func f);
-    //    {
-    //      my_exact_uhat_func = f;
-    //    }
-
-    /**
-     *
      * Computes the local matrices.
      *
      */
@@ -455,32 +454,89 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * This function is used to interpolate the function f to the trace
+     * degrees of freedom of the element.
+     *
+     */
+    static void run_interpolate_to_trace(cell<dim, spacedim> *in_cell,
+                                         funcType f);
+
+    /**
+     *
      *
      *
      */
     static void
-    run_interpolate_and_set_uhat(nargil::cell<dim, spacedim> *in_cell);
+    run_interpolate_to_interior(cell<dim, spacedim> *in_cell, vectorFuncType f,
+                                distributed_vector<dim, spacedim> *out_vec);
+
+    //    /**
+    //     *
+    //     * set_exact_local_dofs.
+    //     *
+    //     */
+    //    static void run_assign_exact_local_unkns(
+    //      cell<dim, spacedim> *in_cell,
+    //      const dealii::parallel::distributed::Vector<double> &values);
 
     /**
+     *
+     * compute_local_unkns
+     *
+     */
+    static void run_compute_local_unkns(nargil::cell<dim, spacedim> *in_cell);
+
+    /**
+     *
+     * Compute the error of u and q, based on the exact_u and exact_q.
+     * As a result the function static set_exact_local_dofs should be called
+     * before calling this function.
+     *
+     */
+    static void run_compute_errors(cell<dim, spacedim> *in_cell,
+                                   std::vector<double> *sum_of_L2_errors);
+
+    /**
+     *
+     *
+     *
+     */
+    static void
+    visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                      const LA::MPI::Vector &visual_solu,
+                      unsigned const &time_level);
+
+    /** @{
      *
      * All of the main local matrices of the element.
      *
      */
     Eigen::MatrixXd A, B, C, D, E, H;
+    ///@}
+
+    /** @{
+     *
+     * @brief All of the element local vectors.
+     *
+     */
+    Eigen::VectorXd R, F, L;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec;
+    ///@}
 
     /**
      *
-     * All of the element local vectors.
+     * This gives us the interior dof numbers. dealii gives us the global
+     * dof numbers.
      *
      */
-    Eigen::VectorXd R, F, L, exact_uhat;
-
-    /**
-     *
-     *
-     *
-     */
-    static std::function<double(dealii::Point<spacedim>)> my_exact_uhat_func;
+    std::vector<int> local_interior_unkn_idx;
   };
 };
 }

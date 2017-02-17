@@ -57,13 +57,15 @@ void nargil::implicit_hybridized_model_manager<dim, spacedim>::
 //
 
 template <int dim, int spacedim>
-template <typename ModelEq, typename Func>
+template <typename ModelEq, typename Func, typename... Args>
 void nargil::implicit_hybridized_model_manager<dim, spacedim>::
-  apply_func_to_owned_cells(model<ModelEq, dim, spacedim> *in_model, Func f)
+  apply_func_to_owned_cells(model<ModelEq, dim, spacedim> *in_model,
+                            Func f,
+                            Args... args)
 {
   for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
        in_model->all_owned_cells)
   {
-    f(i_cell.get());
+    f(i_cell.get(), args...);
   }
 }

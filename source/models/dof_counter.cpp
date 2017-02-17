@@ -74,6 +74,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   unsigned mpi_status_counter = 0;
   std::map<unsigned, bool> is_there_a_msg_from_rank;
 
+  unsigned local_interior_unkn_id = 0;
+
   //
   //   Notes for developer 1:
   //   Here, we also count the faces of the model in innerCPU and interCPU
@@ -96,6 +98,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                        ->template get_manager<CellManagerType>();
     auto i_basis =
       static_cast<ModelEq *>(i_cell.get())->template get_basis<BasisType>();
+    i_manager->assign_local_interior_unkn_id(&local_interior_unkn_id);
     std::vector<unsigned> n_unkns_per_dofs = i_basis->get_n_unkns_per_dofs();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {

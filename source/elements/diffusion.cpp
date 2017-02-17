@@ -83,16 +83,26 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   dealii::UpdateFlags fe_val_flags(
     dealii::update_values | dealii::update_gradients |
     dealii::update_JxW_values | dealii::update_quadrature_points);
-  dealii::UpdateFlags fe_face_val_flags(dealii::update_values |
-                                        dealii::update_JxW_values |
-                                        dealii::update_quadrature_points);
-
+  //
+  dealii::UpdateFlags fe_val_flags_at_supp(dealii::update_values |
+                                           dealii::update_quadrature_points);
+  //
+  dealii::UpdateFlags fe_face_val_flags(
+    dealii::update_values | dealii::update_JxW_values |
+    dealii::update_normal_vectors | dealii::update_quadrature_points);
+  //
   std::unique_ptr<dealii::FEValues<dim> > local_fe_vel_temp(
     new dealii::FEValues<dim>(local_fe, cell_quad, fe_val_flags));
+  //
+  std::unique_ptr<dealii::FEValues<dim> > local_fe_vel_at_supp_temp(
+    new dealii::FEValues<dim>(local_fe, local_fe.get_unit_support_points(),
+                              fe_val_flags_at_supp));
+  //
   std::unique_ptr<dealii::FEFaceValues<dim> > trace_fe_face_val_temp(
     new dealii::FEFaceValues<dim>(trace_fe, face_quad, fe_face_val_flags));
 
   local_fe_val_in_cell = std::move(local_fe_vel_temp);
+  local_fe_val_at_cell_supp = std::move(local_fe_vel_at_supp_temp);
   trace_fe_face_val = std::move(trace_fe_face_val_temp);
 
   for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
@@ -214,6 +224,8 @@ nargil::diffusion<dim, spacedim>::hdg_manager::hdg_manager(
   const nargil::diffusion<dim, spacedim> *in_cell)
   : hybridized_cell_manager<dim, spacedim>(in_cell)
 {
+  const hdg_polybasis *my_basis = in_cell->template get_basis<hdg_polybasis>();
+  local_interior_unkn_idx.resize(my_basis->local_fe.dofs_per_cell);
 }
 
 //
@@ -238,36 +250,14 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::assign_BCs(Func f)
 //
 
 template <int dim, int spacedim>
-template <typename Func>
-std::vector<double>
-nargil::diffusion<dim, spacedim>::hdg_manager::interpolate_to_trace_unkns(
-  const Func func, const unsigned i_face)
+void nargil::diffusion<dim, spacedim>::hdg_manager::
+  assign_local_interior_unkn_id(unsigned *local_num)
 {
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
-  std::vector<double> dof_values(own_basis->trace_fe.dofs_per_face);
-  own_basis->trace_fe_face_val->reinit(this->my_dealii_trace_dofs_cell, i_face);
-  const std::vector<dealii::Point<spacedim> > &face_quad_locs =
-    own_basis->trace_fe_face_val->get_quadrature_points();
-  std::cout << face_quad_locs[0] << std::endl;
-  std::transform(face_quad_locs.begin(), face_quad_locs.end(),
-                 dof_values.begin(), func);
-  return dof_values;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-void nargil::diffusion<dim, spacedim>::hdg_manager::set_trace_unkns(
-  const std::vector<double> &values)
-{
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
-  assert(values.size() == own_basis->trace_fe.dofs_per_cell);
-  exact_uhat.resize(values.size());
-  for (unsigned i1 = 0; i1 < values.size(); ++i1)
-    exact_uhat(i1) = values[i1];
+  for (unsigned i_unkn = 0; i_unkn < local_interior_unkn_idx.size(); ++i_unkn)
+  {
+    local_interior_unkn_idx[i_unkn] = *local_num;
+    ++(*local_num);
+  }
 }
 
 //
@@ -285,51 +275,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::assemble_globals()
 template <int dim, int spacedim>
 void nargil::diffusion<dim, spacedim>::hdg_manager::compute_local_unkns()
 {
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
-  own_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
-
   compute_matrices();
-
-  //  own_basis->local_fe_val_in_cell->
-}
-
-//
-//
-
-template <int dim, int spacedim>
-std::vector<double>
-nargil::diffusion<dim, spacedim>::hdg_manager::compute_local_errors(
-  const dealii::Function<dim> &exact_sol_func)
-{
-
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
-  unsigned n_blocks = own_basis->local_fe_val_in_cell.n_blocks();
-  std::vector<double> error(n_blocks, 0.);
-  own_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
-
-  compute_matrices();
-
-  //  own_basis->local_fe_val_in_cell->
-  return error;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-std::function<double(dealii::Point<spacedim>)>
-  nargil::diffusion<dim, spacedim>::hdg_manager::my_exact_uhat_func;
-
-//
-//
-
-template <int dim, int spacedim>
-template <typename Func>
-void nargil::diffusion<dim, spacedim>::hdg_manager::set_exact_uhat_func(Func f)
-{
-  my_exact_uhat_func = f;
+  Eigen::MatrixXd A_inv = A.inverse();
+  // *** Compute u_out, instead of the following line *** //
+  u_vec = exact_u;
+  q_vec = A_inv * (R + B * u_vec - C * exact_uhat);
 }
 
 //
@@ -340,7 +290,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::compute_matrices()
 {
   const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
   hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
-  unsigned n_scalar_unkns = pow(own_basis->_poly_order + 1, dim);
+  unsigned n_scalar_unkns = own_basis->local_fe.base_element(0).dofs_per_cell;
+  unsigned n_trace_unkns = own_basis->trace_fe.dofs_per_cell;
   //  unsigned n_trace_unkns = pow(my_own_basis->_poly_order + 1, dim);
 
   dealii::FEValuesExtractors::Scalar scalar(0);
@@ -350,11 +301,13 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::compute_matrices()
 
   //  unsigned n_u_unkns = my_own_basis->u_basis.dofs_per_cell;
 
-  //  my_own_basis->u_in_cell.reinit(my_own_cell->my_dealii_cell);
-  (*own_basis->local_fe_val_in_cell).reinit(this->my_dealii_local_dofs_cell);
+  own_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
 
   A = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, dim * n_scalar_unkns);
   B = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, n_scalar_unkns);
+  C = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, n_trace_unkns);
+  H = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  R = Eigen::VectorXd::Zero(n_trace_unkns);
 
   for (unsigned i_quad = 0; i_quad < own_basis->cell_quad.size(); ++i_quad)
   {
@@ -384,49 +337,76 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::compute_matrices()
     }
   }
 
-  //  for (unsigned i_unkn = 0; i_unkn < n_local_unkns_per_cell; ++i_unkn)
-  //  {
-  //    for (unsigned j_unkn = 0; j_unkn < n_local_unkns_per_cell; ++j_unkn)
-  //    {
-  //      for (unsigned i_quad = 0; i_quad < own_basis->cell_quad.size();
-  //      ++i_quad)
-  //      {
-  //        if (i_unkn < n_scalar_unkns && j_unkn < n_scalar_unkns)
-  //        {
-  //        }
-  //        if (i_unkn >= n_scalar_unkns && j_unkn >= n_scalar_unkns)
-  //        {
-  //        }
-  //        if (i_unkn >= n_scalar_unkns && j_unkn < n_scalar_unkns)
-  //        {
-  //        }
-  //        auto aaa =
-  //          (*own_basis->local_fe_val_in_cell)[fluxes].value(i_unkn,
-  //          i_quad);
-  //        std::cout << aaa << std::endl;
-  //      }
-  //    }
-  //  }
-
-  unsigned i_face_unkn = 0;
   for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
   {
     own_basis->trace_fe_face_val->reinit(this->my_dealii_trace_dofs_cell,
                                          i_face);
-    for (unsigned i_each_face_unkn = 0;
-         i_each_face_unkn < n_trace_unkns_per_face;
-         ++i_each_face_unkn)
+    for (unsigned i_face_quad = 0; i_face_quad < own_basis->face_quad.size();
+         ++i_face_quad)
     {
-      for (unsigned i_face_quad = 0; i_face_quad < own_basis->face_quad.size();
-           ++i_face_quad)
+      double face_JxW = own_basis->trace_fe_face_val->JxW(i_face_quad);
+      dealii::Tensor<1, dim> n_vec =
+        own_basis->trace_fe_face_val->normal_vector(i_face_quad);
+      unsigned i_face_unkn = 0;
+      for (unsigned i_unkn_per_face = 0;
+           i_unkn_per_face < n_trace_unkns_per_face;
+           ++i_unkn_per_face)
       {
-        /*
-        auto aaa = my_own_basis->trace_fe_face_val->shape_value(i_face_unkn,
-                                                                i_face_quad);
-        std::cout << aaa << std::endl;
-        */
+        double lambda_i1 =
+          own_basis->trace_fe_face_val->shape_value(i_face_unkn, i_face_quad);
+        for (unsigned j1 = n_scalar_unkns; j1 < (dim + 1) * n_scalar_unkns;
+             ++j1)
+        {
+          dealii::Tensor<1, dim> v_j1 =
+            (*own_basis->local_fe_val_in_cell)[fluxes].value(j1, i_face_quad);
+          C(j1 - n_scalar_unkns, i_face_unkn) +=
+            face_JxW * lambda_i1 * (v_j1 * n_vec);
+        }
+        unsigned j_face_unkn = 0;
+        for (unsigned i_unkn_per_face = 0;
+             i_unkn_per_face < n_trace_unkns_per_face;
+             ++i_unkn_per_face)
+        {
+          double lambda_j1 =
+            own_basis->trace_fe_face_val->shape_value(j_face_unkn, i_face_quad);
+          H(i_face_unkn, j_face_unkn) += lambda_i1 * lambda_j1 * face_JxW;
+          ++j_face_unkn;
+        }
+        ++i_face_unkn;
       }
-      ++i_face_unkn;
+    }
+  }
+
+  R = C * exact_uhat;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::diffusion<dim, spacedim>::hdg_manager::run_interpolate_to_trace(
+  nargil::cell<dim, spacedim> *in_cell, funcType func)
+{
+  diffusion *own_cell = static_cast<diffusion *>(in_cell);
+  const hdg_polybasis *own_basis =
+    own_cell->template get_basis<hdg_polybasis>();
+  hdg_manager *own_manager = own_cell->template get_manager<hdg_manager>();
+  own_manager->exact_uhat.resize(own_basis->trace_fe.n_dofs_per_cell());
+  unsigned num1 = 0;
+  for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+  {
+    std::vector<double> exact_uhat_vec_on_face(
+      own_basis->trace_fe.dofs_per_face);
+    own_basis->trace_fe_face_val->reinit(own_manager->my_dealii_trace_dofs_cell,
+                                         i_face);
+    const std::vector<dealii::Point<spacedim> > &face_quad_locs =
+      own_basis->trace_fe_face_val->get_quadrature_points();
+    std::transform(face_quad_locs.begin(), face_quad_locs.end(),
+                   exact_uhat_vec_on_face.begin(), func);
+    for (unsigned i1 = 0; i1 < own_basis->trace_fe.n_dofs_per_face(); ++i1)
+    {
+      own_manager->exact_uhat(num1) = exact_uhat_vec_on_face[i1];
+      ++num1;
     }
   }
 }
@@ -435,24 +415,178 @@ void nargil::diffusion<dim, spacedim>::hdg_manager::compute_matrices()
 //
 
 template <int dim, int spacedim>
-void nargil::diffusion<dim, spacedim>::hdg_manager::
-  run_interpolate_and_set_uhat(nargil::cell<dim, spacedim> *in_cell)
+void nargil::diffusion<dim, spacedim>::hdg_manager::run_interpolate_to_interior(
+  nargil::cell<dim, spacedim> *in_cell, vectorFuncType func,
+  nargil::distributed_vector<dim, spacedim> *out_vec)
 {
   diffusion *own_cell = static_cast<diffusion *>(in_cell);
   const hdg_polybasis *own_basis =
     own_cell->template get_basis<hdg_polybasis>();
-  auto i_manager = own_cell->template get_manager<hdg_manager>();
-  std::vector<double> exact_uhat_vec(own_basis->trace_fe.n_dofs_per_cell());
-  unsigned num1 = 0;
-  for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+  hdg_manager *own_manager = own_cell->template get_manager<hdg_manager>();
+  //
+  unsigned n_scalar_unkns = own_basis->local_fe.base_element(0).dofs_per_cell;
+  own_manager->exact_u.resize(n_scalar_unkns);
+  own_manager->exact_q.resize(n_scalar_unkns * dim);
+  //
+  own_basis->local_fe_val_at_cell_supp->reinit(
+    own_manager->my_dealii_local_dofs_cell);
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
   {
-    std::vector<double> exact_uhat_vec_on_face =
-      i_manager->interpolate_to_trace_unkns(my_exact_uhat_func, i_face);
-    for (unsigned i1 = 0; i1 < own_basis->trace_fe.n_dofs_per_face(); ++i1)
+    dealii::Point<spacedim> q_point =
+      own_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
+    std::vector<double> value_at_i_node = func(q_point);
+    own_manager->exact_u(i_unkn) = value_at_i_node[0];
+    int idx1 = own_manager->local_interior_unkn_idx[i_unkn];
+    out_vec->assemble(idx1, value_at_i_node[0]);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
     {
-      exact_uhat_vec[num1] = exact_uhat_vec_on_face[i1];
-      ++num1;
+      own_manager->exact_q(i_dim * n_scalar_unkns + i_unkn) =
+        value_at_i_node[i_dim + 1];
+      int idx2 =
+        own_manager
+          ->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
+      out_vec->assemble(idx2, value_at_i_node[i_dim + 1]);
     }
   }
-  i_manager->set_trace_unkns(exact_uhat_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::diffusion<dim, spacedim>::hdg_manager::run_compute_local_unkns(
+  nargil::cell<dim, spacedim> *in_cell)
+{
+  const diffusion *own_cell = static_cast<const diffusion *>(in_cell);
+  //  hdg_polybasis *own_basis = static_cast<hdg_polybasis
+  //  *>(own_cell->my_basis);
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(own_cell->my_manager.get());
+  own_manager->compute_local_unkns();
+}
+
+//
+//
+
+// template <int dim, int spacedim>
+// void nargil::diffusion<dim, spacedim>::hdg_manager::
+//  run_assign_exact_local_unkns(
+//    nargil::cell<dim, spacedim> *in_cell,
+//    const dealii::parallel::distributed::Vector<double> &values)
+//{
+//  const diffusion *own_cell = static_cast<const diffusion *>(in_cell);
+//  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
+//  hdg_manager *own_manager =
+//    static_cast<hdg_manager *>(own_cell->my_manager.get());
+//  unsigned n_scalar_unkns = own_basis->local_fe.base_element(0).dofs_per_cell;
+//  dealii::Vector<double> dof_values(own_basis->local_fe.dofs_per_cell);
+//  own_manager->my_dealii_local_dofs_cell->get_dof_values(values, dof_values);
+//  own_manager->exact_u.resize(n_scalar_unkns);
+//  own_manager->exact_q.resize(n_scalar_unkns * dim);
+//  for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+//    own_manager->exact_u(i1) = dof_values[i1];
+//  for (unsigned i1 = 0; i1 < dim * n_scalar_unkns; ++i1)
+//    own_manager->exact_q(i1) = dof_values[i1 + n_scalar_unkns];
+//}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::diffusion<dim, spacedim>::hdg_manager::run_compute_errors(
+  nargil::cell<dim, spacedim> *in_cell, std::vector<double> *sum_of_L2_errors)
+{
+  const diffusion *own_cell = static_cast<const diffusion *>(in_cell);
+  hdg_polybasis *own_basis = static_cast<hdg_polybasis *>(own_cell->my_basis);
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(own_cell->my_manager.get());
+  unsigned n_scalar_unkns = own_basis->local_fe.base_element(0).dofs_per_cell;
+  own_basis->local_fe_val_in_cell->reinit(
+    own_manager->my_dealii_local_dofs_cell);
+  for (unsigned i_quad = 0; i_quad < own_basis->cell_quad.size(); ++i_quad)
+  {
+    double JxW = own_basis->local_fe_val_in_cell->JxW(i_quad);
+    for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+    {
+      double shape_val_u =
+        own_basis->local_fe_val_in_cell->shape_value(i1, i_quad);
+      (*sum_of_L2_errors)[1] += 0;
+    }
+    for (unsigned i1 = n_scalar_unkns; i1 < (dim + 1) * n_scalar_unkns; ++i1)
+    {
+      unsigned i2 = i1 - n_scalar_unkns;
+      double q_error = own_manager->exact_q(i2) - own_manager->q_vec(i2);
+
+      //
+      //
+      //
+
+      // std::cout << own_manager->q_vec << " " << own_manager->exact_q
+      //          << std::endl;
+
+      //
+      //
+      //
+      double shape_val_q =
+        own_basis->local_fe_val_in_cell->shape_value(i1, i_quad);
+      //      std::cout << shape_val_q << std::endl;
+      (*sum_of_L2_errors)[1] += shape_val_q * JxW * q_error * q_error;
+    }
+  }
+}
+
+template <int dim, int spacedim>
+void nargil::diffusion<dim, spacedim>::hdg_manager::visualize_results(
+  const dealii::DoFHandler<dim, spacedim> &dof_handler,
+  const LA::MPI::Vector &visual_solu, const unsigned &time_level)
+{
+  const auto &tria = dof_handler.get_tria();
+  unsigned n_active_cells = tria.n_active_cells();
+  int comm_rank, comm_size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+  unsigned refn_cycle = 0;
+  dealii::DataOut<dim> data_out;
+  data_out.attach_dof_handler(dof_handler);
+  std::vector<std::string> solution_names(dim + 1);
+  solution_names[0] = "head";
+  for (unsigned i1 = 0; i1 < dim; ++i1)
+    solution_names[i1 + 1] = "flow";
+  std::vector<dealii::DataComponentInterpretation::DataComponentInterpretation>
+    data_component_interpretation(
+      1, dealii::DataComponentInterpretation::component_is_scalar);
+  for (unsigned i1 = 0; i1 < dim; ++i1)
+    data_component_interpretation.push_back(
+      dealii::DataComponentInterpretation::component_is_part_of_vector);
+  data_out.add_data_vector(visual_solu,
+                           solution_names,
+                           dealii::DataOut<dim>::type_dof_data,
+                           data_component_interpretation);
+
+  dealii::Vector<float> subdomain(n_active_cells);
+  for (unsigned int i = 0; i < subdomain.size(); ++i)
+    subdomain(i) = comm_rank;
+  data_out.add_data_vector(subdomain, "subdomain");
+
+  data_out.build_patches();
+
+  const std::string filename =
+    ("solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
+     dealii::Utilities::int_to_string(comm_rank, 4) + "-" +
+     dealii::Utilities::int_to_string(time_level, 4));
+  std::ofstream output((filename + ".vtu").c_str());
+  data_out.write_vtu(output);
+
+  if (comm_rank == 0)
+  {
+    std::vector<std::string> filenames;
+    for (unsigned int i = 0; i < comm_size; ++i)
+      filenames.push_back(
+        "solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
+        dealii::Utilities::int_to_string(i, 4) + "-" +
+        dealii::Utilities::int_to_string(time_level, 4) + ".vtu");
+    std::ofstream master_output((filename + ".pvtu").c_str());
+    data_out.write_pvtu_record(master_output, filenames);
+  }
 }

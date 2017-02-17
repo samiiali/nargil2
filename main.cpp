@@ -11,6 +11,9 @@
 #include <deal.II/grid/grid_out.h>
 
 #include <deal.II/base/index_set.h>
+#include <deal.II/base/multithread_info.h>
+#include <deal.II/dofs/dof_tools.h>
+#include <deal.II/lac/generic_linear_algebra.h>
 #include <deal.II/lac/parallel_vector.h>
 
 #include "include/elements/diffusion.hpp"
@@ -18,6 +21,12 @@
 #include "include/models/model.hpp"
 #include "include/models/model_manager.hpp"
 #include "include/solvers/solvers.hpp"
+
+//
+//
+//
+//
+//
 
 /**
  * Just a sample problem
@@ -129,26 +138,16 @@ template <int dim, int spacedim = dim> struct Problem
     }
   }
 
-  struct exact_uhat_func : public dealii::Function<dim>
-  {
-    exact_uhat_func() : dealii::Function<dim>(1, 0.0) {}
-    virtual double value(const dealii::Point<dim> &p) const
-    {
-      return sin(p[0]);
-    }
-    virtual void value_list(const std::vector<dealii::Point<spacedim> > &points,
-                            std::vector<double> &values) const
-    {
-      assert(values.size() == points.size());
-      for (unsigned i1 = 0; i1 < points.size(); ++i1)
-        values[i1] = value(points[i1]);
-    }
-  };
+  //
+  //
 
   static double exact_uhat_func2(dealii::Point<spacedim> p)
   {
     return sin(p[0]);
   }
+
+  //
+  //
 
   struct exact_sol_func : public dealii::Function<dim>
   {
@@ -162,27 +161,6 @@ template <int dim, int spacedim = dim> struct Problem
       values(2) = sin(p[1]);
     }
   };
-
-  static void run_interpolate_and_set_uhat(nargil::cell<dim, spacedim> *in_cell)
-  {
-    exact_uhat_func exact_uhat;
-    ModelEq *own_cell = static_cast<ModelEq *>(in_cell);
-    const BasisType *own_basis = own_cell->template get_basis<BasisType>();
-    auto i_manager = own_cell->template get_manager<CellManagerType>();
-    std::vector<double> exact_uhat_vec(own_basis->trace_fe.n_dofs_per_cell());
-    unsigned num1 = 0;
-    for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
-    {
-      std::vector<double> exact_uhat_vec_on_face =
-        i_manager->interpolate_to_trace_unkns(exact_uhat, i_face);
-      for (unsigned i1 = 0; i1 < own_basis->trace_fe.n_dofs_per_face(); ++i1)
-      {
-        exact_uhat_vec[num1] = exact_uhat_vec_on_face[i1];
-        ++num1;
-      }
-    }
-    i_manager->set_trace_unkns(exact_uhat_vec);
-  }
 
   //
   // This is a functor, which basically does the same thing as above.
@@ -210,27 +188,43 @@ template <int dim, int spacedim = dim> struct Problem
   };
 };
 
+//
+//
+//
+//
+//
+
+//
+//
+//
+//
+//
+
 /**
  * @brief main
  */
 int main(int argc, char **argv)
 {
   PetscInitialize(&argc, &argv, NULL, NULL);
+  dealii::MultithreadInfo::set_thread_limit(1);
 
   //
   {
     const MPI_Comm *const comm = &PETSC_COMM_WORLD;
+    int comm_rank;
+    MPI_Comm_rank(PETSC_COMM_WORLD, &comm_rank);
+
     nargil::mesh<2> mesh1(*comm, 1, false);
 
     //    mesh1.generate_mesh(Problem<2>::adaptive_mesh_gen);
-    mesh1.generate_mesh(Problem<2>::solver_checker_mesh);
+    mesh1.generate_mesh(Problem<2>::generate_mesh);
 
     // We can also use a functor to generate the mesh.
     // h_mesh1.generate_mesh(problem<2>::grid_gen2());
 
     Problem<2>::ModelType model1(mesh1);
 
-    Problem<2>::BasisType basis1(1, 2);
+    Problem<2>::BasisType basis1(3, 4);
     model1.init_model_elements(&basis1);
     model1.assign_BCs<Problem<2>::BasisType>(Problem<2>::assign_BCs);
 
@@ -244,27 +238,52 @@ int main(int argc, char **argv)
 
     //
     //
-    auto exact_uhat_func2 = [](const dealii::Point<2> &p) { return sin(p[0]); };
-    Problem<2>::CellManagerType::set_exact_uhat_func(exact_uhat_func2);
+
+    auto exact_uhat_func = [](const dealii::Point<2> &p) { return sin(p[0]); };
     model_manager1.apply_func_to_owned_cells(
-      &model1, Problem<2>::CellManagerType::run_interpolate_and_set_uhat);
+      &model1, Problem<2>::CellManagerType::run_interpolate_to_trace,
+      exact_uhat_func);
 
-    //
-    //
+    nargil::distributed_vector<2> exact_sol_vec(
+      model_manager1.local_dof_handler, MPI_COMM_WORLD);
+    auto exact_local_func = [](const dealii::Point<2> &p) {
+      std::vector<double> out(3);
+      out[0] = sin(p[0]) + cos(p[1]);
+      out[1] = -cos(p[0]);
+      out[2] = sin(p[1]);
+      return out;
+    };
+    model_manager1.apply_func_to_owned_cells(
+      &model1, Problem<2>::CellManagerType::run_interpolate_to_interior,
+      exact_local_func, &exact_sol_vec);
 
-    Problem<2>::exact_sol_func exact_sol;
-    dealii::IndexSet local_idx =
-      model_manager1.local_dof_handler.locally_owned_dofs();
-    dealii::parallel::distributed::Vector<double> exact_sol_vec(
-      local_idx, PETSC_COMM_WORLD);
-    dealii::VectorTools::interpolate(model_manager1.local_dof_handler,
-                                     exact_sol, exact_sol_vec);
+    LA::MPI::Vector global_nodal_vec;
+    exact_sol_vec.copy_to_global_vec(global_nodal_vec);
+    /*
+    Problem<2>::CellManagerType::visualize_results(
+      model_manager1.local_dof_handler, global_nodal_vec, 0.0);
+    */
 
-    //    double temp_dev = 0;
-    //    model_manager1.assemble_globals<Problem<2>::BasisType>(&model1,
-    //    &solver1);
-    //    model_manager1.compute_local_unkns<Problem<2>::BasisType>(&model1,
-    //                                                              &temp_dev);
+    //    Problem<2>::exact_sol_func exact_sol;
+    //    LA::MPI::Vector exact_sol_vec2(
+    //      model_manager1.local_dof_handler.locally_owned_dofs(),
+    //      PETSC_COMM_WORLD);
+    //    dealii::VectorTools::interpolate(model_manager1.local_dof_handler,
+    //                                     exact_sol, exact_sol_vec2);
+    //    Problem<2>::CellManagerType::visualize_results(
+    //      model_manager1.local_dof_handler, exact_sol_vec2, 0.0);
+    //    model_manager1.apply_func_to_owned_cells(
+    //      &model1,
+    //      Problem<2>::CellManagerType::run_assign_exact_local_unkns,
+    //      exact_sol_vec);
+
+    model_manager1.apply_func_to_owned_cells(
+      &model1, Problem<2>::CellManagerType::run_compute_local_unkns);
+
+    std::vector<double> sum_of_L2_errors(2, 0);
+    model_manager1.apply_func_to_owned_cells(
+      &model1, Problem<2>::CellManagerType::run_compute_errors,
+      &sum_of_L2_errors);
 
     //
     //

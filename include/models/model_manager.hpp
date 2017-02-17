@@ -79,12 +79,14 @@ struct implicit_hybridized_model_manager : base_model_manager<dim, spacedim>
 
   /**
    *
-   *
+   * This function invokes the function f with the arguments args
+   * as the arguments of f for each active element of the mesh.
    *
    */
-  template <typename ModelEq, typename Func>
+  template <typename ModelEq, typename Func, typename... Args>
   void apply_func_to_owned_cells(model<ModelEq, dim, spacedim> *in_model,
-                                 Func f);
+                                 Func f,
+                                 Args... args);
 
   /**
    *

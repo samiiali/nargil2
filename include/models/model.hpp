@@ -16,25 +16,13 @@ namespace nargil
 {
 /**
  *
- * This is an abstract model that all other models will be based on it.
- * Thus it palys the rule of an interface for the developers (and not the
- * users).
- *
- */
-struct base_model
-{
-  base_model();
-};
-
-/**
- *
  *
  * The model class contains is actually used to solve a model problem.
  *
  *
  */
 template <typename ModelEq, int dim, int spacedim = dim>
-struct model : public base_model
+struct model
 {
   /**
    *

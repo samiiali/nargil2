@@ -19,6 +19,7 @@
 
 #include "../misc/utils.hpp"
 #include "../models/model_options.hpp"
+#include "../solvers/solvers.hpp"
 #include "cell.hpp"
 
 #ifndef DIFFUSION_HPP
@@ -26,10 +27,6 @@
 
 namespace nargil
 {
-
-// Forward decleration of base_model, to be used in diffusion.
-struct base_model;
-
 /**
  *
  *
@@ -58,8 +55,7 @@ struct diffusion : public cell<dim, spacedim>
    */
   diffusion(dealiiTriCell *in_cell,
             const unsigned id_num_,
-            base_basis<dim, spacedim> *base_basis,
-            base_model *in_model);
+            base_basis<dim, spacedim> *base_basis);
 
   /**
    *
@@ -75,7 +71,8 @@ struct diffusion : public cell<dim, spacedim>
    * function.
    *
    */
-  template <typename CellManagerType> void init_manager();
+  template <typename CellManagerType, typename BasisType>
+  void init_manager(const BasisType *basis);
 
   /**
    *
@@ -133,7 +130,8 @@ struct diffusion : public cell<dim, spacedim>
      *  CellManagerType
      *
      */
-    typedef typename diffusion::hdg_manager CellManagerType;
+    typedef typename diffusion::template hdg_manager<hdg_polybasis>
+      CellManagerType;
 
     /**
      *
@@ -179,8 +177,9 @@ struct diffusion : public cell<dim, spacedim>
      * adjusted_subface_quad_points
      *
      */
-    void adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
-                                      const unsigned half_range);
+    dealii::Point<dim - 1>
+    adjusted_subface_quad_points(const dealii::Point<dim - 1> &P0,
+                                 const unsigned half_range);
 
     /**
      *
@@ -198,20 +197,6 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     * poly_order
-     *
-     */
-    unsigned _poly_order;
-
-    /**
-     *
-     *  quad_order
-     *
-     */
-    unsigned _quad_order;
-
-    /**
-     *
      * local_fe
      *
      */
@@ -223,20 +208,6 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     dealii::FE_FaceQ<dim> trace_fe;
-
-    /**
-     *
-     * cell_quad
-     *
-     */
-    dealii::QGauss<dim> cell_quad;
-
-    /**
-     *
-     * face_quad
-     *
-     */
-    dealii::QGauss<dim - 1> face_quad;
 
     /**
      *
@@ -257,7 +228,14 @@ struct diffusion : public cell<dim, spacedim>
      * fe_vals of trace dofs on the faces of cell.
      *
      */
-    std::unique_ptr<dealii::FEFaceValues<dim> > trace_fe_face_val;
+    std::vector<std::unique_ptr<dealii::FEFaceValues<dim> > > trace_fe_face_val;
+
+    /**
+     *
+     * fe_vals of trace dofs on the faces of cell.
+     *
+     */
+    std::unique_ptr<dealii::FEFaceValues<dim> > trace_fe_face_val_at_supp;
 
     /**
      *
@@ -268,7 +246,6 @@ struct diffusion : public cell<dim, spacedim>
   };
 
   /**
-   *
    *
    * This structure is used to solve the diffusion equation by hybridized DG in
    * the domain \f$\Omega \subset \mathbb R^d\f$. The equation reads as:
@@ -360,7 +337,7 @@ struct diffusion : public cell<dim, spacedim>
    * K}, \quad
    * h_K(\lambda_h, \mu) = \langle -\tau \lambda_h,
    * \mu\rangle_{\partial K},\\
-   * r_{K} (\mathbf v) = \langle g_D , \mathbf v \cdot \mathbf n
+   * r_{K} (\mathbf v) = -\langle g_D , \mathbf v \cdot \mathbf n
    * \rangle_{\partial K \cap \partial \Omega_D}, \quad
    * f_K(w) = (f,w)_K + \langle \tau g_D , w \rangle_{\partial K \cap
    * \partial \Omega_D}, \quad
@@ -382,33 +359,34 @@ struct diffusion : public cell<dim, spacedim>
    * \f]
    * and
    * \f[
-   * U_K = \left(B^T_K A^{-1}_K B_K + D_K\right)^{-1} \left[ -B_K^T
+   * U_K = \left(B^T_K A^{-1}_K B_K + D_K\right)^{-1} \left[ F_K -B_K^T
    * A^{-1}_K R_K + (B^T_K A^{-1}_K C_K + E_K) \Lambda_K \right]
    * \f]
+   *
    */
+  template <typename BasisType>
   struct hdg_manager : hybridized_cell_manager<dim, spacedim>
   {
     /**
      *
-     * funcType with double output
+     *
      *
      */
-    typedef std::function<double(dealii::Point<spacedim>)> funcType;
+    using typename hybridized_cell_manager<dim, spacedim>::funcType;
 
     /**
      *
-     * funcType with std::vector output
+     *
      *
      */
-    typedef std::function<std::vector<double>(dealii::Point<spacedim>)>
-      vectorFuncType;
+    using typename hybridized_cell_manager<dim, spacedim>::vectorFuncType;
 
     /**
      *
      * hdg_manager
      *
      */
-    hdg_manager(const diffusion<dim, spacedim> *);
+    hdg_manager(const diffusion<dim, spacedim> *, const BasisType *in_basis);
 
     /**
      *
@@ -436,14 +414,15 @@ struct diffusion : public cell<dim, spacedim>
      * Assembles the global matrices.
      *
      */
-    void assemble_globals();
+    void
+    assemble_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
      *
      *
      *
      */
-    void compute_local_unkns();
+    void compute_local_unkns(const double *trace_sol);
 
     /**
      *
@@ -454,12 +433,54 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     *
+     *
+     */
+    void interpolate_to_trace(funcType func);
+
+    /**
+     *
+     *
+     *
+     */
+    void interpolate_to_interior(vectorFuncType func);
+
+    /**
+     *
+     *
+     *
+     */
+    void fill_visualization_vector(distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
+     *
+     *
+     */
+    void set_source_and_BCs(funcType f, funcType g_D, vectorFuncType g_N);
+
+    /**
+     *
+     *
+     *
+     */
+    void compute_errors(std::vector<double> *sum_of_L2_errors);
+
+    /**
+     *
      * This function is used to interpolate the function f to the trace
      * degrees of freedom of the element.
      *
      */
-    static void run_interpolate_to_trace(cell<dim, spacedim> *in_cell,
-                                         funcType f);
+    static void run_interpolate_to_trace(diffusion *in_cell, funcType f);
+
+    /**
+     *
+     *
+     *
+     */
+    static void run_interpolate_to_interior(diffusion *in_cell,
+                                            vectorFuncType f);
 
     /**
      *
@@ -467,24 +488,33 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     static void
-    run_interpolate_to_interior(cell<dim, spacedim> *in_cell, vectorFuncType f,
-                                distributed_vector<dim, spacedim> *out_vec);
+    run_fill_visualization_vector(diffusion *in_cell,
+                                  distributed_vector<dim, spacedim> *out_vec);
 
-    //    /**
-    //     *
-    //     * set_exact_local_dofs.
-    //     *
-    //     */
-    //    static void run_assign_exact_local_unkns(
-    //      cell<dim, spacedim> *in_cell,
-    //      const dealii::parallel::distributed::Vector<double> &values);
+    /**
+     *
+     * This function, sets source term, Dirichlet and Neumann BC functions.
+     *
+     */
+    static void run_set_source_and_BCs(diffusion *in_cell, funcType f,
+                                       funcType g_D, vectorFuncType g_N);
 
     /**
      *
      * compute_local_unkns
      *
      */
-    static void run_compute_local_unkns(nargil::cell<dim, spacedim> *in_cell);
+    static void run_compute_local_unkns(diffusion *in_cell,
+                                        const double *trace_sol);
+
+    /**
+     *
+     *
+     *
+     */
+    static void run_assemble_globals(
+      diffusion *in_cell,
+      solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
      *
@@ -493,7 +523,7 @@ struct diffusion : public cell<dim, spacedim>
      * before calling this function.
      *
      */
-    static void run_compute_errors(cell<dim, spacedim> *in_cell,
+    static void run_compute_errors(diffusion *in_cell,
                                    std::vector<double> *sum_of_L2_errors);
 
     /**
@@ -505,6 +535,13 @@ struct diffusion : public cell<dim, spacedim>
     visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                       const LA::MPI::Vector &visual_solu,
                       unsigned const &time_level);
+
+    /**
+     *
+     *
+     *
+     */
+    const BasisType *my_basis;
 
     /** @{
      *
@@ -528,6 +565,21 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec;
+    ///@}
+
+    /** @{
+     *
+     * @brief The source term and applied BCs.
+     *
+     */
+    Eigen::VectorXd gD_vec, f_vec;
+
+    /**
+     *
+     * @brief The std vector of gN's.
+     *
+     */
+    std::vector<dealii::Tensor<1, dim> > gN_vec;
     ///@}
 
     /**

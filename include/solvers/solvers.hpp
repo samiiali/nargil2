@@ -1,4 +1,7 @@
+#include "petsc.h"
+
 #include "Eigen/Dense"
+#include "Eigen/Sparse"
 
 #ifndef SOLVERS_HPP
 #define SOLVERS_HPP
@@ -9,6 +12,13 @@ namespace nargil
 // Forward decleration of dof_counter
 template <int dim, int spacedim> struct dof_counter;
 
+/**
+ *
+ *
+ *
+ */
+namespace solvers
+{
 /**
  *
  * The namespace containing the flags.
@@ -94,9 +104,46 @@ enum state
  *
  *
  */
-struct base_implicit_solver
+template <int dim, int spacedim> struct base_implicit_solver
 {
+  /**
+   *
+   *
+   *
+   */
   base_implicit_solver();
+
+  /**
+   *
+   *
+   *
+   */
+  virtual ~base_implicit_solver() {}
+
+  /**
+   *
+   * @brief initializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  virtual void push_to_global_mat(const int *rows, const int *cols,
+                                  const Eigen::MatrixXd &vals,
+                                  const InsertMode ins_mode) = 0;
+
+  /**
+   *
+   * @brief initializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  virtual void push_to_rhs_vec(const int *rows, const Eigen::VectorXd &vals,
+                               const InsertMode ins_mode) = 0;
+
+  /**
+   *
+   * @brief push values to exact solution vector x_exact
+   *
+   */
+  virtual void push_to_exact_sol(const int *rows, const Eigen::VectorXd &vals,
+                                 const InsertMode ins_mode) = 0;
 };
 
 /**
@@ -109,7 +156,7 @@ struct base_implicit_solver
  *
  */
 template <int dim, int spacedim = dim>
-struct simple_implicit_solver : base_implicit_solver
+struct simple_implicit_solver : base_implicit_solver<dim, spacedim>
 {
   /**
    *
@@ -145,7 +192,8 @@ struct simple_implicit_solver : base_implicit_solver
    *
    */
   void push_to_global_mat(const int *rows, const int *cols,
-                          const Eigen::MatrixXd &vals, const int ins_mode);
+                          const Eigen::MatrixXd &vals,
+                          const InsertMode ins_mode);
 
   /**
    *
@@ -153,7 +201,7 @@ struct simple_implicit_solver : base_implicit_solver
    *
    */
   void push_to_rhs_vec(const int *rows, const Eigen::VectorXd &vals,
-                       const int ins_mode);
+                       const InsertMode ins_mode);
 
   /**
    *
@@ -161,7 +209,7 @@ struct simple_implicit_solver : base_implicit_solver
    *
    */
   void push_to_exact_sol(const int *rows, const Eigen::VectorXd &vals,
-                         const int ins_mode);
+                         const InsertMode ins_mode);
 
   /**
    *
@@ -193,10 +241,10 @@ struct simple_implicit_solver : base_implicit_solver
 
   /**
    *
-   * @brief A
+   *
    *
    */
-  Eigen::MatrixXd A;
+  Eigen::SparseMatrix<double> A;
 
   /**
    *
@@ -214,10 +262,10 @@ struct simple_implicit_solver : base_implicit_solver
 
   /**
    *
-   * @brief lu factor of A
+   *
    *
    */
-  Eigen::FullPivLU<Eigen::MatrixXd> lu_of_A;
+  Eigen::SparseLU<Eigen::SparseMatrix<double> > lu_of_A;
 
   /**
    *
@@ -226,6 +274,7 @@ struct simple_implicit_solver : base_implicit_solver
    */
   solver_state::state my_state;
 };
+}
 }
 
 #include "../../source/solvers/solvers.cpp"

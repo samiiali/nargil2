@@ -5,13 +5,6 @@
 //
 //
 //
-nargil::base_model::base_model() {}
-
-//
-//
-//
-//
-//
 template <typename ModelEq, int dim, int spacedim>
 nargil::model<ModelEq, dim, spacedim>::model(const mesh<dim, spacedim> &in_mesh)
   : my_mesh(&in_mesh)
@@ -44,13 +37,13 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
     if (i_cell->is_locally_owned())
     {
       all_owned_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        &i_cell, i_owned_cell, basis, this));
+        &i_cell, i_owned_cell, basis));
       ++i_owned_cell;
     }
     if (i_cell->is_ghost())
     {
       all_ghost_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        &i_cell, i_ghost_cell, basis, this));
+        &i_cell, i_ghost_cell, basis));
       ++i_ghost_cell;
     }
   }

@@ -1,6 +1,9 @@
 #include "../../include/solvers/solvers.hpp"
 
-nargil::base_implicit_solver::base_implicit_solver() {}
+template <int dim, int spacedim>
+nargil::solvers::base_implicit_solver<dim, spacedim>::base_implicit_solver()
+{
+}
 
 //
 //
@@ -9,7 +12,7 @@ nargil::base_implicit_solver::base_implicit_solver() {}
 //
 
 template <int dim, int spacedim>
-nargil::simple_implicit_solver<dim, spacedim>::simple_implicit_solver(
+nargil::solvers::simple_implicit_solver<dim, spacedim>::simple_implicit_solver(
   const dof_counter<dim, spacedim> &in_dof_counter)
   : my_dof_counter(&in_dof_counter)
 {
@@ -23,14 +26,16 @@ nargil::simple_implicit_solver<dim, spacedim>::simple_implicit_solver(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::init_components(
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::init_components(
   const int update_opts)
 {
   assert(my_state == solver_state::solver_not_ready);
   unsigned n_unkns = my_dof_counter->n_global_unkns_on_all_ranks;
   if (update_opts & solver_update_opts::update_mat)
   {
-    A = std::move(Eigen::MatrixXd::Zero(n_unkns, n_unkns));
+    A.resize(n_unkns, n_unkns);
+    A.reserve(my_dof_counter->n_local_unkns_connected_to_unkn);
+    //    Sp_A.setZero();
   }
   if (update_opts & solver_update_opts::update_rhs)
   {
@@ -47,7 +52,7 @@ void nargil::simple_implicit_solver<dim, spacedim>::init_components(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::reinit_components(
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::reinit_components(
   const int update_opts)
 {
   my_state = solver_state::solver_not_ready;
@@ -58,12 +63,13 @@ void nargil::simple_implicit_solver<dim, spacedim>::reinit_components(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::free_components(
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::free_components(
   const int update_opts)
 {
   if (update_opts & solver_update_opts::update_mat)
   {
     A.resize(0, 0);
+    A.data().squeeze();
   }
   if (update_opts & solver_update_opts::update_rhs)
   {
@@ -80,9 +86,9 @@ void nargil::simple_implicit_solver<dim, spacedim>::free_components(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::push_to_global_mat(
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::push_to_global_mat(
   const int *rows, const int *cols, const Eigen::MatrixXd &mat,
-  const int ins_mode)
+  const InsertMode ins_mode)
 {
   assert(my_state == solver_state::operators_created);
   unsigned n_rows = mat.rows();
@@ -93,10 +99,14 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_global_mat(
     {
       if (rows[i_row] >= 0 && cols[i_col] >= 0)
       {
-        if (ins_mode & insert_mode::ins_vals)
-          A(rows[i_row], cols[i_col]) = mat(i_row, i_col);
-        if (ins_mode & insert_mode::add_vals)
-          A(rows[i_row], cols[i_col]) += mat(i_row, i_col);
+        if (ins_mode == INSERT_VALUES)
+        {
+          A.insert(rows[i_row], cols[i_col]) = mat(i_row, i_col);
+        }
+        if (ins_mode & ADD_VALUES)
+        {
+          A.coeffRef(rows[i_row], cols[i_col]) += mat(i_row, i_col);
+        }
       }
     }
   }
@@ -106,8 +116,8 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_global_mat(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::push_to_rhs_vec(
-  const int *rows, const Eigen::VectorXd &vec, const int ins_mode)
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::push_to_rhs_vec(
+  const int *rows, const Eigen::VectorXd &vec, const InsertMode ins_mode)
 {
   assert(my_state == solver_state::operators_created);
   unsigned n_rows = vec.rows();
@@ -115,9 +125,9 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_rhs_vec(
   {
     if (rows[i_row] >= 0)
     {
-      if (ins_mode & insert_mode::ins_vals)
+      if (ins_mode & INSERT_VALUES)
         b(rows[i_row]) = vec(i_row);
-      if (ins_mode & insert_mode::add_vals)
+      if (ins_mode & ADD_VALUES)
         b(rows[i_row]) += vec(i_row);
     }
   }
@@ -127,8 +137,8 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_rhs_vec(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::push_to_exact_sol(
-  const int *rows, const Eigen::VectorXd &vec, const int ins_mode)
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::push_to_exact_sol(
+  const int *rows, const Eigen::VectorXd &vec, const InsertMode ins_mode)
 {
   assert(my_state == solver_state::operators_created);
   unsigned n_rows = vec.rows();
@@ -136,9 +146,9 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_exact_sol(
   {
     if (rows[i_row] >= 0)
     {
-      if (ins_mode & insert_mode::ins_vals)
+      if (ins_mode & INSERT_VALUES)
         exact_sol(rows[i_row]) = vec(i_row);
-      if (ins_mode & insert_mode::add_vals)
+      if (ins_mode & ADD_VALUES)
         exact_sol(rows[i_row]) += vec(i_row);
     }
   }
@@ -148,8 +158,9 @@ void nargil::simple_implicit_solver<dim, spacedim>::push_to_exact_sol(
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::finish_assemble()
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::finish_assemble()
 {
+  A.makeCompressed();
   my_state = solver_state::assemble_is_finished;
 }
 
@@ -157,10 +168,11 @@ void nargil::simple_implicit_solver<dim, spacedim>::finish_assemble()
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::form_factors()
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::form_factors()
 {
   assert(my_state == solver_state::assemble_is_finished);
-  lu_of_A = std::move(Eigen::FullPivLU<Eigen::MatrixXd>(A));
+  lu_of_A.analyzePattern(A);
+  lu_of_A.factorize(A);
   my_state = solver_state::ready_to_solve;
 }
 
@@ -168,9 +180,9 @@ void nargil::simple_implicit_solver<dim, spacedim>::form_factors()
 //
 
 template <int dim, int spacedim>
-void nargil::simple_implicit_solver<dim, spacedim>::solve_system(
+void nargil::solvers::simple_implicit_solver<dim, spacedim>::solve_system(
   Eigen::VectorXd &sol)
 {
   assert(my_state == solver_state::ready_to_solve);
-  sol = std::move(lu_of_A.solve(b));
+  sol = lu_of_A.solve(b);
 }

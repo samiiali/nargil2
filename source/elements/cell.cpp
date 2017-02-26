@@ -232,12 +232,8 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
 
 template <int dim, int spacedim>
 nargil::cell<dim, spacedim>::cell(dealiiTriCell *inp_cell,
-                                  const unsigned id_num_,
-                                  const base_model *model_)
-  : n_faces(2 * dim),
-    id_num(id_num_),
-    my_dealii_cell(*inp_cell),
-    my_model(model_)
+                                  const unsigned id_num_)
+  : n_faces(2 * dim), id_num(id_num_), my_dealii_cell(*inp_cell)
 {
   std::stringstream ss_id;
   ss_id << my_dealii_cell->id();
@@ -256,12 +252,10 @@ template <int dim, int spacedim>
 template <typename ModelEq, typename BasisType>
 std::unique_ptr<ModelEq>
 nargil::cell<dim, spacedim>::create(dealiiTriCell *in_cell,
-                                    const unsigned id_num_, BasisType *basis,
-                                    base_model *in_model)
+                                    const unsigned id_num_, BasisType *basis)
 {
-  std::unique_ptr<ModelEq> the_cell(
-    new ModelEq(in_cell, id_num_, basis, in_model));
-  the_cell->template init_manager<typename BasisType::CellManagerType>();
+  std::unique_ptr<ModelEq> the_cell(new ModelEq(in_cell, id_num_, basis));
+  the_cell->template init_manager<typename BasisType::CellManagerType>(basis);
   return std::move(the_cell);
 }
 

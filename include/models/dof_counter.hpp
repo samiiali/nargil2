@@ -26,11 +26,7 @@ template <typename ModelEq, int dim, int spacedim> struct model;
  *
  * The base class for numbering the degrees of freedom of the model. It is
  * not supposed to be used by the user. It will be contained inside the Model
- * class. It might seem ok to include a pointer to the containing
- * nargil::base_model in the dof_counter. But it is totally not required.
- * Because the user wil interact with model object and not the dof_counter
- * object. So, when the user calls a method in nargil::model, we decide which
- * dof_counter to call based on the stored key of the dof_counter.
+ * class.
  *
  */
 template <int dim, int spacedim = dim> struct dof_counter

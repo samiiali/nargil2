@@ -15,15 +15,15 @@ struct base_implicit_solver;
 /**
  *
  *
- * The base class for all other model managers.
+ * The main class for all models containing hybridized cells.
  *
  *
  */
-template <int dim, int spacedim> struct base_model_manager
+template <int dim, int spacedim = dim> struct hybridized_model_manager
 {
   /**
    *
-   * @brief The deal.II cell iterator type.
+   * The dealii cell iterator containing dof data.
    *
    */
   typedef typename dealii::DoFHandler<dim, spacedim>::active_cell_iterator
@@ -31,35 +31,10 @@ template <int dim, int spacedim> struct base_model_manager
 
   /**
    *
-   * @brief base_model_manager
-   *
-   */
-  base_model_manager();
-};
-
-/**
- *
- *
- * The main class for all models containing hybridized cells.
- *
- *
- */
-template <int dim, int spacedim = dim>
-struct implicit_hybridized_model_manager : base_model_manager<dim, spacedim>
-{
-  /**
-   *
-   * The dealii cell iterator containing dof data.
-   *
-   */
-  using typename base_model_manager<dim, spacedim>::dealiiDoFCell;
-
-  /**
-   *
    * @brief hybridized_model_manager
    *
    */
-  implicit_hybridized_model_manager();
+  hybridized_model_manager();
 
   /**
    *

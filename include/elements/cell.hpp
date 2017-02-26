@@ -28,9 +28,6 @@ namespace nargil
 // Forward declerations of cell to be used in cell_manager.
 template <int dim, int spacedim> struct cell;
 
-// Forward decleration of BaseModel to be used in cell.
-struct base_model;
-
 /**
  *
  * Base class for all other basis types.
@@ -107,6 +104,21 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    */
   typedef typename dealii::DoFHandler<dim, spacedim>::active_cell_iterator
     dealiiDoFCell;
+
+  /**
+   *
+   * funcType with double output
+   *
+   */
+  typedef std::function<double(const dealii::Point<spacedim> &)> funcType;
+
+  /**
+   *
+   * funcType with std::vector output
+   *
+   */
+  typedef std::function<std::vector<double>(const dealii::Point<spacedim> &)>
+    vectorFuncType;
 
   /**
    *
@@ -311,8 +323,7 @@ template <int dim, int spacedim = dim> struct cell
    * The constructor of this class takes a deal.II cell and creates the cell.
    *
    */
-  cell(dealiiTriCell *inp_cell, const unsigned id_num_,
-       const base_model *model_);
+  cell(dealiiTriCell *inp_cell, const unsigned id_num_);
 
   /**
    *
@@ -330,7 +341,7 @@ template <int dim, int spacedim = dim> struct cell
    */
   template <typename ModelEq, typename BasisType>
   static std::unique_ptr<ModelEq> create(dealiiTriCell *, const unsigned,
-                                         BasisType *, base_model *);
+                                         BasisType *);
 
   /**
    *
@@ -361,13 +372,6 @@ template <int dim, int spacedim = dim> struct cell
    *
    */
   dealiiTriCell my_dealii_cell;
-
-  /**
-   *
-   * A pointer to the BaseModel object which contains this Cell.
-   *
-   */
-  const base_model *my_model;
 };
 }
 

@@ -30,6 +30,14 @@ void Tokenize(const std::string &str_in,
 //
 //
 
+template <typename T> void reck_it_Ralph(T *obj) { T().swap(*obj); }
+
+//
+//
+//
+//
+//
+
 template <int dim, int spacedim = dim> struct distributed_vector
 {
   distributed_vector(const dealii::DoFHandler<dim, spacedim> &dof_handler,

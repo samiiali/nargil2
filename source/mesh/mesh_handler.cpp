@@ -54,6 +54,9 @@ nargil::mesh<dim, spacedim>::mesh(const MPI_Comm &comm_,
 
 template <int dim, int spacedim> nargil::mesh<dim, spacedim>::~mesh() {}
 
+//
+//
+
 template <int dim, int spacedim>
 void nargil::mesh<dim, spacedim>::init_cell_ID_to_num()
 {
@@ -180,6 +183,53 @@ template <typename F>
 void nargil::mesh<dim, spacedim>::generate_mesh(F mesh_gen_func)
 {
   mesh_gen_func(tria);
-  init_cell_ID_to_num();
   write_grid();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::mesh<dim, spacedim>::refine_mesh(
+  const unsigned n,
+  const BasisType &in_basis,
+  const dealii::DoFHandler<dim, spacedim> &dof_handler,
+  const LA::MPI::Vector &refine_solu)
+{
+  if (n != 0 && refn_cycle == 0)
+  {
+    tria.refine_global(n);
+    refn_cycle += n;
+  }
+  else if (n != 0 && !adaptive_on)
+  {
+    tria.refine_global(1);
+    ++refn_cycle;
+  }
+  else if (n != 0)
+  {
+    dealii::Vector<float> estimated_error_per_cell(tria.n_active_cells());
+    dealii::KellyErrorEstimator<dim>::estimate(
+      dof_handler,
+      dealii::QGauss<dim - 1>(in_basis.get_face_quad_size()),
+      typename dealii::FunctionMap<dim>::type(),
+      refine_solu,
+      estimated_error_per_cell);
+    dealii::parallel::distributed::GridRefinement::
+      refine_and_coarsen_fixed_number(tria, estimated_error_per_cell, 0.3,
+                                      0.03);
+    tria.execute_coarsening_and_refinement();
+    ++(refn_cycle);
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::mesh<dim, spacedim>::free_container()
+{
+  reck_it_Ralph(&owned_cell_ID_to_num);
+  reck_it_Ralph(&ghost_cell_ID_to_num);
 }

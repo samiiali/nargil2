@@ -20,8 +20,10 @@ void nargil::hybridized_model_manager<dim, spacedim>::form_dof_handlers(
     in_basis->get_local_fe();
   const dealii::FiniteElement<dim, spacedim> *trace_fe =
     in_basis->get_trace_fe();
+  const dealii::FiniteElement<dim, spacedim> *refn_fe = in_basis->get_refn_fe();
   local_dof_handler.initialize(in_model->my_mesh->tria, *local_fe);
   trace_dof_handler.initialize(in_model->my_mesh->tria, *trace_fe);
+  refn_dof_handler.initialize(in_model->my_mesh->tria, *refn_fe);
 
   typedef typename BasisType::CellManagerType CellManagerType;
   auto active_owned_cell = in_model->all_owned_cells.begin();
@@ -48,7 +50,7 @@ void nargil::hybridized_model_manager<dim, spacedim>::form_dof_handlers(
 
 template <int dim, int spacedim>
 template <typename ModelEq, typename Func, typename... Args>
-void nargil::hybridized_model_manager<dim, spacedim>::apply_func_to_owned_cells(
+void nargil::hybridized_model_manager<dim, spacedim>::invoke(
   model<ModelEq, dim, spacedim> *in_model, Func f, Args... args)
 {
   for (std::unique_ptr<cell<dim, spacedim> > &i_cell :

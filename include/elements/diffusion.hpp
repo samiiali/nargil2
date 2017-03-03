@@ -17,6 +17,7 @@
 
 #include <Eigen/Dense>
 
+#include "../mesh/mesh_handler.hpp"
 #include "../misc/utils.hpp"
 #include "../models/model_options.hpp"
 #include "../solvers/solvers.hpp"
@@ -73,13 +74,6 @@ struct diffusion : public cell<dim, spacedim>
    */
   template <typename CellManagerType, typename BasisType>
   void init_manager(const BasisType *basis);
-
-  /**
-   *
-   * Assigns the boundary condition to different DOFs.
-   *
-   */
-  template <typename BasisType, typename Func> void assign_BCs(Func f);
 
   /**
    *
@@ -197,6 +191,27 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Returns the finite element basis for the trace dofs of the element.
+     *
+     */
+    const dealii::FE_DGQ<dim> *get_refn_fe() const;
+
+    /**
+     *
+     *
+     *
+     */
+    unsigned get_face_quad_size() const;
+
+    /**
+     *
+     *
+     *
+     */
+    unsigned get_cell_quad_size() const;
+
+    /**
+     *
      * local_fe
      *
      */
@@ -208,6 +223,13 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     dealii::FE_FaceQ<dim> trace_fe;
+
+    /**
+     *
+     *
+     *
+     */
+    dealii::FE_DGQ<dim> refn_fe;
 
     /**
      *
@@ -383,6 +405,13 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     *
+     *
+     */
+    typedef std::function<void(hdg_manager<BasisType> *)> BC_Func;
+
+    /**
+     *
      * hdg_manager
      *
      */
@@ -400,71 +429,78 @@ struct diffusion : public cell<dim, spacedim>
      * Sets the boundary conditions of the cell.
      *
      */
-    template <typename Func> void assign_BCs(Func f);
+    void assign_my_BCs(BC_Func f);
 
     /**
      *
      * This function assigns the local_interior_unkn_idx.
      *
      */
-    void assign_local_interior_unkn_id(unsigned *local_num);
+    void set_local_interior_unkn_id(unsigned *local_num);
 
     /**
      *
      * Assembles the global matrices.
      *
      */
-    void
-    assemble_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver);
+    void assemble_my_globals(
+      solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
      *
      *
      *
      */
-    void compute_local_unkns(const double *trace_sol);
+    void compute_my_local_unkns(const double *trace_sol);
 
     /**
      *
      * Computes the local matrices.
      *
      */
-    void compute_matrices();
+    void compute_my_matrices();
 
     /**
      *
      *
      *
      */
-    void interpolate_to_trace(funcType func);
+    void interpolate_to_my_trace(funcType func);
 
     /**
      *
      *
      *
      */
-    void interpolate_to_interior(vectorFuncType func);
+    void interpolate_to_my_interior(vectorFuncType func);
 
     /**
      *
      *
      *
      */
-    void fill_visualization_vector(distributed_vector<dim, spacedim> *out_vec);
+    void fill_my_viz_vector(distributed_vector<dim, spacedim> *out_vec);
 
     /**
      *
      *
      *
      */
-    void set_source_and_BCs(funcType f, funcType g_D, vectorFuncType g_N);
+    void fill_my_refn_vector(distributed_vector<dim, spacedim> *out_vec);
 
     /**
      *
      *
      *
      */
-    void compute_errors(std::vector<double> *sum_of_L2_errors);
+    void set_my_source_and_BCs(funcType f, funcType g_D, vectorFuncType g_N);
+
+    /**
+     *
+     *
+     *
+     */
+    void compute_my_errors(std::vector<double> *sum_of_L2_errors);
 
     /**
      *
@@ -472,15 +508,54 @@ struct diffusion : public cell<dim, spacedim>
      * degrees of freedom of the element.
      *
      */
-    static void run_interpolate_to_trace(diffusion *in_cell, funcType f);
+    static void assign_BCs(diffusion *in_cell, BC_Func f);
+
+    /**
+     *
+     * This function is used to interpolate the function f to the trace
+     * degrees of freedom of the element.
+     *
+     */
+    static void interpolate_to_trace(diffusion *in_cell, funcType f);
 
     /**
      *
      *
      *
      */
-    static void run_interpolate_to_interior(diffusion *in_cell,
-                                            vectorFuncType f);
+    static void interpolate_to_interior(diffusion *in_cell, vectorFuncType f);
+
+    /**
+     *
+     *
+     *
+     */
+    static void fill_viz_vector(diffusion *in_cell,
+                                distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
+     *
+     *
+     */
+    static void fill_refn_vector(diffusion *in_cell,
+                                 distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
+     * This function, sets source term, Dirichlet and Neumann BC functions.
+     *
+     */
+    static void set_source_and_BCs(diffusion *in_cell, funcType f, funcType g_D,
+                                   vectorFuncType g_N);
+
+    /**
+     *
+     * compute_my_local_unkns
+     *
+     */
+    static void compute_local_unkns(diffusion *in_cell,
+                                    const double *trace_sol);
 
     /**
      *
@@ -488,33 +563,8 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     static void
-    run_fill_visualization_vector(diffusion *in_cell,
-                                  distributed_vector<dim, spacedim> *out_vec);
-
-    /**
-     *
-     * This function, sets source term, Dirichlet and Neumann BC functions.
-     *
-     */
-    static void run_set_source_and_BCs(diffusion *in_cell, funcType f,
-                                       funcType g_D, vectorFuncType g_N);
-
-    /**
-     *
-     * compute_local_unkns
-     *
-     */
-    static void run_compute_local_unkns(diffusion *in_cell,
-                                        const double *trace_sol);
-
-    /**
-     *
-     *
-     *
-     */
-    static void run_assemble_globals(
-      diffusion *in_cell,
-      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+    assemble_globals(diffusion *in_cell,
+                     solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
      *
@@ -523,8 +573,8 @@ struct diffusion : public cell<dim, spacedim>
      * before calling this function.
      *
      */
-    static void run_compute_errors(diffusion *in_cell,
-                                   std::vector<double> *sum_of_L2_errors);
+    static void compute_errors(diffusion *in_cell,
+                               std::vector<double> *sum_of_L2_errors);
 
     /**
      *

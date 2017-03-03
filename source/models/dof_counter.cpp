@@ -24,7 +24,6 @@ nargil::implicit_hybridized_numbering<dim,
                                       spacedim>::implicit_hybridized_numbering()
   : dof_counter<dim, spacedim>()
 {
-  std::cout << "constructor of implicit_HDG_dof_counter" << std::endl;
 }
 
 //
@@ -35,22 +34,6 @@ nargil::implicit_hybridized_numbering<
   dim, spacedim>::~implicit_hybridized_numbering()
 {
 }
-
-//
-//
-
-// template <int dim, int spacedim>
-// template <typename BasisType, typename ModelEq>
-// void nargil::implicit_hybridized_numbering<dim, spacedim>::form_dof_handlers(
-//  nargil::model<ModelEq, dim, spacedim> *in_model, BasisType *in_basis)
-//{
-//  const dealii::FiniteElement<dim, spacedim> *local_fe =
-//    in_basis->get_local_fe();
-//  const dealii::FiniteElement<dim, spacedim> *trace_fe =
-//    in_basis->get_trace_fe();
-//  local_dof_handler.initialize(in_model->my_mesh->tria, *local_fe);
-//  trace_dof_handler.initialize(in_model->my_mesh->tria, *trace_fe);
-//}
 
 //
 //
@@ -98,7 +81,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                        ->template get_manager<CellManagerType>();
     auto i_basis =
       static_cast<ModelEq *>(i_cell.get())->template get_basis<BasisType>();
-    i_manager->assign_local_interior_unkn_id(&local_interior_unkn_id);
+    i_manager->set_local_interior_unkn_id(&local_interior_unkn_id);
     std::vector<unsigned> n_unkns_per_dofs = i_basis->get_n_unkns_per_dofs();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {

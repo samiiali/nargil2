@@ -34,17 +34,6 @@ void nargil::diffusion<dim, spacedim>::diffusion::init_manager(
 //
 
 template <int dim, int spacedim>
-template <typename BasisType, typename Func>
-void nargil::diffusion<dim, spacedim>::assign_BCs(Func f)
-{
-  static_cast<typename BasisType::CellManagerType *>(my_manager.get())
-    ->assign_BCs(f);
-}
-
-//
-//
-
-template <int dim, int spacedim>
 template <typename CellManagerType>
 CellManagerType *nargil::diffusion<dim, spacedim>::get_manager()
 {
@@ -74,6 +63,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
     local_fe(dealii::FE_DGQ<dim>(poly_order), 1,
              dealii::FE_DGQ<dim>(poly_order), dim),
     trace_fe(poly_order),
+    refn_fe(poly_order),
     trace_fe_face_val(pow(2, (dim - 1)) + 1),
     local_fe_val_on_faces(2 * dim)
 {
@@ -229,6 +219,36 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_trace_fe() const
 
 //
 //
+
+template <int dim, int spacedim>
+const dealii::FE_DGQ<dim> *
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_refn_fe() const
+{
+  return &refn_fe;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+unsigned
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_face_quad_size() const
+{
+  return trace_fe_face_val[0]->get_quadrature().size();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+unsigned
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_cell_quad_size() const
+{
+  return local_fe_val_in_cell->get_quadrature().size();
+}
+
+//
+//
 //
 //
 //
@@ -256,9 +276,8 @@ nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::~hdg_manager()
 
 template <int dim, int spacedim>
 template <typename BasisType>
-template <typename Func>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_BCs(
-  Func f)
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_my_BCs(
+  BC_Func f)
 {
   f(this);
 }
@@ -269,7 +288,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_BCs(
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::assign_local_interior_unkn_id(unsigned *local_num)
+  BasisType>::set_local_interior_unkn_id(unsigned *local_num)
 {
   for (unsigned i_unkn = 0; i_unkn < local_interior_unkn_idx.size(); ++i_unkn)
   {
@@ -283,10 +302,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
-  solvers::base_implicit_solver<dim, spacedim> *in_solver)
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  assemble_my_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
-  compute_matrices();
+  compute_my_matrices();
   //
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::FullPivLU<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
@@ -325,9 +344,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::compute_local_unkns(const double *trace_sol)
+  BasisType>::compute_my_local_unkns(const double *trace_sol)
 {
-  compute_matrices();
+  compute_my_matrices();
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::FullPivLU<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
   // *** Compute u_out, instead of the following line *** //
@@ -350,14 +369,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim,
-                       spacedim>::hdg_manager<BasisType>::compute_matrices()
+                       spacedim>::hdg_manager<BasisType>::compute_my_matrices()
 {
   unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   unsigned n_trace_unkns = my_basis->trace_fe.dofs_per_cell;
-  unsigned cell_quad_size =
-    my_basis->local_fe_val_in_cell->get_quadrature().size();
-  unsigned face_quad_size =
-    my_basis->trace_fe_face_val[0]->get_quadrature().size();
+  unsigned cell_quad_size = my_basis->get_cell_quad_size();
+  unsigned face_quad_size = my_basis->get_face_quad_size();
   //
   dealii::FEValuesExtractors::Scalar scalar(0);
   dealii::FEValuesExtractors::Vector fluxes(1);
@@ -479,7 +496,7 @@ void nargil::diffusion<dim,
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::interpolate_to_trace(funcType func)
+  BasisType>::interpolate_to_my_trace(funcType func)
 {
   exact_uhat.resize(my_basis->trace_fe.n_dofs_per_cell());
   unsigned num1 = 0;
@@ -503,7 +520,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::interpolate_to_interior(vectorFuncType func)
+  BasisType>::interpolate_to_my_interior(vectorFuncType func)
 {
   unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   exact_u.resize(n_scalar_unkns);
@@ -529,8 +546,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  fill_visualization_vector(distributed_vector<dim, spacedim> *out_vec)
+void nargil::diffusion<dim, spacedim>::hdg_manager<
+  BasisType>::fill_my_viz_vector(distributed_vector<dim, spacedim> *out_vec)
 {
   unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   //
@@ -553,8 +570,25 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::set_source_and_BCs(funcType f_func, funcType gD_func,
-                                 vectorFuncType gN_func)
+  BasisType>::fill_my_refn_vector(distributed_vector<dim, spacedim> *out_vec)
+{
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->my_cell->id_num * n_scalar_unkns + i_unkn;
+    out_vec->assemble(idx1, u_vec(i_unkn));
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<
+  BasisType>::set_my_source_and_BCs(funcType f_func, funcType gD_func,
+                                    vectorFuncType gN_func)
 {
   unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   f_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
@@ -597,8 +631,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
-  std::vector<double> *sum_of_L2_errors)
+void nargil::diffusion<dim, spacedim>::hdg_manager<
+  BasisType>::compute_my_errors(std::vector<double> *sum_of_L2_errors)
 {
   unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   //
@@ -632,11 +666,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::run_interpolate_to_trace(diffusion *in_cell, funcType func)
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_BCs(
+  diffusion *in_cell, BC_Func func)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
-  own_manager->interpolate_to_trace(func);
+  own_manager->assign_my_BCs(func);
 }
 
 //
@@ -645,24 +679,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::run_interpolate_to_interior(diffusion *in_cell,
-                                          vectorFuncType func)
+  BasisType>::interpolate_to_trace(diffusion *in_cell, funcType func)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
-  own_manager->interpolate_to_interior(func);
-}
-
-//
-//
-
-template <int dim, int spacedim>
-template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  run_fill_visualization_vector(diffusion *in_cell,
-                                distributed_vector<dim, spacedim> *out_vec)
-{
-  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
-  own_manager->fill_visualization_vector(out_vec);
+  own_manager->interpolate_to_my_trace(func);
 }
 
 //
@@ -671,11 +691,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::run_set_source_and_BCs(diffusion *in_cell, funcType f_func,
-                                     funcType gD_func, vectorFuncType gN_func)
+  BasisType>::interpolate_to_interior(diffusion *in_cell, vectorFuncType func)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
-  own_manager->set_source_and_BCs(f_func, gD_func, gN_func);
+  own_manager->interpolate_to_my_interior(func);
 }
 
 //
@@ -683,13 +702,49 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  run_assemble_globals(diffusion *in_cell,
-                       solvers::base_implicit_solver<dim, spacedim> *in_solver)
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
+  diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_viz_vector(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_refn_vector(
+  diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_refn_vector(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<
+  BasisType>::set_source_and_BCs(diffusion *in_cell, funcType f_func,
+                                 funcType gD_func, vectorFuncType gN_func)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->set_my_source_and_BCs(f_func, gD_func, gN_func);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
+  diffusion *in_cell, solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
-  own_manager->assemble_globals(in_solver);
+  own_manager->assemble_my_globals(in_solver);
 }
 
 //
@@ -698,12 +753,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::run_compute_local_unkns(diffusion *in_cell,
-                                      const double *trace_sol)
+  BasisType>::compute_local_unkns(diffusion *in_cell, const double *trace_sol)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
-  own_manager->compute_local_unkns(trace_sol);
+  own_manager->compute_my_local_unkns(trace_sol);
 }
 
 //
@@ -711,13 +765,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::run_compute_errors(diffusion *in_cell,
-                                 std::vector<double> *sum_of_L2_errors)
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
+  diffusion *in_cell, std::vector<double> *sum_of_L2_errors)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
-  own_manager->compute_errors(sum_of_L2_errors);
+  own_manager->compute_my_errors(sum_of_L2_errors);
 }
 
 //

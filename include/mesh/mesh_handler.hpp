@@ -7,9 +7,14 @@
 #include <deal.II/distributed/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
+#include <deal.II/numerics/error_estimator.h>
+
+#include <deal.II/distributed/grid_refinement.h>
 
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/grid/tria_accessor.h>
+
+#include "../misc/utils.hpp"
 
 #ifndef GENERIC_SOL_HPP
 #define GENERIC_SOL_HPP
@@ -61,7 +66,7 @@ template <int dim, int spacedim = dim> struct mesh
    * It will also call init_Cell_ID_to_num.
    *
    */
-  template <typename F> void generate_mesh(F);
+  template <typename F> void generate_mesh(F f);
 
   /**
    *
@@ -78,6 +83,17 @@ template <int dim, int spacedim = dim> struct mesh
    *
    */
   void write_grid();
+
+  /**
+   *
+   *
+   *
+   */
+  template <typename BasisType>
+  void refine_mesh(const unsigned n,
+                   const BasisType &in_basis,
+                   const dealii::DoFHandler<dim, spacedim> &dof_handler,
+                   const LA::MPI::Vector &refine_solu);
 
   /**
    *
@@ -98,6 +114,13 @@ template <int dim, int spacedim = dim> struct mesh
    */
   int cell_id_to_num_finder(const std::string &str_id,
                             const bool cell_is_owned) const;
+
+  /**
+   *
+   *
+   *
+   */
+  void free_container();
 
   /**
    *

@@ -21,8 +21,7 @@ namespace nargil
  *
  *
  */
-template <typename ModelEq, int dim, int spacedim = dim>
-struct model
+template <typename ModelEq, int dim, int spacedim = dim> struct model
 {
   /**
    *
@@ -54,13 +53,6 @@ struct model
    *
    */
   template <typename BasisType> void init_model_elements(BasisType *);
-
-  /**
-   *
-   * @brief Here, we set the boundary indicator of each face on the boundary.
-   *
-   */
-  template <typename BasisType, typename Func> void assign_BCs(Func f);
 
   /**
    *

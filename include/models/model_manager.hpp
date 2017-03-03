@@ -38,13 +38,6 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
 
   /**
    *
-   * Here we interpolate a given function on to the space od local dofs
-   *
-   */
-  //  template <typename VectorType> VectorType interpolate_func_to_dof() {}
-
-  /**
-   *
    * Here we form the dof_handler of the manager.
    *
    */
@@ -59,9 +52,7 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
    *
    */
   template <typename ModelEq, typename Func, typename... Args>
-  void apply_func_to_owned_cells(model<ModelEq, dim, spacedim> *in_model,
-                                 Func f,
-                                 Args... args);
+  void invoke(model<ModelEq, dim, spacedim> *in_model, Func f, Args... args);
 
   /**
    *
@@ -76,6 +67,13 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
    *
    */
   dealii::DoFHandler<dim, spacedim> trace_dof_handler;
+
+  /**
+   *
+   *
+   *
+   */
+  dealii::DoFHandler<dim, spacedim> refn_dof_handler;
 };
 }
 

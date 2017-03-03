@@ -53,20 +53,6 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
 //
 
 template <typename ModelEq, int dim, int spacedim>
-template <typename BasisType, typename Func>
-void nargil::model<ModelEq, dim, spacedim>::assign_BCs(Func f)
-{
-  for (auto &&i_cell : all_owned_cells)
-    f(i_cell.get());
-  // Applying the BCs on ghost cells.
-  for (auto &&i_cell : all_ghost_cells)
-    f(i_cell.get());
-}
-
-//
-//
-
-template <typename ModelEq, int dim, int spacedim>
 template <typename CellManagerType, typename InputType>
 CellManagerType *nargil::model<ModelEq, dim, spacedim>::get_owned_cell_manager(
   const InputType &cell_id) const
@@ -106,4 +92,14 @@ CellManagerType *nargil::model<ModelEq, dim, spacedim>::get_ghost_cell_manager(
     static_cast<ModelEq *>(all_ghost_cells[num_id].get())
       ->template get_manager<CellManagerType>();
   return i_manager;
+}
+
+//
+//
+
+template <typename ModelEq, int dim, int spacedim>
+void nargil::model<ModelEq, dim, spacedim>::free_containers()
+{
+  reck_it_Ralph(&all_owned_cells);
+  reck_it_Ralph(&all_ghost_cells);
 }

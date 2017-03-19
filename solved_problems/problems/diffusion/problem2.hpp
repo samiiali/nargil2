@@ -9,6 +9,7 @@
 #include <deal.II/distributed/tria.h>
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
+#include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/base/multithread_info.h>
 #include <deal.II/lac/parallel_vector.h>
@@ -27,6 +28,63 @@
 //
 
 /**
+ *
+ */
+template <int dim, int spacedim = dim>
+struct problem_data : public nargil::diffusion<dim, spacedim>::data
+{
+  /**
+   * @brief pi
+   */
+  const double pi = M_PI;
+
+  /**
+   * @brief Constructor.
+   */
+  problem_data() : nargil::diffusion<dim, spacedim>::data() {}
+
+  /**
+   * @brief rhs_func.
+   */
+  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  {
+    return 4 * pi * pi * sin(2 * pi * p[0]);
+  }
+
+  /**
+   * @brief gD_func.
+   */
+  virtual double gD_func(const dealii::Point<spacedim> &p)
+  {
+    return sin(2 * pi * p[0]);
+  }
+
+  /**
+   * @brief gN_func.
+   */
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
+  {
+    return dealii::Tensor<1, dim>({-2 * pi * cos(2 * pi * p[0]), 0.0});
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_u(const dealii::Point<spacedim> &p)
+  {
+    return sin(2 * pi * p[0]);
+  }
+
+  /**
+   * @brief exact_q
+   */
+  virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
+  {
+    return dealii::Tensor<1, dim>({-2 * pi * cos(2 * pi * p[0]), 0.0});
+  }
+};
+
+/**
  * Just a sample problem
  */
 template <int dim, int spacedim = dim> struct Problem1
@@ -42,30 +100,21 @@ template <int dim, int spacedim = dim> struct Problem1
   static void adaptive_mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> repeats(dim, 8);
+    std::vector<unsigned> repeats(dim, 32);
     dealii::Point<spacedim> point_1, point_2;
     point_1 = {-1.0, -1.0};
     point_2 = {1.0, 1.0};
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, repeats,
                                                       point_1, point_2, true);
-    /*
-    typedef typename nargil::mesh<dim, spacedim>::dealiiTriCell dealiiTriCell;
-    dealii::Point<dim> refn_point1(-0.625, 0.125);
-    dealii::Point<dim> refn_point2(0.625, -0.125);
-
-    for (unsigned i_refn = 0; i_refn < 2; ++i_refn)
-    {
-      for (dealiiTriCell &&i_cell : the_mesh.active_cell_iterators())
-      {
-        if (i_cell->is_locally_owned() && (i_cell->point_inside(refn_point1) ||
-                                           i_cell->point_inside(refn_point2)))
-        {
-          i_cell->set_refine_flag();
-        }
-      }
-      the_mesh.execute_coarsening_and_refinement();
-    }
-    */
+    std::vector<dealii::GridTools::PeriodicFacePair<
+      typename dealii::parallel::distributed::Triangulation<
+        dim>::cell_iterator> >
+      periodic_faces;
+    dealii::GridTools::collect_periodic_faces(the_mesh, 0, 1, 0, periodic_faces,
+                                              dealii::Tensor<1, dim>({2., 0.}));
+    dealii::GridTools::collect_periodic_faces(the_mesh, 2, 3, 0, periodic_faces,
+                                              dealii::Tensor<1, dim>({0., 2.}));
+    the_mesh.add_periodicity(periodic_faces);
   }
 
   /**
@@ -81,7 +130,7 @@ template <int dim, int spacedim = dim> struct Problem1
       {
         if (fabs(face->center()[0] > 1 - 1.E-4))
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
         else
@@ -100,42 +149,6 @@ template <int dim, int spacedim = dim> struct Problem1
   //
   //
 
-  static double exact_uhat_func(const dealii::Point<2> &p)
-  {
-    return sin(p[0]) + cos(p[1]);
-  }
-
-  //
-  //
-
-  static std::vector<double> exact_local_func(const dealii::Point<2> &p)
-  {
-    std::vector<double> out(3);
-    out[0] = sin(p[0]) + cos(p[1]);
-    out[1] = -cos(p[0]);
-    out[2] = sin(p[1]);
-    return out;
-  }
-
-  //
-  //
-
-  static double f_func(const dealii::Point<2> &p)
-  {
-    return sin(p[0]) + cos(p[1]);
-  }
-
-  //
-  //
-
-  static std::vector<double> gN_func(const dealii::Point<2> &)
-  {
-    return std::vector<double>(2, 0.0);
-  }
-
-  //
-  //
-
   static void run(int argc, char **argv)
   {
     PetscInitialize(&argc, &argv, NULL, NULL);
@@ -148,12 +161,14 @@ template <int dim, int spacedim = dim> struct Problem1
 
       nargil::mesh<2> mesh1(comm, 1, true);
 
+      problem_data<2> data1;
+
       mesh1.generate_mesh(adaptive_mesh_gen);
       BasisType basis1(2, 3);
       nargil::implicit_hybridized_numbering<2> dof_counter1;
       nargil::hybridized_model_manager<2> model_manager1;
 
-      for (unsigned i_cycle = 0; i_cycle < 3; ++i_cycle)
+      for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
         ModelType model1(mesh1);
@@ -163,8 +178,8 @@ template <int dim, int spacedim = dim> struct Problem1
         model_manager1.invoke(&model1, CellManagerType::assign_BCs, assign_BCs);
         dof_counter1.count_globals<BasisType>(&model1);
         //
-        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs,
-                              f_func, exact_uhat_func, gN_func);
+        model_manager1.invoke(&model1, ModelEq::assign_data, &data1);
+        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs);
         //
         nargil::solvers::simple_implicit_solver<2> solver1(dof_counter1);
         model_manager1.invoke(&model1, CellManagerType::assemble_globals,
@@ -198,8 +213,8 @@ template <int dim, int spacedim = dim> struct Problem1
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
 
-        model_manager1.invoke(&model1, CellManagerType::interpolate_to_interior,
-                              exact_local_func);
+        model_manager1.invoke(&model1,
+                              CellManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.invoke(&model1, CellManagerType::compute_errors,
                               &sum_of_L2_errors);

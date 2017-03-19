@@ -13,7 +13,7 @@
 #include <deal.II/base/multithread_info.h>
 #include <deal.II/lac/parallel_vector.h>
 
-#include "include/elements/diffusion.hpp"
+#include "include/elements/reactive_interface.hpp"
 #include "include/mesh/mesh_handler.hpp"
 #include "include/misc/utils.hpp"
 #include "include/models/model.hpp"
@@ -27,14 +27,68 @@
 //
 
 /**
+ *
+ */
+template <int dim, int spacedim = dim>
+struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
+{
+  /**
+   * @brief Constructor.
+   */
+  problem_data() : nargil::reactive_interface<dim, spacedim>::data() {}
+
+  /**
+   * @brief rhs_func.
+   */
+  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  {
+    return sin(p[0]) + cos(p[1]);
+  }
+
+  /**
+   * @brief gD_func.
+   */
+  virtual double gD_func(const dealii::Point<spacedim> &p)
+  {
+    return sin(p[0]) + cos(p[1]);
+  }
+
+  /**
+   * @brief gN_func.
+   */
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &)
+  {
+    return dealii::Tensor<1, dim>({0.0, 0.0});
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_u(const dealii::Point<spacedim> &p)
+  {
+    return sin(p[0]) + cos(p[1]);
+  }
+
+  /**
+   * @brief exact_q
+   */
+  virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
+  {
+    return dealii::Tensor<1, dim>({-cos(p[0]), sin(p[1])});
+  }
+};
+
+/**
+ *
  * Just a sample problem
+ *
  */
 template <int dim, int spacedim = dim> struct Problem1
 {
-  typedef nargil::diffusion<2> ModelEq;
+  typedef nargil::reactive_interface<2> ModelEq;
   typedef nargil::model<ModelEq, 2> ModelType;
   typedef ModelEq::hdg_polybasis BasisType;
-  typedef nargil::diffusion<2>::hdg_manager<BasisType> CellManagerType;
+  typedef nargil::reactive_interface<2>::hdg_manager<BasisType> CellManagerType;
 
   /**
    * @brief adaptive_mesh_gen
@@ -100,42 +154,6 @@ template <int dim, int spacedim = dim> struct Problem1
   //
   //
 
-  static double exact_uhat_func(const dealii::Point<2> &p)
-  {
-    return sin(p[0]) + cos(p[1]);
-  }
-
-  //
-  //
-
-  static std::vector<double> exact_local_func(const dealii::Point<2> &p)
-  {
-    std::vector<double> out(3);
-    out[0] = sin(p[0]) + cos(p[1]);
-    out[1] = -cos(p[0]);
-    out[2] = sin(p[1]);
-    return out;
-  }
-
-  //
-  //
-
-  static double f_func(const dealii::Point<2> &p)
-  {
-    return sin(p[0]) + cos(p[1]);
-  }
-
-  //
-  //
-
-  static std::vector<double> gN_func(const dealii::Point<2> &)
-  {
-    return std::vector<double>(2, 0.0);
-  }
-
-  //
-  //
-
   static void run(int argc, char **argv)
   {
     PetscInitialize(&argc, &argv, NULL, NULL);
@@ -160,11 +178,13 @@ template <int dim, int spacedim = dim> struct Problem1
         model1.init_model_elements(&basis1);
         model_manager1.form_dof_handlers(&model1, &basis1);
 
+        problem_data<2> data1;
+
         model_manager1.invoke(&model1, CellManagerType::assign_BCs, assign_BCs);
         dof_counter1.count_globals<BasisType>(&model1);
         //
-        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs,
-                              f_func, exact_uhat_func, gN_func);
+        model_manager1.invoke(&model1, ModelEq::assign_data, &data1);
+        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs);
         //
         nargil::solvers::simple_implicit_solver<2> solver1(dof_counter1);
         model_manager1.invoke(&model1, CellManagerType::assemble_globals,
@@ -198,8 +218,8 @@ template <int dim, int spacedim = dim> struct Problem1
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
 
-        model_manager1.invoke(&model1, CellManagerType::interpolate_to_interior,
-                              exact_local_func);
+        model_manager1.invoke(&model1,
+                              CellManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.invoke(&model1, CellManagerType::compute_errors,
                               &sum_of_L2_errors);

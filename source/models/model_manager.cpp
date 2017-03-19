@@ -27,8 +27,8 @@ void nargil::hybridized_model_manager<dim, spacedim>::form_dof_handlers(
 
   typedef typename BasisType::CellManagerType CellManagerType;
   auto active_owned_cell = in_model->all_owned_cells.begin();
-  dealiiDoFCell i_local_cell = local_dof_handler.begin_active();
-  dealiiDoFCell i_trace_cell = trace_dof_handler.begin_active();
+  dealiiDoFCell<dim, spacedim> i_local_cell = local_dof_handler.begin_active();
+  dealiiDoFCell<dim, spacedim> i_trace_cell = trace_dof_handler.begin_active();
   unsigned n_active_cells = in_model->my_mesh->tria.n_active_cells();
 
   for (unsigned i1 = 0; i1 < n_active_cells; ++i1)

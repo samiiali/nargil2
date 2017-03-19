@@ -89,7 +89,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
       {
         const auto &face_i1 = i_cell->my_dealii_cell->face(i_face);
         unsigned n_open_unkns_on_this_face =
-          i_manager->get_n_open_unknowns_on_face(i_face, n_unkns_per_dofs);
+          i_manager->get_n_open_unkns_on_face(i_face, n_unkns_per_dofs);
         //
         // The basic case corresponds to face_i1 being on the boundary.
         // In this case we only need to set the number of current face,
@@ -101,8 +101,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         // dofs that have some dof_names for themselves.
         //
         if (face_i1->at_boundary() &&
-            i_manager->BCs[i_face] != boundary_condition::periodic)
+            !i_cell->my_dealii_cell->has_periodic_neighbor(i_face))
         {
+          assert(i_manager->BCs[i_face] != boundary_condition::periodic);
           i_manager->set_cell_properties(i_face, comm_rank, 0);
           i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
                                         i_global_unkn_on_this_rank,
@@ -136,16 +137,18 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           //    domain which has smaller rank. So, we have to send the face
           //    number from the smaller rank to the higher rank.
           //
-          if (i_cell->my_dealii_cell->neighbor_is_coarser(i_face))
+          if (i_cell->my_dealii_cell.generic_neighbor_is_coarser(i_face))
           {
             //
             // The neighbor should be a ghost, because in each subdomain, the
             // elements are ordered from coarse to fine.
             //
-            dealiiTriCell &&nb_i1 = i_cell->my_dealii_cell->neighbor(i_face);
+            dealiiTriCell<dim, spacedim> &&nb_i1 =
+              static_cast<dealiiTriCell<dim, spacedim> &&>(
+                i_cell->my_dealii_cell.generic_neighbor(i_face));
             assert(nb_i1->is_ghost());
             unsigned face_nb_num =
-              i_cell->my_dealii_cell->neighbor_face_no(i_face);
+              i_cell->my_dealii_cell.generic_neighbor_face_no(i_face);
             const auto &face_nb = nb_i1->face(face_nb_num);
             //
             // \bug I believe, nb_face_of_nb_num = i_face. Otherwise, something
@@ -157,8 +160,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                  i_nb_subface < face_nb->n_children();
                  ++i_nb_subface)
             {
-              const dealiiTriCell &nb_of_nb_i1 =
-                nb_i1->neighbor_child_on_subface(face_nb_num, i_nb_subface);
+              dealiiTriCell<dim, spacedim> &&nb_of_nb_i1 =
+                static_cast<dealiiTriCell<dim, spacedim> &&>(
+                  nb_i1->neighbor_child_on_subface(face_nb_num, i_nb_subface));
               if (nb_of_nb_i1->subdomain_id() == comm_rank)
               {
                 auto nb_of_nb_manager =
@@ -190,10 +194,12 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                  i_subface < face_i1->number_of_children();
                  ++i_subface)
             {
-              dealiiTriCell &&nb_i1 =
-                i_cell->my_dealii_cell->neighbor_child_on_subface(i_face,
-                                                                  i_subface);
-              int face_nb_i1 = i_cell->my_dealii_cell->neighbor_face_no(i_face);
+              dealiiTriCell<dim, spacedim> &&nb_i1 =
+                static_cast<dealiiTriCell<dim, spacedim> &&>(
+                  i_cell->my_dealii_cell.generic_neighbor_child_on_subface(
+                    i_face, i_subface));
+              int face_nb_i1 =
+                i_cell->my_dealii_cell.generic_neighbor_face_no(i_face);
               std::stringstream nb_ss_id;
               nb_ss_id << nb_i1->id();
               std::string nb_str_id = nb_ss_id.str();
@@ -249,8 +255,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           //
           else
           {
-            dealiiTriCell &&nb_i1 = i_cell->my_dealii_cell->neighbor(i_face);
-            int face_nb_i1 = i_cell->my_dealii_cell->neighbor_face_no(i_face);
+            dealiiTriCell<dim, spacedim> &&nb_i1 =
+              static_cast<dealiiTriCell<dim, spacedim> &&>(
+                i_cell->my_dealii_cell.generic_neighbor(i_face));
+            int face_nb_i1 =
+              i_cell->my_dealii_cell.generic_neighbor_face_no(i_face);
             std::stringstream nb_ss_id;
             nb_ss_id << nb_i1->id();
             std::string nb_str_id = nb_ss_id.str();
@@ -374,7 +383,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       unsigned n_open_unkns_on_this_face =
-        ghost_manager->get_n_open_unknowns_on_face(i_face, n_unkns_per_dofs);
+        ghost_manager->get_n_open_unkns_on_face(i_face, n_unkns_per_dofs);
       if (ghost_manager->face_is_not_visited(i_face))
       {
         const auto &face_i1 = ghost_cell->my_dealii_cell->face(i_face);
@@ -408,14 +417,15 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           if (face_i1->has_children())
           {
             int face_nb_subface =
-              ghost_cell->my_dealii_cell->neighbor_face_no(i_face);
+              ghost_cell->my_dealii_cell.generic_neighbor_face_no(i_face);
             for (unsigned i_subface = 0;
                  i_subface < face_i1->number_of_children();
                  ++i_subface)
             {
-              dealiiTriCell &&nb_subface =
-                ghost_cell->my_dealii_cell->neighbor_child_on_subface(
-                  i_face, i_subface);
+              dealiiTriCell<dim, spacedim> &&nb_subface =
+                static_cast<dealiiTriCell<dim, spacedim> &&>(
+                  ghost_cell->my_dealii_cell.generic_neighbor_child_on_subface(
+                    i_face, i_subface));
               if (nb_subface->is_ghost())
               {
                 auto nb_manager =
@@ -428,12 +438,14 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
               }
             }
           }
-          else if (ghost_cell->my_dealii_cell->neighbor(i_face)->is_ghost())
+          else if (ghost_cell->my_dealii_cell.generic_neighbor(i_face)
+                     ->is_ghost())
           {
-            dealiiTriCell &&nb_i1 =
-              ghost_cell->my_dealii_cell->neighbor(i_face);
+            dealiiTriCell<dim, spacedim> &&nb_i1 =
+              static_cast<dealiiTriCell<dim, spacedim> &&>(
+                ghost_cell->my_dealii_cell.generic_neighbor(i_face));
             int face_nb_i1 =
-              ghost_cell->my_dealii_cell->neighbor_face_no(i_face);
+              ghost_cell->my_dealii_cell.generic_neighbor_face_no(i_face);
             auto nb_manager =
               in_model->template get_ghost_cell_manager<CellManagerType>(nb_i1);
             assert(nb_manager->unkns_id_in_this_rank[face_nb_i1].size() == 0);
@@ -726,7 +738,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       unsigned n_open_unkns_on_this_face =
-        i_manager->get_n_open_unknowns_on_face(i_face, n_unkns_per_dofs);
+        i_manager->get_n_open_unkns_on_face(i_face, n_unkns_per_dofs);
       if (i_manager->face_owner_rank[i_face] == comm_rank)
       {
         for (unsigned i_unkn = 0;

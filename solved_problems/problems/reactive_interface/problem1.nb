@@ -1,0 +1,120 @@
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[         0,          0]
+NotebookDataLength[      3471,        119]
+NotebookOptionsPosition[      2895,         93]
+NotebookOutlinePosition[      3269,        109]
+CellTagsIndexPosition[      3226,        106]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"\[Rho]n", "[", 
+   RowBox[{"x_", ",", "y_", ",", "t_"}], "]"}], ":=", 
+  RowBox[{
+   RowBox[{"Sin", "[", "x", "]"}], "+", 
+   RowBox[{"Cos", "[", "x", "]"}]}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"\[Rho]p", "[", 
+   RowBox[{"x_", ",", "y_", ",", "t_"}], "]"}], ":=", 
+  RowBox[{"Cos", "[", 
+   RowBox[{"x", "-", "y"}], "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Phi", "[", 
+   RowBox[{"x_", ",", "y_", ",", "t_"}], "]"}], ":=", 
+  RowBox[{"Exp", "[", 
+   RowBox[{"x", "+", "y"}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.697494360684676*^9, 3.697494399830698*^9}, {
+  3.6974944461670523`*^9, 3.697494564072259*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"eq1", "[", 
+   RowBox[{"x_", ",", "y_", ",", "t_"}], "]"}], ":=", 
+  RowBox[{"FullSimplify", "[", 
+   RowBox[{
+    SubscriptBox["\[Del]", 
+     RowBox[{"{", 
+      RowBox[{"x", ",", "y"}], "}"}]], ".", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"\[Rho]n", "[", 
+        RowBox[{"x", ",", "y", ",", "t"}], "]"}], 
+       RowBox[{
+        SubscriptBox["\[Del]", 
+         RowBox[{"{", 
+          RowBox[{"x", ",", "y"}], "}"}]], 
+        RowBox[{"Phi", "[", 
+         RowBox[{"x", ",", "y", ",", "t"}], "]"}]}]}], "-", 
+      RowBox[{"\[Del]", 
+       RowBox[{"\[Rho]n", "[", 
+        RowBox[{"x", ",", "y", ",", "t"}], "]"}]}]}], ")"}]}], 
+   "]"}]}]], "Input",
+ CellChangeTimes->{{3.697494651921473*^9, 3.6974946932733727`*^9}, {
+  3.697494775026515*^9, 3.697494797266747*^9}, {3.697494838067061*^9, 
+  3.6974949116603327`*^9}, {3.69749496479711*^9, 3.6974949980530987`*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"eq1", "[", 
+  RowBox[{"x", ",", "y", ",", "t"}], "]"}]], "Input",
+ CellChangeTimes->{{3.697494972641287*^9, 3.697494978732448*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   SuperscriptBox["\[ExponentialE]", 
+    RowBox[{"x", "+", "y"}]], " ", 
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"3", " ", 
+      RowBox[{"Cos", "[", "x", "]"}]}], "+", 
+     RowBox[{"Sin", "[", "x", "]"}]}], ")"}]}], "+", 
+  RowBox[{
+   RowBox[{"(", 
+    RowBox[{
+     RowBox[{"-", 
+      RowBox[{"Cos", "[", "x", "]"}]}], "+", 
+     RowBox[{"Sin", "[", "x", "]"}]}], ")"}], " ", 
+   RowBox[{
+    SuperscriptBox["Del", "\[Prime]",
+     MultilineFunction->None], "[", 
+    RowBox[{
+     RowBox[{"Cos", "[", "x", "]"}], "+", 
+     RowBox[{"Sin", "[", "x", "]"}]}], "]"}]}]}]], "Output",
+ CellChangeTimes->{{3.697494979245447*^9, 3.697495000213957*^9}}]
+}, Open  ]]
+},
+WindowSize->{808, 911},
+WindowMargins->{{Automatic, 1084}, {-163, Automatic}},
+Magnification:>1.25 Inherited,
+FrontEndVersion->"11.0 for Linux x86 (64-bit) (September 21, 2016)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[400, 13, 673, 18, 97, "Input"],
+Cell[1076, 33, 930, 26, 106, "Input"],
+Cell[CellGroupData[{
+Cell[2031, 63, 155, 3, 40, "Input"],
+Cell[2189, 68, 690, 22, 40, "Output"]
+}, Open  ]]
+}
+]
+*)
+

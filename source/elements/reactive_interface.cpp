@@ -1,11 +1,11 @@
-#include "../../include/elements/diffusion.hpp"
+#include "../../include/elements/reactive_interface.hpp"
 
 //
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::diffusion(
-  dealiiTriCell<dim, spacedim> *inp_cell,
+nargil::reactive_interface<dim, spacedim>::reactive_interface(
+  dealiiTriCell *inp_cell,
   const unsigned in_id_num,
   base_basis<dim, spacedim> *in_basis)
   : cell<dim, spacedim>(inp_cell, in_id_num), my_basis(in_basis)
@@ -15,7 +15,8 @@ nargil::diffusion<dim, spacedim>::diffusion(
 //
 //
 
-template <int dim, int spacedim> nargil::diffusion<dim, spacedim>::~diffusion()
+template <int dim, int spacedim>
+nargil::reactive_interface<dim, spacedim>::~reactive_interface()
 {
 }
 
@@ -24,8 +25,8 @@ template <int dim, int spacedim> nargil::diffusion<dim, spacedim>::~diffusion()
 
 template <int dim, int spacedim>
 template <typename CellManagerType, typename BasisType>
-void nargil::diffusion<dim, spacedim>::diffusion::init_manager(
-  const BasisType *in_basis)
+void nargil::reactive_interface<
+  dim, spacedim>::reactive_interface::init_manager(const BasisType *in_basis)
 {
   my_manager = std::move(
     std::unique_ptr<CellManagerType>(new CellManagerType(this, in_basis)));
@@ -35,18 +36,8 @@ void nargil::diffusion<dim, spacedim>::diffusion::init_manager(
 //
 
 template <int dim, int spacedim>
-void nargil::diffusion<dim, spacedim>::assign_data(diffusion *in_cell,
-                                                   data *in_data)
-{
-  in_cell->my_data = in_data;
-}
-
-//
-//
-
-template <int dim, int spacedim>
 template <typename CellManagerType>
-CellManagerType *nargil::diffusion<dim, spacedim>::get_manager()
+CellManagerType *nargil::reactive_interface<dim, spacedim>::get_manager()
 {
   return static_cast<CellManagerType *>(my_manager.get());
 }
@@ -55,8 +46,18 @@ CellManagerType *nargil::diffusion<dim, spacedim>::get_manager()
 //
 
 template <int dim, int spacedim>
+void nargil::reactive_interface<dim, spacedim>::assign_data(
+  reactive_interface *in_cell, data *in_data)
+{
+  in_cell->my_data = in_data;
+}
+
+//
+//
+
+template <int dim, int spacedim>
 template <typename BasisType>
-const BasisType *nargil::diffusion<dim, spacedim>::get_basis() const
+const BasisType *nargil::reactive_interface<dim, spacedim>::get_basis() const
 {
   return static_cast<const BasisType *>(my_basis);
 }
@@ -68,7 +69,7 @@ const BasisType *nargil::diffusion<dim, spacedim>::get_basis() const
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   const unsigned poly_order, const unsigned quad_order)
   : base_basis<dim, spacedim>(),
     local_fe(dealii::FE_DGQ<dim>(poly_order), 1,
@@ -135,7 +136,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
 //
 
 template <int dim, int spacedim>
-nargil::diffusion<dim, spacedim>::hdg_polybasis::~hdg_polybasis()
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::~hdg_polybasis()
 {
 }
 
@@ -144,8 +145,9 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::~hdg_polybasis()
 
 template <int dim, int spacedim>
 dealii::Point<dim - 1>
-nargil::diffusion<dim, spacedim>::hdg_polybasis::adjusted_subface_quad_points(
-  const dealii::Point<dim - 1> &in_point, const unsigned half_range)
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::
+  adjusted_subface_quad_points(const dealii::Point<dim - 1> &in_point,
+                               const unsigned half_range)
 {
   assert(half_range <= pow(2, in_point.dimension));
   dealii::Point<dim - 1> out_point(in_point);
@@ -189,7 +191,8 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::adjusted_subface_quad_points(
 //
 
 template <int dim, int spacedim>
-unsigned nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_per_face()
+unsigned
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_n_dofs_per_face()
 {
   return 1;
 }
@@ -199,7 +202,8 @@ unsigned nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_dofs_per_face()
 
 template <int dim, int spacedim>
 std::vector<unsigned>
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_unkns_per_dofs() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_n_unkns_per_dofs()
+  const
 {
   // Here, we will have copy elision, DO NOT try to optimize using move
   // semantics.
@@ -213,7 +217,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_n_unkns_per_dofs() const
 
 template <int dim, int spacedim>
 const dealii::FESystem<dim> *
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_local_fe() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_local_fe() const
 {
   return &local_fe;
 }
@@ -223,7 +227,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_local_fe() const
 
 template <int dim, int spacedim>
 const dealii::FE_FaceQ<dim> *
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_trace_fe() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_trace_fe() const
 {
   return &trace_fe;
 }
@@ -233,7 +237,7 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_trace_fe() const
 
 template <int dim, int spacedim>
 const dealii::FE_DGQ<dim> *
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_refn_fe() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_refn_fe() const
 {
   return &refn_fe;
 }
@@ -243,7 +247,8 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_refn_fe() const
 
 template <int dim, int spacedim>
 unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_face_quad_size() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_face_quad_size()
+  const
 {
   return trace_fe_face_val[0]->get_quadrature().size();
 }
@@ -253,65 +258,26 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_face_quad_size() const
 
 template <int dim, int spacedim>
 unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::get_cell_quad_size() const
+nargil::reactive_interface<dim, spacedim>::hdg_polybasis::get_cell_quad_size()
+  const
 {
   return local_fe_val_in_cell->get_quadrature().size();
 }
 
 //
 //
-
-template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::n_unkns_per_local_scalar_dof()
-  const
-{
-  return local_fe.base_element(0).dofs_per_cell;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::n_trace_unkns_per_cell() const
-{
-  return trace_fe.dofs_per_cell;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::n_trace_unkns_per_face() const
-{
-  return trace_fe.dofs_per_face;
-}
-
-//
-//
-
-template <int dim, int spacedim>
-unsigned
-nargil::diffusion<dim, spacedim>::hdg_polybasis::n_local_unkns_per_cell() const
-{
-  return local_fe.dofs_per_cell;
-}
-
-//
-//
 //
 //
 //
 
 template <int dim, int spacedim>
 template <typename BasisType>
-nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::hdg_manager(
-  const nargil::diffusion<dim, spacedim> *in_cell, const BasisType *in_basis)
+nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::hdg_manager(
+  const nargil::reactive_interface<dim, spacedim> *in_cell,
+  const BasisType *in_basis)
   : hybridized_cell_manager<dim, spacedim>(in_cell), my_basis(in_basis)
 {
-  local_interior_unkn_idx.resize(my_basis->n_local_unkns_per_cell());
+  local_interior_unkn_idx.resize(my_basis->local_fe.dofs_per_cell);
 }
 
 //
@@ -319,7 +285,8 @@ nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::hdg_manager(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::~hdg_manager()
+nargil::reactive_interface<dim,
+                           spacedim>::hdg_manager<BasisType>::~hdg_manager()
 {
 }
 
@@ -328,8 +295,8 @@ nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::~hdg_manager()
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_my_BCs(
-  BC_Func f)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::assign_my_BCs(BC_Func f)
 {
   f(this);
 }
@@ -339,7 +306,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_my_BCs(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::set_local_interior_unkn_id(unsigned *local_num)
 {
   for (unsigned i_unkn = 0; i_unkn < local_interior_unkn_idx.size(); ++i_unkn)
@@ -354,7 +321,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
   assemble_my_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
   compute_my_matrices();
@@ -363,12 +330,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   Eigen::FullPivLU<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
   Eigen::MatrixXd Mat2 = (B.transpose() * A_inv * C + E);
   //
-  std::vector<int> dof_indices(my_basis->n_trace_unkns_per_cell());
+  std::vector<int> dof_indices(my_basis->trace_fe.dofs_per_cell);
   for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
-    for (unsigned i_unkn = 0; i_unkn < my_basis->n_trace_unkns_per_face();
+    for (unsigned i_unkn = 0; i_unkn < my_basis->trace_fe.dofs_per_face;
          ++i_unkn)
     {
-      int idx1 = i_face * my_basis->n_trace_unkns_per_face() + i_unkn;
+      int idx1 = i_face * my_basis->trace_fe.dofs_per_face + i_unkn;
       dof_indices[idx1] = this->unkns_id_in_all_ranks[i_face][i_unkn];
     }
   //
@@ -395,7 +362,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_local_unkns(const double *trace_sol)
 {
   compute_my_matrices();
@@ -420,11 +387,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim,
-                       spacedim>::hdg_manager<BasisType>::compute_my_matrices()
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_my_matrices()
 {
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
-  unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell();
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
+  unsigned n_trace_unkns = my_basis->trace_fe.dofs_per_cell;
   unsigned cell_quad_size = my_basis->get_cell_quad_size();
   unsigned face_quad_size = my_basis->get_face_quad_size();
   //
@@ -547,10 +514,11 @@ void nargil::diffusion<dim,
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::interpolate_to_my_trace()
 {
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
   exact_uhat.resize(my_basis->trace_fe.n_dofs_per_cell());
   unsigned num1 = 0;
   for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
@@ -559,7 +527,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
                                                 i_face);
     const std::vector<dealii::Point<spacedim> > &face_supp_locs =
       my_basis->trace_fe_face_val_at_supp->get_quadrature_points();
-    for (unsigned i1 = 0; i1 < my_basis->n_trace_unkns_per_face(); ++i1)
+    for (unsigned i1 = 0; i1 < my_basis->trace_fe.n_dofs_per_face(); ++i1)
     {
       exact_uhat(num1) = own_cell->my_data->exact_u(face_supp_locs[i1]);
       ++num1;
@@ -572,11 +540,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::interpolate_to_my_interior()
 {
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   exact_u.resize(n_scalar_unkns);
   exact_q.resize(n_scalar_unkns * dim);
   //
@@ -600,10 +569,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::fill_my_viz_vector(distributed_vector<dim, spacedim> *out_vec)
 {
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   //
   for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
   {
@@ -623,10 +592,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::fill_my_refn_vector(distributed_vector<dim, spacedim> *out_vec)
 {
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   //
   for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
   {
@@ -640,11 +609,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::set_my_source_and_BCs()
 {
-  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   f_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   //
   my_basis->local_fe_val_at_cell_supp->reinit(this->my_dealii_local_dofs_cell);
@@ -657,9 +627,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
     f_vec(i_unkn) = value_at_i_node;
   }
   //
-  gD_vec = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell());
-  gN_vec.resize(my_basis->n_trace_unkns_per_cell());
-  unsigned n_dofs_per_face = my_basis->n_trace_unkns_per_face();
+  gD_vec = Eigen::VectorXd::Zero(my_basis->trace_fe.n_dofs_per_cell());
+  gN_vec.resize(my_basis->trace_fe.n_dofs_per_cell());
+  unsigned n_dofs_per_face = my_basis->trace_fe.dofs_per_face;
   for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
   {
     my_basis->trace_fe_face_val_at_supp->reinit(this->my_dealii_trace_dofs_cell,
@@ -685,10 +655,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_errors(std::vector<double> *sum_of_L2_errors)
 {
-  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned n_scalar_unkns = my_basis->local_fe.base_element(0).dofs_per_cell;
   //
   my_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
   unsigned cell_quad_size =
@@ -720,8 +690,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_BCs(
-  diffusion *in_cell, BC_Func func)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::assign_BCs(reactive_interface *in_cell, BC_Func func)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->assign_my_BCs(func);
@@ -732,8 +702,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assign_BCs(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::interpolate_to_trace(diffusion *in_cell)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::interpolate_to_trace(reactive_interface *in_cell)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->interpolate_to_my_trace();
@@ -744,8 +714,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::interpolate_to_interior(diffusion *in_cell)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::interpolate_to_interior(reactive_interface *in_cell)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->interpolate_to_my_interior();
@@ -756,8 +726,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
-  diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::fill_viz_vector(reactive_interface *in_cell,
+                              distributed_vector<dim, spacedim> *out_vec)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->fill_my_viz_vector(out_vec);
@@ -768,8 +739,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_refn_vector(
-  diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::fill_refn_vector(reactive_interface *in_cell,
+                               distributed_vector<dim, spacedim> *out_vec)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->fill_my_refn_vector(out_vec);
@@ -780,8 +752,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_refn_vector(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::set_source_and_BCs(diffusion *in_cell)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::set_source_and_BCs(reactive_interface *in_cell)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->set_my_source_and_BCs();
@@ -792,8 +764,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
-  diffusion *in_cell, solvers::base_implicit_solver<dim, spacedim> *in_solver)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
+  assemble_globals(reactive_interface *in_cell,
+                   solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
@@ -805,8 +778,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<
-  BasisType>::compute_local_unkns(diffusion *in_cell, const double *trace_sol)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_local_unkns(reactive_interface *in_cell,
+                                  const double *trace_sol)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
@@ -818,8 +792,9 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
-  diffusion *in_cell, std::vector<double> *sum_of_L2_errors)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_errors(reactive_interface *in_cell,
+                             std::vector<double> *sum_of_L2_errors)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
@@ -831,12 +806,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
   visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
                     const LA::MPI::Vector &visual_solu,
                     const unsigned &time_level)
 {
-  const auto &tria = dof_handler.get_triangulation();
+  const auto &tria = dof_handler.get_tria();
   unsigned n_active_cells = tria.n_active_cells();
   int comm_rank, comm_size;
   MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);

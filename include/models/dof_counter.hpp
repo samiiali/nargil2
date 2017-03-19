@@ -12,6 +12,7 @@
 #include <deal.II/base/point.h>
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/grid/tria.h>
+#include <deal.II/grid/tria_iterator.h>
 
 #include "../../include/elements/cell.hpp"
 #include "../../include/misc/utils.hpp"
@@ -31,18 +32,6 @@ template <typename ModelEq, int dim, int spacedim> struct model;
  */
 template <int dim, int spacedim = dim> struct dof_counter
 {
-  /**
-   * @brief The deal.II cell iterator type.
-   */
-
-  /**
-   *
-   * @brief The deal.II cell iterator type.
-   *
-   */
-  typedef typename dealii::Triangulation<dim, spacedim>::active_cell_iterator
-    dealiiTriCell;
-
   /**
    *
    * @brief Constructor of the class.
@@ -124,13 +113,6 @@ template <int dim, int spacedim = dim> struct dof_counter
 template <int dim, int spacedim = dim>
 struct implicit_hybridized_numbering : public dof_counter<dim, spacedim>
 {
-  /**
-   *
-   * dealiiTriCell
-   *
-   */
-  using typename dof_counter<dim, spacedim>::dealiiTriCell;
-
   /**
    *
    * @brief The constructor of the class.

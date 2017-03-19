@@ -32,18 +32,20 @@ void nargil::model<ModelEq, dim, spacedim>::init_model_elements(
   unsigned i_owned_cell = 0;
   unsigned i_ghost_cell = 0;
 
-  for (dealiiTriCell &&i_cell : my_mesh->tria.active_cell_iterators())
+  for (auto &&i_cell : my_mesh->tria.active_cell_iterators())
   {
+    dealiiTriCell<dim, spacedim> *casted_cell =
+      static_cast<dealiiTriCell<dim, spacedim> *>(&i_cell);
     if (i_cell->is_locally_owned())
     {
       all_owned_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        &i_cell, i_owned_cell, basis));
+        casted_cell, i_owned_cell, basis));
       ++i_owned_cell;
     }
     if (i_cell->is_ghost())
     {
       all_ghost_cells.push_back(cell<dim, spacedim>::template create<ModelEq>(
-        &i_cell, i_ghost_cell, basis));
+        casted_cell, i_ghost_cell, basis));
       ++i_ghost_cell;
     }
   }

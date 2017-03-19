@@ -201,7 +201,7 @@ bool nargil::hybridized_cell_manager<dim, spacedim>::face_is_not_visited(
 
 template <int dim, int spacedim>
 unsigned
-nargil::hybridized_cell_manager<dim, spacedim>::get_n_open_unknowns_on_face(
+nargil::hybridized_cell_manager<dim, spacedim>::get_n_open_unkns_on_face(
   const unsigned i_face, const std::vector<unsigned> &n_unkns_per_dofs)
 {
   unsigned n_unkns = 0;
@@ -218,7 +218,9 @@ nargil::hybridized_cell_manager<dim, spacedim>::get_n_open_unknowns_on_face(
 
 template <int dim, int spacedim>
 void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
-  dealiiDoFCell dealii_local_cell, dealiiDoFCell dealii_trace_cell)
+  dealiiDoFCell<dim, spacedim> dealii_local_cell,
+  dealiiDoFCell<dim, spacedim>
+    dealii_trace_cell)
 {
   my_dealii_local_dofs_cell = dealii_local_cell;
   my_dealii_trace_dofs_cell = dealii_trace_cell;
@@ -231,7 +233,7 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
 //
 
 template <int dim, int spacedim>
-nargil::cell<dim, spacedim>::cell(dealiiTriCell *inp_cell,
+nargil::cell<dim, spacedim>::cell(dealiiTriCell<dim, spacedim> *inp_cell,
                                   const unsigned id_num_)
   : n_faces(2 * dim), id_num(id_num_), my_dealii_cell(*inp_cell)
 {
@@ -251,7 +253,7 @@ template <int dim, int spacedim> nargil::cell<dim, spacedim>::~cell() {}
 template <int dim, int spacedim>
 template <typename ModelEq, typename BasisType>
 std::unique_ptr<ModelEq>
-nargil::cell<dim, spacedim>::create(dealiiTriCell *in_cell,
+nargil::cell<dim, spacedim>::create(dealiiTriCell<dim, spacedim> *in_cell,
                                     const unsigned id_num_, BasisType *basis)
 {
   std::unique_ptr<ModelEq> the_cell(new ModelEq(in_cell, id_num_, basis));

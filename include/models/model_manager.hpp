@@ -1,5 +1,7 @@
 #include <deal.II/numerics/vector_tools.h>
 
+#include "../misc/utils.hpp"
+
 #ifndef MODEL_MANAGER_HPP
 #define MODEL_MANAGER_HPP
 
@@ -21,14 +23,6 @@ struct base_implicit_solver;
  */
 template <int dim, int spacedim = dim> struct hybridized_model_manager
 {
-  /**
-   *
-   * The dealii cell iterator containing dof data.
-   *
-   */
-  typedef typename dealii::DoFHandler<dim, spacedim>::active_cell_iterator
-    dealiiDoFCell;
-
   /**
    *
    * @brief hybridized_model_manager
@@ -70,7 +64,7 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
 
   /**
    *
-   *
+   * The dealii DoFHandler which is used for refining the grid.
    *
    */
   dealii::DoFHandler<dim, spacedim> refn_dof_handler;

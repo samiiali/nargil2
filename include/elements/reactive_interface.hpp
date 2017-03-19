@@ -23,15 +23,15 @@
 #include "../solvers/solvers.hpp"
 #include "cell.hpp"
 
-#ifndef DIFFUSION_HPP
-#define DIFFUSION_HPP
+#ifndef REACTION_DIFFUSION_INTERFACE_HPP
+#define REACTION_DIFFUSION_INTERFACE_HPP
 
 namespace nargil
 {
 /**
  *
  *
- * The element to be used for solving the diffusion equation.
+ * The element to be used for solving the reactive interface problem.
  * The first method of solving this is based on hybridized DG.
  *
  * \ingroup modelelements
@@ -39,7 +39,7 @@ namespace nargil
  *
  */
 template <int dim, int spacedim = dim>
-struct diffusion : public cell<dim, spacedim>
+struct reactive_interface : public cell<dim, spacedim>
 {
   /**
    *
@@ -47,23 +47,23 @@ struct diffusion : public cell<dim, spacedim>
    * (nargil::cell).
    *
    */
-  //  using typename cell<dim, spacedim>::dealiiTriCell;
+  using typename cell<dim, spacedim>::dealiiTriCell;
 
   /**
    *
    * The constructor of the class.
    *
    */
-  diffusion(dealiiTriCell<dim, spacedim> *in_cell,
-            const unsigned id_num_,
-            base_basis<dim, spacedim> *base_basis);
+  reactive_interface(dealiiTriCell *in_cell,
+                     const unsigned id_num_,
+                     base_basis<dim, spacedim> *base_basis);
 
   /**
    *
    * The destructor of the class.
    *
    */
-  virtual ~diffusion() final;
+  virtual ~reactive_interface() final;
 
   /**
    *
@@ -121,7 +121,7 @@ struct diffusion : public cell<dim, spacedim>
    * Assign the main data such as BC, rhs_func, ... to the cell.
    *
    */
-  static void assign_data(diffusion *in_cell, data *in_data);
+  static void assign_data(reactive_interface *in_cell, data *in_data);
 
   /**
    *
@@ -158,7 +158,7 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
-   * The data for this cell.
+   *
    *
    */
   data *my_data;
@@ -176,15 +176,15 @@ struct diffusion : public cell<dim, spacedim>
   {
     /**
      *
-     *  CellManagerType
+     * CellManagerType
      *
      */
-    typedef typename diffusion::template hdg_manager<hdg_polybasis>
+    typedef typename reactive_interface::template hdg_manager<hdg_polybasis>
       CellManagerType;
 
     /**
      *
-     * hdg_polybasis
+     *  hdg_polybasis
      *
      */
     hdg_polybasis() = delete;
@@ -216,7 +216,7 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     *  get_n_unkns_per_dofs
+     * get_n_unkns_per_dofs
      *
      */
     std::vector<unsigned> get_n_unkns_per_dofs() const;
@@ -233,14 +233,13 @@ struct diffusion : public cell<dim, spacedim>
     /**
      *
      * Returns the finite element basis for the local basis of the element.
-     * Only used in hybridized_model_manager::form_dof_handlers().
+     *
      */
     const dealii::FESystem<dim> *get_local_fe() const;
 
     /**
      *
      * Returns the finite element basis for the trace dofs of the element.
-     * Only used in hybridized_model_manager::form_dof_handlers().
      *
      */
     const dealii::FE_FaceQ<dim> *get_trace_fe() const;
@@ -248,54 +247,24 @@ struct diffusion : public cell<dim, spacedim>
     /**
      *
      * Returns the finite element basis for the trace dofs of the element.
-     * Only used in hybridized_model_manager::form_dof_handlers().
      *
      */
     const dealii::FE_DGQ<dim> *get_refn_fe() const;
 
     /**
      *
-     * The number of the quadrature points of the face.
+     * Returns the number of quadrature points of the face.
      *
      */
     unsigned get_face_quad_size() const;
 
     /**
      *
-     * The number of the quadrature points of the cell.
+     * Returns the number of quadrature points of the cell.
      *
      */
     unsigned get_cell_quad_size() const;
 
-    /**
-     *
-     * @brief Number of unknowns per each interior local dof.
-     *
-     */
-    unsigned n_unkns_per_local_scalar_dof() const;
-
-    /**
-     *
-     * @brief Number of total trace unknowns in the cell.
-     *
-     */
-    unsigned n_trace_unkns_per_cell() const;
-
-    /**
-     *
-     * @brief Number of trace unknowns on the face.
-     *
-     */
-    unsigned n_trace_unkns_per_face() const;
-
-    /**
-     *
-     * @brief Number of local unknowns in each cell.
-     *
-     */
-    unsigned n_local_unkns_per_cell() const;
-
-  private:
     /**
      *
      * local_fe
@@ -312,12 +281,11 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     * The dealii FiniteElement which is used for refinement criteria.
+     * The dealii FiniteElement for refinement of the mesh.
      *
      */
     dealii::FE_DGQ<dim> refn_fe;
 
-  public:
     /**
      *
      * fe_vals of local dofs inside the cells.
@@ -334,17 +302,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
-     * This FE Val is used for integrating over faces of element. Since,
-     * we are not certain that face support points (i.e. LGL points) will
-     * also be used for integration, we form this FE val.
+     * fe_vals of trace dofs on the faces of cell.
      *
      */
     std::vector<std::unique_ptr<dealii::FEFaceValues<dim> > > trace_fe_face_val;
 
     /**
      *
-     * This FE Val is used for interpolating gD and gN to support points
-     * of the element.
+     * fe_vals of trace dofs on the faces of cell.
      *
      */
     std::unique_ptr<dealii::FEFaceValues<dim> > trace_fe_face_val_at_supp;
@@ -359,120 +324,132 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
-   * This structure is used to solve the diffusion equation by hybridized DG in
-   * the domain \f$\Omega \subset \mathbb R^d\f$. The equation reads as:
+   * Here, we solve the reactive interface problem in each subdomain.
+   * The final goal here is to solve the problem in
+   * two subdomains along with the interface condition implicitly. So, we start
+   * with the simplified problem:
    * \f[
-   * - \nabla \cdot (\kappa \nabla u) = f \qquad \text{in } \Omega,
+   *   \begin{aligned}
+   *   \partial_t \rho_n +
+   *   \nabla \cdot \mu_n
+   *   \left(
+   *     - \alpha_n \rho_n \nabla \phi - \nabla \rho_n
+   *   \right) &= L_1, \\
+   *   -\nabla \cdot (\nabla \phi) &=0.
+   *   \end{aligned}
    * \f]
-   * with the boundary conditions:
-   * \f[
-   * \begin{aligned}
-   * u = g_D \qquad &\text{on } {\partial \Omega}_D, \\
-   *  (-\kappa \nabla u) \cdot \mathbf n = g_N \qquad &\text{on } {\partial
-   *   \Omega}_N.
-   * \end{aligned}
-   * \f]
-   * Next, we introduce \f$\mathbf q = -\kappa \nabla u\f$, and form the system
-   * of first-order equations:
-   * \f[
-   * \begin{aligned}
-   * \mathbf q + \kappa \nabla u = 0 \\
-   * \quad \nabla \cdot \mathbf q = f
-   * \end{aligned} \qquad \text{in } \Omega,
-   * \f]
-   * with the boundary conditions:
-   * \f[
-   * \begin{aligned}
-   * u = g_D & \qquad \text{on } \partial \Omega_D, \\
-   * \mathbf q \cdot \mathbf n = g_N & \qquad \text{on } \partial \Omega_N.
-   * \end{aligned}
-   * \f]
-   * We satisfy this equation in the weak sense:
-   * \f[
-   * \begin{gathered}
-   * (\kappa^{-1} \mathbf q_h , \mathbf v)_K - (u_h,\nabla \cdot \mathbf v)_K
-   * +\langle \hat u_h , \mathbf v \cdot \mathbf n \rangle_{\partial K} = 0, \\
-   * -(\mathbf q_h,\nabla w)_K +
-   * \langle \mathbf q^*_h \cdot \mathbf n, w\rangle_{\partial K} = (f,w)_K,
-   * \end{gathered} \qquad \forall K \in \mathcal T_h.
-   * \f]
-   * with \f$\mathbf q^*_h\f$ being the numerical flux. We define it as
-   * \f$\mathbf q^*_h = \mathbf q_h + \tau (u_h-\hat u_h) \mathbf n\f$.
+   * To know about each of the above unknowns and parameters, one can visit
+   * <a href="http://dx.doi.org/10.1016/j.jcp.2016.08.026"> this article</a>.
    *
-   * Next we build the boundary conditions on \f$u\f$ in the space of \f$\hat
-   * u\f$ and solve for \f$\lambda\f$ on the mesh skeleton. By including this in
-   * the weak form, we will have:
+   * We solve this equation by writing it in terms of a first order system:
+   * \f[
+   *   \begin{aligned}
+   *     \mu_n^{-1}\mathbf q_n
+   *       - \nabla \rho_n &= 0, \\
+   *     \partial_t \rho_n
+   *     - \nabla \cdot (\mu_n \alpha_n \rho_n \mathbf E)
+   *     - \nabla \cdot \mathbf q_n &= L_1, \\
+   *     \mathbf E &= \nabla \phi, \\
+   *     -\nabla \cdot \mathbf E &= L_2.
+   *   \end{aligned}
+   * \f]
+   * We satisfy this system in the weak sense, by testing it against proper test
+   * functions:
+   * \f[
+   *   \begin{aligned}
+   *     (\mu_n^{-1} \mathbf q_n, \mathbf p)
+   *       - \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
+   *       + (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
+   *     (\partial_t \rho_n, w)
+   *       - \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
+   *       - \langle {\mathbf q}^*_n \cdot \mathbf n, w\rangle
+   *       + (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
+   *       + (\mathbf q_n , \nabla w) &= L_1(w), \\
+   *     (\mathbf E, \mathbf P)
+   *       - \langle \hat \phi , \mathbf P \cdot \mathbf n \rangle
+   *       + (\phi , \nabla \cdot \mathbf P) &= 0, \\
+   *     -\langle {\mathbf E}^* \cdot \mathbf n, W \rangle
+   *       + (\mathbf E , \nabla W)  &= L_2(W).
+   *   \end{aligned} \tag{1}
+   * \f]
+   * Here, we use the follwoing definitions for the numerical fluxes
+   * \f$\widehat {\mathbf E}, \boldsymbol H_n, \widehat {\mathbf q}\f$:
+   * \f[
+   * \begin{aligned}
+   *   {\mathbf E}^* \cdot \mathbf n &=
+   *     \mathbf E \cdot \mathbf n + \sigma_1 (\phi - \hat \phi), \\
+   *   {\mathbf q}^*_n \cdot \mathbf n &=
+   *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n), \\
+   *   {\boldsymbol H}^*_n \cdot \mathbf n &=
+   *     \mu_n \alpha_n \left[\hat \rho_n {\mathbf E}^* \cdot \mathbf n
+   *     + \beta_{n} (\rho_n - \hat \rho_n ) \right] \\
+   *   &= \mu_n \alpha_n
+   *   \left[
+   *     \hat \rho_n \mathbf E \cdot \mathbf n
+   *     + \sigma_1\hat \rho_n(\phi - \hat \phi)
+   *     + \beta_n (\rho_n - \hat \rho_n)
+   *   \right].
+   * \end{aligned}
+   * \f]
+   * In the first step, we can solve the first two equations in system (1),
+   * assuming that \f$\mathbf E\f$ is known.
+   * This way, we avoid the nonlinearity issues. Moreover, we can
+   * check the correct choice of penalty parameter \f$\beta\f$. No need to
+   * mention that this will result in a convection diffusion equation. So,
+   * we want to satisfy the following variational form (we will add the time
+   * derivative term later):
+   * \f[
+   * \begin{aligned}
+   *   (\mu_n^{-1} \mathbf q_n, \mathbf p)
+   *     - \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
+   *     + (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
+   *   -\langle
+   *     \mu_n \alpha_n [
+   *       \hat \rho_n \mathbf E \cdot \mathbf n
+   *       + \beta_n (\rho_n - \hat \rho_n)], w
+   *   \rangle -
+   *   \langle
+   *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n),w
+   *   \rangle
+   *   + (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
+   *   + (\mathbf q_n , \nabla w) &= L_1(w), \\
+   *   \sum \langle
+   *     \boldsymbol H_n^* \cdot \mathbf n + \mathbf q^*\cdot \mathbf n,
+   *     \mu
+   *   \rangle &= \langle g_N, \mu \rangle.
+   * \end{aligned}
+   * \f]
+   * And finally,
+   * \f[
+   * \begin{aligned}
+   *   a_1(\mathbf q_n,\mathbf p) + b_1(\rho_n, \mathbf p)
+   *     - c_1(\hat \rho_n, \mathbf p) &= 0, \\
+   *   b_1^T(w, \mathbf q_n) + d_1(\rho, w) + e_1(\hat \rho, w) &= L_1(w), \\
+   * \end{aligned}
+   * \f]
+   * with:
    * \f[
    * \begin{gathered}
-   * (\kappa^{-1} \mathbf q_h , \mathbf v)_K - (u_h,\nabla \cdot \mathbf v)_K
-   *   +\langle \lambda_h , \mathbf v \cdot \mathbf n \rangle_{\partial K}
-   * =
-   * -\langle g_D , \mathbf v \cdot \mathbf n
-   * \rangle_{\partial K \cap \partial \Omega_D},
-   *   \qquad \forall K \in \mathcal T_h \\
-   * -(\mathbf q_h,\nabla w)_K +
-   *  \langle \mathbf q_h \cdot \mathbf n, w \rangle_{\partial K} + \langle \tau
-   *    (u_h-\lambda_h), w\rangle_{\partial K}
-   * =
-   * (f,w)_K + \langle \tau g_D , w \rangle_{\partial K \cap \partial \Omega_D}
-   *    , \qquad \forall K \in \mathcal T_h \\
-   * \sum_{K \in \mathcal T_h}
-   * \langle \mathbf q^*_h \cdot \mathbf n, \mu \rangle_{\partial K} =
-   * \sum_{K\in \mathcal T_h} \langle g_N , \mu \rangle_{\partial K \cap
-   *    \partial \Omega_N},
+   *   a_1(\mathbf q_n , \mathbf p) = (\mathbf q_n, \mathbf p), \quad
+   *   b_1(\rho_n , \mathbf p) = (\rho_n, \nabla \cdot \mathbf p), \quad
+   *   c_1(\hat \rho_n , \mathbf p) = (\hat \rho_n, \mathbf p \cdot \mathbf n),
+   *   \\
+   *   d_1(\rho,w) =
+   *     \left\langle
+   *       (-\mu_n \alpha_n \beta_n - \tau_n) \rho_n , w
+   *     \right\rangle
+   *     + (\mu_n \alpha_n \mathbf E \rho_n , \nabla w) , \quad
+   *   e_1(\hat \rho, w) =
+   *     \left\langle
+   *       (- \mu_n \alpha_n \mathbf E \cdot \mathbf n
+   *        + \mu_n \alpha_n \beta_n + \tau_n) \hat \rho_n , w
+   *     \right \rangle
    * \end{gathered}
    * \f]
-   * We write this using the following bilinear and functionals:
+   * Now, we want to solve Eqs. (1) using Newton iterations. All of these
+   * equations are linear, except the first one. The Newton iteration
+   * for this equation can be written as:
    * \f[
-   * \begin{gathered}
-   * a_K (\mathbf q_h, \mathbf v) - b_K (u_h, \mathbf v) +
-   * c_{K} (\lambda_h, \mathbf v) = r_K (\mathbf v),
-   *  \qquad \forall K \in \mathcal T_h  \\
-   * b^T_K (\mathbf q_h, w) + d_K (u_h, w) + e_{K}
-   * (\lambda_h, w) = f_K(w) , \qquad \forall K \in \mathcal T_h \\
-   * \sum_{K \in \mathcal T_h}
-   * \left[c_K^T (\mathbf q_h, \mu) + e^T_K(u_h, \mu) +
-   * h_K (\lambda_h, \mu) \right] = \sum _{K\in \mathcal T_h}
-   * l_K(\mu),
-   * \end{gathered}
-   * \f]
-   * where,
-   * \f[
-   * \begin{gathered}
-   * a_K (\mathbf q_h,\mathbf v) = (\kappa^{-1} \mathbf q_h , \mathbf
-   * v)_K, \quad
-   * b_K (u_h,\mathbf v) = (u_h,\nabla \cdot \mathbf v)_K, \quad
-   * c_{K} (\lambda_h, \mathbf v) = \langle \lambda_h ,
-   * \mathbf v \cdot \mathbf n \rangle_{\partial K}, \\
-   * d_K(u_h,w) = \langle \tau u_h, w\rangle_{\partial K}, \quad
-   * e_{K}(\lambda_h , w) = \langle -\tau \lambda_h, w\rangle_{\partial
-   * K}, \quad
-   * h_K(\lambda_h, \mu) = \langle -\tau \lambda_h,
-   * \mu\rangle_{\partial K},\\
-   * r_{K} (\mathbf v) = -\langle g_D , \mathbf v \cdot \mathbf n
-   * \rangle_{\partial K \cap \partial \Omega_D}, \quad
-   * f_K(w) = (f,w)_K + \langle \tau g_D , w \rangle_{\partial K \cap
-   * \partial \Omega_D}, \quad
-   * l_K(\mu) = \langle g_N , \mu
-   * \rangle_{\partial K \cap \partial \Omega_N}.
-   * \end{gathered}
-   * \f]
-   * And the matrix form is:
-   * \f[
-   * A_K Q_K - B_K U_K + C_K \Lambda_K =
-   * R_K, \qquad \forall K \in \mathcal T_h\\
-   * B^T_K Q_K + D_K U_K + E_K \Lambda_K =
-   * F_K, \qquad \forall K \in \mathcal T_h\\
-   * C^T Q + E^T U + H \Lambda = L.
-   * \f]
-   * We want to derive internal variables in terms of trace unknowns:
-   * \f[
-   * Q_K = A_K^{-1}\left( R_K + B_K U_K - C_K \Lambda_K \right)
-   * \f]
-   * and
-   * \f[
-   * U_K = \left(B^T_K A^{-1}_K B_K + D_K\right)^{-1} \left[ F_K -B_K^T
-   * A^{-1}_K R_K + (B^T_K A^{-1}_K C_K + E_K) \Lambda_K \right]
    * \f]
    *
    */
@@ -491,7 +468,8 @@ struct diffusion : public cell<dim, spacedim>
      * hdg_manager
      *
      */
-    hdg_manager(const diffusion<dim, spacedim> *, const BasisType *in_basis);
+    hdg_manager(const reactive_interface<dim, spacedim> *,
+                const BasisType *in_basis);
 
     /**
      *
@@ -513,7 +491,7 @@ struct diffusion : public cell<dim, spacedim>
      * This function assigns the local_interior_unkn_idx.
      *
      */
-    virtual void set_local_interior_unkn_id(unsigned *local_num) final;
+    void set_local_interior_unkn_id(unsigned *local_num);
 
     /**
      *
@@ -588,7 +566,7 @@ struct diffusion : public cell<dim, spacedim>
      * degrees of freedom of the element.
      *
      */
-    static void assign_BCs(diffusion *in_cell, BC_Func f);
+    static void assign_BCs(reactive_interface *in_cell, BC_Func f);
 
     /**
      *
@@ -596,7 +574,7 @@ struct diffusion : public cell<dim, spacedim>
      * degrees of freedom of the element.
      *
      */
-    static void interpolate_to_trace(diffusion *in_cell);
+    static void interpolate_to_trace(reactive_interface *in_cell);
 
     /**
      *
@@ -604,14 +582,14 @@ struct diffusion : public cell<dim, spacedim>
      * to the interior of the given cell.
      *
      */
-    static void interpolate_to_interior(diffusion *in_cell);
+    static void interpolate_to_interior(reactive_interface *in_cell);
 
     /**
      *
      * Fills the visualization vector of the element.
      *
      */
-    static void fill_viz_vector(diffusion *in_cell,
+    static void fill_viz_vector(reactive_interface *in_cell,
                                 distributed_vector<dim, spacedim> *out_vec);
 
     /**
@@ -619,7 +597,7 @@ struct diffusion : public cell<dim, spacedim>
      * Fills the refinement vector of the element.
      *
      */
-    static void fill_refn_vector(diffusion *in_cell,
+    static void fill_refn_vector(reactive_interface *in_cell,
                                  distributed_vector<dim, spacedim> *out_vec);
 
     /**
@@ -627,14 +605,14 @@ struct diffusion : public cell<dim, spacedim>
      * This function, sets source term, Dirichlet and Neumann BC functions.
      *
      */
-    static void set_source_and_BCs(diffusion *in_cell);
+    static void set_source_and_BCs(reactive_interface *in_cell);
 
     /**
      *
      * compute_my_local_unkns
      *
      */
-    static void compute_local_unkns(diffusion *in_cell,
+    static void compute_local_unkns(reactive_interface *in_cell,
                                     const double *trace_sol);
 
     /**
@@ -644,7 +622,7 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     static void
-    assemble_globals(diffusion *in_cell,
+    assemble_globals(reactive_interface *in_cell,
                      solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
@@ -654,7 +632,7 @@ struct diffusion : public cell<dim, spacedim>
      * before calling this function.
      *
      */
-    static void compute_errors(diffusion *in_cell,
+    static void compute_errors(reactive_interface *in_cell,
                                std::vector<double> *sum_of_L2_errors);
 
     /**
@@ -724,6 +702,6 @@ struct diffusion : public cell<dim, spacedim>
 };
 }
 
-#include "../../source/elements/diffusion.cpp"
+#include "../../source/elements/reactive_interface.cpp"
 
 #endif

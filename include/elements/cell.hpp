@@ -6,7 +6,9 @@
 
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/grid/tria.h>
+#include <deal.II/grid/tria_iterator.h>
 
+#include "../misc/utils.hpp"
 #include "../models/model_options.hpp"
 
 #ifndef CELL_CLASS_HPP
@@ -96,15 +98,6 @@ template <int dim, int spacedim> struct cell_manager
 template <int dim, int spacedim>
 struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 {
-  /**
-   *
-   * The dealii cell iterator which has the finite element data as well
-   * as the geometric data.
-   *
-   */
-  typedef typename dealii::DoFHandler<dim, spacedim>::active_cell_iterator
-    dealiiDoFCell;
-
   /**
    *
    * funcType with double output
@@ -197,12 +190,19 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 
   /**
    *
+   * A virtual fucntion to enumerate the internal unknowns of a hybridized cell.
+   *
+   */
+  virtual void set_local_interior_unkn_id(unsigned *local_num) = 0;
+
+  /**
+   *
    * This function returns the number of open unknowns on a face of the
    * element.
    *
    */
-  unsigned get_n_open_unknowns_on_face(const unsigned,
-                                       const std::vector<unsigned> &);
+  unsigned get_n_open_unkns_on_face(const unsigned,
+                                    const std::vector<unsigned> &);
 
   /**
    *
@@ -210,8 +210,9 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * element.
    *
    */
-  void assign_dof_handler_cells(dealiiDoFCell dealii_local_cell,
-                                dealiiDoFCell dealii_trace_cell);
+  void assign_dof_handler_cells(dealiiDoFCell<dim, spacedim> dealii_local_cell,
+                                dealiiDoFCell<dim, spacedim>
+                                  dealii_trace_cell);
 
   /**
    *
@@ -273,14 +274,14 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    * The dealii cell corresponding to this element, for local dofs.
    *
    */
-  dealiiDoFCell my_dealii_local_dofs_cell;
+  dealiiDoFCell<dim, spacedim> my_dealii_local_dofs_cell;
 
   /**
    *
    * The dealii cell corresponding to this element for trace dofs.
    *
    */
-  dealiiDoFCell my_dealii_trace_dofs_cell;
+  dealiiDoFCell<dim, spacedim> my_dealii_trace_dofs_cell;
 };
 
 /**
@@ -295,14 +296,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
  */
 template <int dim, int spacedim = dim> struct cell
 {
-  /**
-   *
-   * The dealii cell type which only contains geometric properties of cell.
-   *
-   */
-  typedef typename dealii::Triangulation<dim, spacedim>::active_cell_iterator
-    dealiiTriCell;
-
   /**
    *
    * The type of iterator for a vector of unique_ptr's to elements.
@@ -323,7 +316,7 @@ template <int dim, int spacedim = dim> struct cell
    * The constructor of this class takes a deal.II cell and creates the cell.
    *
    */
-  cell(dealiiTriCell *inp_cell, const unsigned id_num_);
+  cell(dealiiTriCell<dim, spacedim> *inp_cell, const unsigned id_num_);
 
   /**
    *
@@ -340,8 +333,8 @@ template <int dim, int spacedim = dim> struct cell
    *
    */
   template <typename ModelEq, typename BasisType>
-  static std::unique_ptr<ModelEq> create(dealiiTriCell *, const unsigned,
-                                         BasisType *);
+  static std::unique_ptr<ModelEq> create(dealiiTriCell<dim, spacedim> *,
+                                         const unsigned, BasisType *);
 
   /**
    *
@@ -371,7 +364,7 @@ template <int dim, int spacedim = dim> struct cell
    * An iterator to the deal.II element corresponding to this Cell.
    *
    */
-  dealiiTriCell my_dealii_cell;
+  dealiiTriCell<dim, spacedim> my_dealii_cell;
 };
 }
 

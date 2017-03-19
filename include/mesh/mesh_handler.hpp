@@ -33,14 +33,6 @@ template <int dim, int spacedim = dim> struct mesh
 {
   /**
    *
-   * @brief This typename is used to count and iterate over the deal.II cells.
-   *
-   */
-  typedef typename dealii::Triangulation<dim, spacedim>::active_cell_iterator
-    dealiiTriCell;
-
-  /**
-   *
    * Constructor for a mesh object. Obvioudly, we do not generate the mesh
    * in the constructor (although it makes a lot of sense). So, the members
    * Mesh::tria, Mesh::cell_ID_to_num, Mesh::n_ghost_cell, and
@@ -86,7 +78,7 @@ template <int dim, int spacedim = dim> struct mesh
 
   /**
    *
-   *
+   * Refines the mesh.
    *
    */
   template <typename BasisType>
@@ -103,7 +95,7 @@ template <int dim, int spacedim = dim> struct mesh
    * ghost cell.
    *
    */
-  int cell_id_to_num_finder(const dealiiTriCell &in_dealii_cell,
+  int cell_id_to_num_finder(const dealiiTriCell<dim, spacedim> &in_dealii_cell,
                             const bool cell_is_owned) const;
 
   /**
@@ -117,7 +109,8 @@ template <int dim, int spacedim = dim> struct mesh
 
   /**
    *
-   *
+   * This function release the memory of owned_cell_ID_to_num
+   * and ghost_cell_ID_to_num.
    *
    */
   void free_container();

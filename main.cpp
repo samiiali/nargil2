@@ -1,4 +1,4 @@
-#include "solved_problems/diffusion/simple_diffusion.hpp"
+#include "solved_problems/problems/diffusion/problem2.hpp"
 
 //
 //

@@ -10,6 +10,7 @@
 
 #include "../elements/cell.hpp"
 #include "../mesh/mesh_handler.hpp"
+#include "../misc/utils.hpp"
 #include "dof_counter.hpp"
 
 namespace nargil
@@ -23,14 +24,6 @@ namespace nargil
  */
 template <typename ModelEq, int dim, int spacedim = dim> struct model
 {
-  /**
-   *
-   * @brief This typename is used to count and iterate over the deal.II cells.
-   *
-   */
-  typedef typename dealii::Triangulation<dim, spacedim>::active_cell_iterator
-    dealiiTriCell;
-
   /**
    *
    * @brief Constructor of the class.

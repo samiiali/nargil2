@@ -28,7 +28,7 @@ include(CMakeLocals/CMakeIncs.txt)
 
 SET(TARGET_SRC main.cpp)
 
-FILE(GLOB_RECURSE TARGET_INC ${TARGET_INC} "include/*.hpp")
+FILE(GLOB_RECURSE TARGET_INC ${TARGET_INC} "include/*.hpp" "solved_problems/*.hpp")
 
 
 SET(TARGET_SRC ${TARGET_SRC} ${TARGET_INC})
@@ -37,7 +37,7 @@ SET(TARGET_SRC ${TARGET_SRC} ${TARGET_INC})
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 
-FIND_PACKAGE(deal.II 8.3 QUIET
+FIND_PACKAGE(deal.II 8.5.0 QUIET
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
   )
 IF(NOT ${deal.II_FOUND})
@@ -78,8 +78,6 @@ DEAL_II_INVOKE_AUTOPILOT()
 # in the source tree
 #
 add_subdirectory(source)
-
-add_subdirectory(solved_problems)
 
 include(CMakeLocals/CMakeFlags.txt)
 

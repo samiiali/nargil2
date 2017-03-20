@@ -381,7 +381,7 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
    * @brief solves the system
    *
    */
-  void solve_system(Vec &sol);
+  void solve_system(Vec *sol);
 
   /**
    *
@@ -389,7 +389,7 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
    *
    */
   std::vector<double>
-  get_local_part_of_global_vec(Vec &petsc_vec,
+  get_local_part_of_global_vec(Vec *petsc_vec,
                                const bool destroy_petsc_vec = true);
 
   /**

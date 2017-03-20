@@ -46,7 +46,20 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
    *
    */
   template <typename ModelEq, typename Func, typename... Args>
-  void invoke(model<ModelEq, dim, spacedim> *in_model, Func f, Args... args);
+  void apply_on_owned_cells(model<ModelEq, dim, spacedim> *in_model,
+                            Func f,
+                            Args... args);
+
+  /**
+   *
+   * This function invokes the function f with the arguments args
+   * as the arguments of f for each ghost element of the mesh.
+   *
+   */
+  template <typename ModelEq, typename Func, typename... Args>
+  void apply_on_ghost_cells(model<ModelEq, dim, spacedim> *in_model,
+                            Func f,
+                            Args... args);
 
   /**
    *

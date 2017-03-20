@@ -50,11 +50,27 @@ void nargil::hybridized_model_manager<dim, spacedim>::form_dof_handlers(
 
 template <int dim, int spacedim>
 template <typename ModelEq, typename Func, typename... Args>
-void nargil::hybridized_model_manager<dim, spacedim>::invoke(
+void nargil::hybridized_model_manager<dim, spacedim>::apply_on_owned_cells(
   model<ModelEq, dim, spacedim> *in_model, Func f, Args... args)
 {
   for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
        in_model->all_owned_cells)
+  {
+    ModelEq *casted_cell = static_cast<ModelEq *>(i_cell.get());
+    f(casted_cell, args...);
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename ModelEq, typename Func, typename... Args>
+void nargil::hybridized_model_manager<dim, spacedim>::apply_on_ghost_cells(
+  model<ModelEq, dim, spacedim> *in_model, Func f, Args... args)
+{
+  for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
+       in_model->all_ghost_cells)
   {
     ModelEq *casted_cell = static_cast<ModelEq *>(i_cell.get());
     f(casted_cell, args...);

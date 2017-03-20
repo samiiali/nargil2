@@ -130,13 +130,13 @@ template <int dim, int spacedim = dim> struct Problem1
       {
         if (fabs(face->center()[0] > 1 - 1.E-4))
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
+          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
         else
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
       }
       else
@@ -156,8 +156,9 @@ template <int dim, int spacedim = dim> struct Problem1
 
     {
       const MPI_Comm &comm = PETSC_COMM_WORLD;
-      int comm_rank;
+      int comm_rank, comm_size;
       MPI_Comm_rank(comm, &comm_rank);
+      MPI_Comm_size(comm, &comm_size);
 
       nargil::mesh<2> mesh1(comm, 1, true);
 
@@ -175,34 +176,46 @@ template <int dim, int spacedim = dim> struct Problem1
         model1.init_model_elements(&basis1);
         model_manager1.form_dof_handlers(&model1, &basis1);
 
-        model_manager1.invoke(&model1, CellManagerType::assign_BCs, assign_BCs);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::assign_BCs, assign_BCs);
+        model_manager1.apply_on_ghost_cells(
+          &model1, CellManagerType::assign_BCs, assign_BCs);
         dof_counter1.count_globals<BasisType>(&model1);
         //
-        model_manager1.invoke(&model1, ModelEq::assign_data, &data1);
-        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs);
+        model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
+                                            &data1);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::set_source_and_BCs);
         //
-        nargil::solvers::simple_implicit_solver<2> solver1(dof_counter1);
-        model_manager1.invoke(&model1, CellManagerType::assemble_globals,
-                              &solver1);
+        int solver_keys = nargil::solvers::solver_props::spd_matrix;
+        int update_keys = nargil::solvers::solver_update_opts::update_mat |
+                          nargil::solvers::solver_update_opts::update_rhs;
         //
-        Eigen::VectorXd sol_vec;
-        solver1.finish_assemble();
+        nargil::solvers::petsc_direct_solver<2> solver1(solver_keys,
+                                                        dof_counter1, comm);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::assemble_globals, &solver1);
+        //
+        Vec sol_vec2;
+        solver1.finish_assemble(update_keys);
         solver1.form_factors();
-        solver1.solve_system(sol_vec);
+        solver1.solve_system(&sol_vec2);
+        std::vector<double> local_sol_vec(
+          solver1.get_local_part_of_global_vec(&sol_vec2));
         //
-        model_manager1.invoke(&model1, CellManagerType::compute_local_unkns,
-                              sol_vec.data());
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
         //
         nargil::distributed_vector<2> dist_sol_vec(
           model_manager1.local_dof_handler, PETSC_COMM_WORLD);
         nargil::distributed_vector<2> dist_refn_vec(
           model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
         //
-        model_manager1.invoke(&model1, CellManagerType::fill_viz_vector,
-                              &dist_sol_vec);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
 
-        model_manager1.invoke(&model1, CellManagerType::fill_refn_vector,
-                              &dist_refn_vec);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
 
         LA::MPI::Vector global_sol_vec;
         LA::MPI::Vector global_refn_vec;
@@ -213,13 +226,23 @@ template <int dim, int spacedim = dim> struct Problem1
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
 
-        model_manager1.invoke(&model1,
-                              CellManagerType::interpolate_to_interior);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(2, 0);
-        model_manager1.invoke(&model1, CellManagerType::compute_errors,
-                              &sum_of_L2_errors);
-        std::cout << sqrt(sum_of_L2_errors[0]) << " "
-                  << sqrt(sum_of_L2_errors[1]) << std::endl;
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
+
+        double u_error_global, q_error_global;
+        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
+        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
+
+        if (comm_rank == 0)
+        {
+          std::cout << sqrt(u_error_global) << " " << sqrt(q_error_global)
+                    << std::endl;
+        }
 
         mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
                           global_refn_vec);

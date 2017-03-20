@@ -180,14 +180,14 @@ template <int dim, int spacedim = dim> struct Problem1
 
         problem_data<2> data1;
 
-        model_manager1.invoke(&model1, CellManagerType::assign_BCs, assign_BCs);
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::assign_BCs, assign_BCs);
         dof_counter1.count_globals<BasisType>(&model1);
         //
-        model_manager1.invoke(&model1, ModelEq::assign_data, &data1);
-        model_manager1.invoke(&model1, CellManagerType::set_source_and_BCs);
+        model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data, &data1);
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::set_source_and_BCs);
         //
         nargil::solvers::simple_implicit_solver<2> solver1(dof_counter1);
-        model_manager1.invoke(&model1, CellManagerType::assemble_globals,
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::assemble_globals,
                               &solver1);
         //
         Eigen::VectorXd sol_vec;
@@ -195,7 +195,7 @@ template <int dim, int spacedim = dim> struct Problem1
         solver1.form_factors();
         solver1.solve_system(sol_vec);
         //
-        model_manager1.invoke(&model1, CellManagerType::compute_local_unkns,
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::compute_local_unkns,
                               sol_vec.data());
         //
         nargil::distributed_vector<2> dist_sol_vec(
@@ -203,10 +203,10 @@ template <int dim, int spacedim = dim> struct Problem1
         nargil::distributed_vector<2> dist_refn_vec(
           model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
         //
-        model_manager1.invoke(&model1, CellManagerType::fill_viz_vector,
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::fill_viz_vector,
                               &dist_sol_vec);
 
-        model_manager1.invoke(&model1, CellManagerType::fill_refn_vector,
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::fill_refn_vector,
                               &dist_refn_vec);
 
         LA::MPI::Vector global_sol_vec;
@@ -218,10 +218,10 @@ template <int dim, int spacedim = dim> struct Problem1
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
 
-        model_manager1.invoke(&model1,
+        model_manager1.apply_on_owned_cells(&model1,
                               CellManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(2, 0);
-        model_manager1.invoke(&model1, CellManagerType::compute_errors,
+        model_manager1.apply_on_owned_cells(&model1, CellManagerType::compute_errors,
                               &sum_of_L2_errors);
         std::cout << sqrt(sum_of_L2_errors[0]) << " "
                   << sqrt(sum_of_L2_errors[1]) << std::endl;

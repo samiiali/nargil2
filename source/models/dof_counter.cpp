@@ -101,9 +101,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         // dofs that have some dof_names for themselves.
         //
         if (face_i1->at_boundary() &&
-            !i_cell->my_dealii_cell->has_periodic_neighbor(i_face))
+            i_manager->BCs[i_face] != boundary_condition::periodic)
         {
-          assert(i_manager->BCs[i_face] != boundary_condition::periodic);
           i_manager->set_cell_properties(i_face, comm_rank, 0);
           i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,
                                         i_global_unkn_on_this_rank,
@@ -791,7 +790,8 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
             all_owned_unkns[unkn_i1].connected_face_of_parent_ghost.push_back(
               i_face);
             //
-            // Here we assert that the following condition is never satiisfied.
+            // Here we assert that the following condition is never
+            // satiisfied.
             //
             if (all_owned_unkns[unkn_i1].n_local_connected_unkns == 0)
             {
@@ -894,7 +894,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
     ++unkn_counter;
   }
 
-  unsigned some_shit = 0;
+  unsigned test_val = 0;
 
   std::map<unsigned, unsigned> map_from_local_to_global;
   for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
@@ -911,7 +911,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         int index1 = i_manager->unkns_id_in_this_rank[i_face][i_unkn];
         int index2 = i_manager->unkns_id_in_all_ranks[i_face][i_unkn];
 
-        //        printf("%d %d %d %d %d %d\n", comm_rank, some_shit, i_face,
+        //        printf("%d %d %d %d %d %d\n", comm_rank, test_val, i_face,
         //        i_unkn,
         //               index1, index2);
 
@@ -923,7 +923,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
       }
     }
 
-    ++some_shit;
+    ++test_val;
   }
   assert(map_from_local_to_global.size() == i_local_unkn_on_this_rank);
 

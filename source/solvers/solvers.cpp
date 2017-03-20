@@ -377,19 +377,19 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
   PCFactorSetMatSolverPackage(pc, MATSOLVERMUMPS);
   PCFactorSetUpMatSolverPackage(pc);
   PCFactorGetMatrix(pc, &factor_mat);
-  /* choosing the parallel computing icntl(28) = 2 */
-  //    MatMumpsSetIcntl(factor_mat, 28, 2);
-  /* sequential ordering icntl(7) = 2 */
+  // choosing the parallel computing icntl(28) = 2
+  // MatMumpsSetIcntl(factor_mat, 28, 2);
+  // sequential ordering icntl(7) = 2 */
   MatMumpsSetIcntl(factor_mat, 7, 3);
-  //    MatMumpsSetIcntl(factor_mat, 29, 2);
-  /* parallel ordering icntl(29) = 2 */
-  //  MatMumpsSetIcntl(factor_mat, 29, 2);
-  /* threshhold for row pivot detection */
+  // MatMumpsSetIcntl(factor_mat, 29, 2);
+  // parallel ordering icntl(29) = 2
+  // MatMumpsSetIcntl(factor_mat, 29, 2);
+  // threshhold for row pivot detection
 
   // Iterative refinement //
   MatMumpsSetIcntl(factor_mat, 10, -2);
-  //    MatMumpsSetIcntl(factor_mat, 11, 1);
-  //    MatMumpsSetIcntl(factor_mat, 12, 1);
+  // MatMumpsSetIcntl(factor_mat, 11, 1);
+  // MatMumpsSetIcntl(factor_mat, 12, 1);
 
   // Null pivot rows detection //
   MatMumpsSetIcntl(factor_mat, 24, 1);
@@ -399,7 +399,7 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
 
   // Numerical pivoting
   MatMumpsSetCntl(factor_mat, 1, 0.1);
-  //    MatMumpsSetCntl(factor_mat, 2, 1.E-14);
+  // MatMumpsSetCntl(factor_mat, 2, 1.E-14);
 
   // Null pivot row detection
   MatMumpsSetCntl(factor_mat, 3, -1.E-14);
@@ -407,7 +407,12 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
   // Static pivoting
   MatMumpsSetCntl(factor_mat, 4, 1.E-6);
 
-  //    MatMumpsSetCntl(factor_mat, 5, 1.E20);
+  // MatMumpsSetCntl(factor_mat, 5, 1.E20);
+
+  //
+  //
+  //
+  my_state = solver_state::ready_to_solve;
 }
 
 //
@@ -415,16 +420,18 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
 
 template <int dim, int spacedim>
 void nargil::solvers::petsc_direct_solver<dim, spacedim>::solve_system(
-  Vec &sol_vec)
+  Vec *sol_vec)
 {
+  int my_rank;
+  MPI_Comm_rank(*my_comm, &my_rank);
   assert(my_state == solver_state::ready_to_solve);
   KSPConvergedReason how_ksp_stopped;
   PetscInt num_iter;
-  VecDuplicate(b, &sol_vec);
-  KSPSolve(ksp, b, sol_vec);
+  VecDuplicate(b, sol_vec);
+  KSPSolve(ksp, b, *sol_vec);
   KSPGetIterationNumber(ksp, &num_iter);
   KSPGetConvergedReason(ksp, &how_ksp_stopped);
-  if (this->model->comm_rank == 0)
+  if (my_rank == 0)
     std::cout << num_iter << "  " << how_ksp_stopped << std::endl;
 }
 
@@ -433,7 +440,7 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::solve_system(
 
 template <int dim, int spacedim>
 std::vector<double> nargil::solvers::petsc_direct_solver<
-  dim, spacedim>::get_local_part_of_global_vec(Vec &petsc_vec,
+  dim, spacedim>::get_local_part_of_global_vec(Vec *petsc_vec,
                                                const bool destroy_petsc_vec)
 {
   IS from, to;
@@ -451,10 +458,10 @@ std::vector<double> nargil::solvers::petsc_direct_solver<
                   my_dof_counter->scatter_to.data(),
                   PETSC_COPY_VALUES,
                   &to);
-  VecScatterCreate(petsc_vec, from, local_petsc_vec, to, &scatter);
-  VecScatterBegin(scatter, petsc_vec, local_petsc_vec, INSERT_VALUES,
+  VecScatterCreate(*petsc_vec, from, local_petsc_vec, to, &scatter);
+  VecScatterBegin(scatter, *petsc_vec, local_petsc_vec, INSERT_VALUES,
                   SCATTER_FORWARD);
-  VecScatterEnd(scatter, petsc_vec, local_petsc_vec, INSERT_VALUES,
+  VecScatterEnd(scatter, *petsc_vec, local_petsc_vec, INSERT_VALUES,
                 SCATTER_FORWARD);
   double *local_exact_pointer;
   VecGetArray(local_petsc_vec, &local_exact_pointer);
@@ -468,7 +475,7 @@ std::vector<double> nargil::solvers::petsc_direct_solver<
     ISDestroy(&to);
     VecScatterDestroy(&scatter);
     if (destroy_petsc_vec)
-      VecDestroy(&petsc_vec);
+      VecDestroy(petsc_vec);
   }
   return local_vec;
 }

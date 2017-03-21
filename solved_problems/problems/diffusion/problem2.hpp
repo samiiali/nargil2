@@ -29,6 +29,8 @@
 
 /**
  *
+ * This problem checks the periodic BC on a distributed grid.
+ *
  */
 template <int dim, int spacedim = dim>
 struct problem_data : public nargil::diffusion<dim, spacedim>::data
@@ -89,10 +91,11 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
  */
 template <int dim, int spacedim = dim> struct Problem1
 {
-  typedef nargil::diffusion<2> ModelEq;
-  typedef nargil::model<ModelEq, 2> ModelType;
-  typedef ModelEq::hdg_polybasis BasisType;
-  typedef nargil::diffusion<2>::hdg_manager<BasisType> CellManagerType;
+  typedef nargil::diffusion<dim> ModelEq;
+  typedef nargil::model<ModelEq, dim> ModelType;
+  typedef typename ModelEq::hdg_polybasis BasisType;
+  typedef typename nargil::diffusion<dim>::template hdg_manager<BasisType>
+    CellManagerType;
 
   /**
    * @brief adaptive_mesh_gen
@@ -128,7 +131,7 @@ template <int dim, int spacedim = dim> struct Problem1
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (fabs(face->center()[0] > 1 - 1.E-4))
+        if (fabs(face->center()[0]) > 1 - 1.E-4)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::essential;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
@@ -151,6 +154,8 @@ template <int dim, int spacedim = dim> struct Problem1
 
   static void run(int argc, char **argv)
   {
+    static_assert(dim == 2, "dim should be equal to 2.");
+
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
 
@@ -160,14 +165,14 @@ template <int dim, int spacedim = dim> struct Problem1
       MPI_Comm_rank(comm, &comm_rank);
       MPI_Comm_size(comm, &comm_size);
 
-      nargil::mesh<2> mesh1(comm, 1, true);
+      nargil::mesh<dim> mesh1(comm, 1, true);
 
-      problem_data<2> data1;
+      problem_data<dim> data1;
 
       mesh1.generate_mesh(adaptive_mesh_gen);
       BasisType basis1(2, 3);
-      nargil::implicit_hybridized_numbering<2> dof_counter1;
-      nargil::hybridized_model_manager<2> model_manager1;
+      nargil::implicit_hybridized_numbering<dim> dof_counter1;
+      nargil::hybridized_model_manager<dim> model_manager1;
 
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
@@ -180,7 +185,7 @@ template <int dim, int spacedim = dim> struct Problem1
           &model1, CellManagerType::assign_BCs, assign_BCs);
         model_manager1.apply_on_ghost_cells(
           &model1, CellManagerType::assign_BCs, assign_BCs);
-        dof_counter1.count_globals<BasisType>(&model1);
+        dof_counter1.template count_globals<BasisType>(&model1);
         //
         model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
                                             &data1);
@@ -191,8 +196,8 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_direct_solver<2> solver1(solver_keys,
-                                                        dof_counter1, comm);
+        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                          dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
         //
@@ -206,9 +211,9 @@ template <int dim, int spacedim = dim> struct Problem1
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
         //
-        nargil::distributed_vector<2> dist_sol_vec(
+        nargil::distributed_vector<dim> dist_sol_vec(
           model_manager1.local_dof_handler, PETSC_COMM_WORLD);
-        nargil::distributed_vector<2> dist_refn_vec(
+        nargil::distributed_vector<dim> dist_refn_vec(
           model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
         //
         model_manager1.apply_on_owned_cells(

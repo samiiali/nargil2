@@ -1,4 +1,4 @@
-#include "solved_problems/problems/diffusion/problem2.hpp"
+#include "solved_problems/problems/diffusion/problem3.hpp"
 
 //
 //
@@ -11,8 +11,7 @@
  */
 int main(int argc, char **argv)
 {
-
-  const int dim = 2;
-
-  Problem1<dim>::run(argc, argv);
+  //
+  Problem1<3>::run(argc, argv);
+  //
 }

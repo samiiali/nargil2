@@ -104,6 +104,17 @@ struct diffusion : public cell<dim, spacedim>
      * @brief exact_q
      */
     virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     *
+     */
+    virtual dealii::Tensor<2, dim>
+    kappa_inv(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     *
+     */
+    virtual double tau(const dealii::Point<spacedim> &) = 0;
   };
 
   /**
@@ -428,7 +439,7 @@ struct diffusion : public cell<dim, spacedim>
    * a_K (\mathbf q_h, \mathbf v) - b_K (u_h, \mathbf v) +
    * c_{K} (\lambda_h, \mathbf v) = r_K (\mathbf v),
    *  \qquad \forall K \in \mathcal T_h  \\
-   * b^T_K (\mathbf q_h, w) + d_K (u_h, w) + e_{K}
+   * b^T_K (\mathbf q_h, w) + d_K (u_h, w) - e_{K}
    * (\lambda_h, w) = f_K(w) , \qquad \forall K \in \mathcal T_h \\
    * \sum_{K \in \mathcal T_h}
    * \left[c_K^T (\mathbf q_h, \mu) + e^T_K(u_h, \mu) +
@@ -445,7 +456,7 @@ struct diffusion : public cell<dim, spacedim>
    * c_{K} (\lambda_h, \mathbf v) = \langle \lambda_h ,
    * \mathbf v \cdot \mathbf n \rangle_{\partial K}, \\
    * d_K(u_h,w) = \langle \tau u_h, w\rangle_{\partial K}, \quad
-   * e_{K}(\lambda_h , w) = \langle -\tau \lambda_h, w\rangle_{\partial
+   * e_{K}(\lambda_h , w) = \langle \tau \lambda_h, w\rangle_{\partial
    * K}, \quad
    * h_K(\lambda_h, \mu) = \langle -\tau \lambda_h,
    * \mu\rangle_{\partial K},\\
@@ -461,7 +472,7 @@ struct diffusion : public cell<dim, spacedim>
    * \f[
    * A_K Q_K - B_K U_K + C_K \Lambda_K =
    * R_K, \qquad \forall K \in \mathcal T_h\\
-   * B^T_K Q_K + D_K U_K + E_K \Lambda_K =
+   * B^T_K Q_K + D_K U_K - E_K \Lambda_K =
    * F_K, \qquad \forall K \in \mathcal T_h\\
    * C^T Q + E^T U + H \Lambda = L.
    * \f]

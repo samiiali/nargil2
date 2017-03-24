@@ -32,8 +32,8 @@ template <int dim, int spacedim> void nargil::mesh<dim, spacedim>::write_grid()
   else
   {
     std::ofstream Grid1_OutFile("the_grid" + std::to_string(refn_cycle) +
-                                std::to_string(comm_rank) + ".msh");
-    Grid1_Out.write_msh(tria, Grid1_OutFile);
+                                std::to_string(comm_rank) + ".vtu");
+    Grid1_Out.write_vtu(tria, Grid1_OutFile);
   }
 }
 

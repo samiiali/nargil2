@@ -10,6 +10,8 @@
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_tools.h>
+#include <deal.II/grid/manifold_lib.h>
+#include <deal.II/grid/tria_boundary_lib.h>
 
 #include <deal.II/base/multithread_info.h>
 #include <deal.II/lac/parallel_vector.h>
@@ -50,7 +52,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
-    return 4 * pi * pi * sin(2 * pi * p[0]);
+    return -0.25 * cos(2 * p[1]) * sin(p[0]) *
+           (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
   }
 
   /**
@@ -58,7 +61,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    return sin(2 * pi * p[0]);
+    return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
   }
 
   /**
@@ -66,7 +69,11 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
   {
-    return dealii::Tensor<1, dim>({-2 * pi * cos(2 * pi * p[0]), 0.0});
+    return dealii::Tensor<1, dim>(
+      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
+       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
+       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
+         (1 + sin(p[2]) * sin(p[2]))});
   }
 
   /**
@@ -74,7 +81,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double exact_u(const dealii::Point<spacedim> &p)
   {
-    return sin(2 * pi * p[0]);
+    return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
   }
 
   /**
@@ -82,7 +89,33 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
-    return dealii::Tensor<1, dim>({-2 * pi * cos(2 * pi * p[0]), 0.0});
+    return dealii::Tensor<1, dim>(
+      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
+       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
+       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
+         (1 + sin(p[2]) * sin(p[2]))});
+  }
+
+  /**
+   *
+   */
+  virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &p)
+  {
+    dealii::Tensor<2, dim> result;
+    result[0][0] = 1.0;
+    result[1][1] = 1.0;
+    result[2][2] = 1. / (1 + sin(p[2]) * sin(p[2]));
+    return result;
+  }
+
+  /**
+   *
+   */
+  virtual double tau(const dealii::Point<spacedim> &)
+  {
+    //
+    return 1.0;
+    //
   }
 };
 
@@ -103,19 +136,38 @@ template <int dim, int spacedim = dim> struct Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    dealii::GridGenerator::cylinder_shell(the_mesh, 1.0, 0.5, 1.0, 10, 5);
-    the_mesh.refine_global(3);
-    /*
+    dealii::CylindricalManifold<dim> manifold1(2);
+    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, 0.9, 1.0, 6, 6);
+
+    // Here we assign boundary id 10 and 11 to the bottom and top caps of
+    // the cylindrical shell.
+    for (auto &&i_cell : the_mesh.active_cell_iterators())
+    {
+      for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+      {
+        if (i_cell->face(i_face)->at_boundary())
+        {
+          dealii::Point<dim> face_center = i_cell->face(i_face)->center();
+          if (face_center[2] < 0.10)
+            i_cell->face(i_face)->set_boundary_id(10);
+          if (face_center[2] > 2 * M_PI - 0.1)
+            i_cell->face(i_face)->set_boundary_id(11);
+        }
+      }
+    }
     std::vector<dealii::GridTools::PeriodicFacePair<
       typename dealii::parallel::distributed::Triangulation<
         dim>::cell_iterator> >
       periodic_faces;
-    dealii::GridTools::collect_periodic_faces(the_mesh, 0, 1, 0, periodic_faces,
-                                              dealii::Tensor<1, dim>({2., 0.}));
-    dealii::GridTools::collect_periodic_faces(the_mesh, 2, 3, 0, periodic_faces,
-                                              dealii::Tensor<1, dim>({0., 2.}));
+    dealii::GridTools::collect_periodic_faces(
+      the_mesh, 10, 11, 2, periodic_faces,
+      dealii::Tensor<1, dim>({0., 0., 2 * M_PI}));
     the_mesh.add_periodicity(periodic_faces);
-    */
+
+    the_mesh.set_all_manifold_ids(0);
+    the_mesh.set_manifold(0, manifold1);
+    the_mesh.refine_global(3);
+    the_mesh.set_manifold(0);
   }
 
   /**
@@ -129,15 +181,15 @@ template <int dim, int spacedim = dim> struct Problem1
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (fabs(face->center()[0]) > 1 - 1.E-4)
-        {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-        }
-        else
+        if (face->center()[2] > 2. * M_PI - 1.E-4 || face->center()[2] < 1.E-4)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        }
+        else
+        {
+          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
       }
       else
@@ -152,7 +204,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
   static void run(int argc, char **argv)
   {
-    static_assert(dim == 3, "dim should be equal to 2.");
+    static_assert(dim == 3, "dim should be equal to 3.");
 
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
@@ -168,11 +220,10 @@ template <int dim, int spacedim = dim> struct Problem1
       problem_data<dim> data1;
 
       mesh1.generate_mesh(mesh_gen);
-      BasisType basis1(2, 3);
+      BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
-      /*
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
@@ -229,7 +280,6 @@ template <int dim, int spacedim = dim> struct Problem1
 
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
-
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(2, 0);
@@ -251,7 +301,6 @@ template <int dim, int spacedim = dim> struct Problem1
         mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
                           global_refn_vec);
       }
-      */
       //
       //
     }

@@ -427,6 +427,9 @@ void nargil::diffusion<dim,
   unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell();
   unsigned cell_quad_size = my_basis->get_cell_quad_size();
   unsigned face_quad_size = my_basis->get_face_quad_size();
+  const std::vector<dealii::Point<spacedim> > &cell_quad_locs =
+    my_basis->local_fe_val_in_cell->get_quadrature_points();
+  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
   //
   dealii::FEValuesExtractors::Scalar scalar(0);
   dealii::FEValuesExtractors::Vector fluxes(1);
@@ -446,6 +449,8 @@ void nargil::diffusion<dim,
   for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
   {
     double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
+    const dealii::Tensor<2, dim> &kappa_inv_at_quad =
+      own_cell->my_data->kappa_inv(cell_quad_locs[i_quad]);
     for (unsigned i1 = n_scalar_unkns; i1 < (dim + 1) * n_scalar_unkns; ++i1)
     {
       dealii::Tensor<1, dim> q_i1 =
@@ -454,7 +459,8 @@ void nargil::diffusion<dim,
       {
         dealii::Tensor<1, dim> v_j1 =
           (*my_basis->local_fe_val_in_cell)[fluxes].value(j1, i_quad);
-        A(i1 - n_scalar_unkns, j1 - n_scalar_unkns) += q_i1 * v_j1 * JxW;
+        A(i1 - n_scalar_unkns, j1 - n_scalar_unkns) +=
+          kappa_inv_at_quad * q_i1 * v_j1 * JxW;
       }
     }
     //
@@ -485,9 +491,13 @@ void nargil::diffusion<dim,
     fe_face_val->reinit(this->my_dealii_trace_dofs_cell, i_face);
     my_basis->local_fe_val_on_faces[i_face]->reinit(
       this->my_dealii_local_dofs_cell);
+    std::vector<dealii::Point<spacedim> > face_quad_locs =
+      fe_face_val->get_quadrature_points();
     // Loop 1
     for (unsigned i_face_quad = 0; i_face_quad < face_quad_size; ++i_face_quad)
     {
+      const double tau_at_quad =
+        own_cell->my_data->tau(face_quad_locs[i_face_quad]);
       //
       double face_JxW = fe_face_val->JxW(i_face_quad);
       dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
@@ -501,7 +511,7 @@ void nargil::diffusion<dim,
           double w_j1 =
             (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
               j1, i_face_quad);
-          D(i1, j1) += face_JxW * u_i1 * w_j1;
+          D(i1, j1) += face_JxW * tau_at_quad * u_i1 * w_j1;
         }
       }
       // Loop 2
@@ -524,14 +534,15 @@ void nargil::diffusion<dim,
           double w_j1 =
             (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
               j1, i_face_quad);
-          E(j1, i_face_unkn) += w_j1 * lambda_i1 * face_JxW;
+          E(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
         }
         //
         for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
              ++j_face_unkn)
         {
           double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
-          H(i_face_unkn, j_face_unkn) -= lambda_i1 * lambda_j1 * face_JxW;
+          H(i_face_unkn, j_face_unkn) -=
+            lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
           L(j_face_unkn) += lambda_i1 * lambda_i1 * face_JxW * gN_dot_n;
         }
       }

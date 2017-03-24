@@ -28,7 +28,7 @@ include(CMakeLocals/CMakeIncs.txt)
 
 SET(TARGET_SRC main.cpp)
 
-FILE(GLOB_RECURSE TARGET_INC ${TARGET_INC} "include/*.hpp" "solved_problems/*.hpp")
+FILE(GLOB_RECURSE TARGET_INC ${TARGET_INC} "include/*.hpp" "solved_problems/problems/*.hpp")
 
 
 SET(TARGET_SRC ${TARGET_SRC} ${TARGET_INC})

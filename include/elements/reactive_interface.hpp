@@ -23,15 +23,15 @@
 #include "../solvers/solvers.hpp"
 #include "cell.hpp"
 
-#ifndef REACTION_DIFFUSION_INTERFACE_HPP
-#define REACTION_DIFFUSION_INTERFACE_HPP
+#ifndef REACTIVE_INTERFACE_HPP
+#define REACTIVE_INTERFACE_HPP
 
 namespace nargil
 {
 /**
  *
  *
- * The element to be used for solving the reactive interface problem.
+ * The element to be used for solving the reactive_interface equation.
  * The first method of solving this is based on hybridized DG.
  *
  * \ingroup modelelements
@@ -47,14 +47,14 @@ struct reactive_interface : public cell<dim, spacedim>
    * (nargil::cell).
    *
    */
-  using typename cell<dim, spacedim>::dealiiTriCell;
+  //  using typename cell<dim, spacedim>::dealiiTriCell;
 
   /**
    *
    * The constructor of the class.
    *
    */
-  reactive_interface(dealiiTriCell *in_cell,
+  reactive_interface(dealiiTriCell<dim, spacedim> *in_cell,
                      const unsigned id_num_,
                      base_basis<dim, spacedim> *base_basis);
 
@@ -104,12 +104,23 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief exact_q
      */
     virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     *
+     */
+    virtual dealii::Tensor<2, dim>
+    kappa_inv(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     *
+     */
+    virtual double tau(const dealii::Point<spacedim> &) = 0;
   };
 
   /**
    *
    * This function is called from cell::create. This function cannot
-   * be const, because the diffusion::my_manager is changed in this
+   * be const, because the reactive_interface::my_manager is changed in this
    * function.
    *
    */
@@ -158,7 +169,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
   /**
    *
-   *
+   * The data for this cell.
    *
    */
   data *my_data;
@@ -176,7 +187,7 @@ struct reactive_interface : public cell<dim, spacedim>
   {
     /**
      *
-     * CellManagerType
+     *  CellManagerType
      *
      */
     typedef typename reactive_interface::template hdg_manager<hdg_polybasis>
@@ -184,7 +195,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     *  hdg_polybasis
+     * hdg_polybasis
      *
      */
     hdg_polybasis() = delete;
@@ -207,7 +218,8 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      * This function returns the number of dofs on each face of the element.
      * The term dof refers to the functions which we want to solve a global
-     * equations to obtain them. For example in diffusion equation we solve
+     * equations to obtain them. For example in reactive_interface equation we
+     * solve
      * for u globally. So, the only global dof is u, and this function
      * returns 1.
      *
@@ -216,7 +228,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * get_n_unkns_per_dofs
+     *  get_n_unkns_per_dofs
      *
      */
     std::vector<unsigned> get_n_unkns_per_dofs() const;
@@ -233,13 +245,14 @@ struct reactive_interface : public cell<dim, spacedim>
     /**
      *
      * Returns the finite element basis for the local basis of the element.
-     *
+     * Only used in hybridized_model_manager::form_dof_handlers().
      */
     const dealii::FESystem<dim> *get_local_fe() const;
 
     /**
      *
      * Returns the finite element basis for the trace dofs of the element.
+     * Only used in hybridized_model_manager::form_dof_handlers().
      *
      */
     const dealii::FE_FaceQ<dim> *get_trace_fe() const;
@@ -247,24 +260,54 @@ struct reactive_interface : public cell<dim, spacedim>
     /**
      *
      * Returns the finite element basis for the trace dofs of the element.
+     * Only used in hybridized_model_manager::form_dof_handlers().
      *
      */
     const dealii::FE_DGQ<dim> *get_refn_fe() const;
 
     /**
      *
-     * Returns the number of quadrature points of the face.
+     * The number of the quadrature points of the face.
      *
      */
     unsigned get_face_quad_size() const;
 
     /**
      *
-     * Returns the number of quadrature points of the cell.
+     * The number of the quadrature points of the cell.
      *
      */
     unsigned get_cell_quad_size() const;
 
+    /**
+     *
+     * @brief Number of unknowns per each interior local dof.
+     *
+     */
+    unsigned n_unkns_per_local_scalar_dof() const;
+
+    /**
+     *
+     * @brief Number of total trace unknowns in the cell.
+     *
+     */
+    unsigned n_trace_unkns_per_cell() const;
+
+    /**
+     *
+     * @brief Number of trace unknowns on the face.
+     *
+     */
+    unsigned n_trace_unkns_per_face() const;
+
+    /**
+     *
+     * @brief Number of local unknowns in each cell.
+     *
+     */
+    unsigned n_local_unkns_per_cell() const;
+
+  private:
     /**
      *
      * local_fe
@@ -281,11 +324,12 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * The dealii FiniteElement for refinement of the mesh.
+     * The dealii FiniteElement which is used for refinement criteria.
      *
      */
     dealii::FE_DGQ<dim> refn_fe;
 
+  public:
     /**
      *
      * fe_vals of local dofs inside the cells.
@@ -302,14 +346,17 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * fe_vals of trace dofs on the faces of cell.
+     * This FE Val is used for integrating over faces of element. Since,
+     * we are not certain that face support points (i.e. LGL points) will
+     * also be used for integration, we form this FE val.
      *
      */
     std::vector<std::unique_ptr<dealii::FEFaceValues<dim> > > trace_fe_face_val;
 
     /**
      *
-     * fe_vals of trace dofs on the faces of cell.
+     * This FE Val is used for interpolating gD and gN to support points
+     * of the element.
      *
      */
     std::unique_ptr<dealii::FEFaceValues<dim> > trace_fe_face_val_at_supp;
@@ -491,7 +538,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * This function assigns the local_interior_unkn_idx.
      *
      */
-    void set_local_interior_unkn_id(unsigned *local_num);
+    virtual void set_local_interior_unkn_id(unsigned *local_num) final;
 
     /**
      *

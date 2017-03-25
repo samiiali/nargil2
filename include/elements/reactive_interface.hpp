@@ -377,10 +377,10 @@ struct reactive_interface : public cell<dim, spacedim>
    * with the simplified problem:
    * \f[
    *   \begin{aligned}
-   *   \partial_t \rho_n +
+   *   \partial_t \rho_n -
    *   \nabla \cdot \mu_n
    *   \left(
-   *     - \alpha_n \rho_n \nabla \phi - \nabla \rho_n
+   *     \alpha_n \rho_n \nabla \phi + \nabla \rho_n
    *   \right) &= L_1, \\
    *   -\nabla \cdot (\nabla \phi) &=0.
    *   \end{aligned}
@@ -392,12 +392,12 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    *   \begin{aligned}
    *     \mu_n^{-1}\mathbf q_n
-   *       - \nabla \rho_n &= 0, \\
+   *       + \nabla \rho_n &= 0, \\
    *     \partial_t \rho_n
-   *     - \nabla \cdot (\mu_n \alpha_n \rho_n \mathbf E)
-   *     - \nabla \cdot \mathbf q_n &= L_1, \\
-   *     \mathbf E &= \nabla \phi, \\
-   *     -\nabla \cdot \mathbf E &= L_2.
+   *     + \nabla \cdot (\mu_n \alpha_n \rho_n \mathbf E)
+   *     + \nabla \cdot \mathbf q_n &= L_1, \\
+   *     \mathbf E + \nabla \phi &= 0, \\
+   *     \nabla \cdot \mathbf E &= L_2.
    *   \end{aligned}
    * \f]
    * We satisfy this system in the weak sense, by testing it against proper test
@@ -405,22 +405,22 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    *   \begin{aligned}
    *     (\mu_n^{-1} \mathbf q_n, \mathbf p)
-   *       - \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
-   *       + (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
+   *       + \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
+   *       - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *     (\partial_t \rho_n, w)
-   *       - \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
-   *       - \langle {\mathbf q}^*_n \cdot \mathbf n, w\rangle
-   *       + (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
-   *       + (\mathbf q_n , \nabla w) &= L_1(w), \\
+   *       + \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
+   *       + \langle {\mathbf q}^*_n \cdot \mathbf n, w\rangle
+   *       - (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
+   *       - (\mathbf q_n , \nabla w) &= L_1(w), \\
    *     (\mathbf E, \mathbf P)
-   *       - \langle \hat \phi , \mathbf P \cdot \mathbf n \rangle
-   *       + (\phi , \nabla \cdot \mathbf P) &= 0, \\
-   *     -\langle {\mathbf E}^* \cdot \mathbf n, W \rangle
-   *       + (\mathbf E , \nabla W)  &= L_2(W).
+   *       + \langle \hat \phi , \mathbf P \cdot \mathbf n \rangle
+   *       - (\phi , \nabla \cdot \mathbf P) &= 0, \\
+   *     \langle {\mathbf E}^* \cdot \mathbf n, W \rangle
+   *       - (\mathbf E , \nabla W)  &= L_2(W).
    *   \end{aligned} \tag{1}
    * \f]
    * Here, we use the follwoing definitions for the numerical fluxes
-   * \f$\widehat {\mathbf E}, \boldsymbol H_n, \widehat {\mathbf q}\f$:
+   * \f${\mathbf E}^*, \boldsymbol H_n, {\mathbf q}_n^*\f$:
    * \f[
    * \begin{aligned}
    *   {\mathbf E}^* \cdot \mathbf n &=
@@ -448,18 +448,18 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    * \begin{aligned}
    *   (\mu_n^{-1} \mathbf q_n, \mathbf p)
-   *     - \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
-   *     + (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
-   *   -\langle
+   *     + \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
+   *     - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
+   *   \langle
    *     \mu_n \alpha_n [
    *       \hat \rho_n \mathbf E \cdot \mathbf n
    *       + \beta_n (\rho_n - \hat \rho_n)], w
-   *   \rangle -
+   *   \rangle +
    *   \langle
    *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n),w
    *   \rangle
-   *   + (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
-   *   + (\mathbf q_n , \nabla w) &= L_1(w), \\
+   *   - (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
+   *   - (\mathbf q_n , \nabla w) &= L_1(w), \\
    *   \sum \langle
    *     \boldsymbol H_n^* \cdot \mathbf n + \mathbf q^*\cdot \mathbf n,
    *     \mu
@@ -469,9 +469,10 @@ struct reactive_interface : public cell<dim, spacedim>
    * And finally,
    * \f[
    * \begin{aligned}
-   *   a_1(\mathbf q_n,\mathbf p) + b_1(\rho_n, \mathbf p)
-   *     - c_1(\hat \rho_n, \mathbf p) &= 0, \\
-   *   b_1^T(w, \mathbf q_n) + d_1(\rho, w) + e_1(\hat \rho, w) &= L_1(w), \\
+   *   a_1(\mathbf q_n,\mathbf p) - b_1(\rho_n, \mathbf p)
+   *     + c_1(\hat \rho_n, \mathbf p) &= 0, \\
+   *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w) + e_1(\hat \rho_n, w) &= L_1(w),
+   * \\
    * \end{aligned}
    * \f]
    * with:
@@ -479,17 +480,18 @@ struct reactive_interface : public cell<dim, spacedim>
    * \begin{gathered}
    *   a_1(\mathbf q_n , \mathbf p) = (\mathbf q_n, \mathbf p), \quad
    *   b_1(\rho_n , \mathbf p) = (\rho_n, \nabla \cdot \mathbf p), \quad
-   *   c_1(\hat \rho_n , \mathbf p) = (\hat \rho_n, \mathbf p \cdot \mathbf n),
+   *   c_1(\hat \rho_n , \mathbf p) = \langle\hat \rho_n, \mathbf p \cdot
+   *                                  \mathbf n\rangle,
    *   \\
    *   d_1(\rho,w) =
    *     \left\langle
-   *       (-\mu_n \alpha_n \beta_n - \tau_n) \rho_n , w
+   *       (\mu_n \alpha_n \beta_n + \tau_n) \rho_n , w
    *     \right\rangle
-   *     + (\mu_n \alpha_n \mathbf E \rho_n , \nabla w) , \quad
+   *     - (\mu_n \alpha_n \mathbf E \rho_n , \nabla w) , \quad
    *   e_1(\hat \rho, w) =
    *     \left\langle
-   *       (- \mu_n \alpha_n \mathbf E \cdot \mathbf n
-   *        + \mu_n \alpha_n \beta_n + \tau_n) \hat \rho_n , w
+   *       (\mu_n \alpha_n \mathbf E \cdot \mathbf n
+   *        - \mu_n \alpha_n \beta_n - \tau_n) \hat \rho_n , w
    *     \right \rangle
    * \end{gathered}
    * \f]

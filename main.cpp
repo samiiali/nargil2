@@ -1,4 +1,4 @@
-#include "solved_problems/problems/diffusion//problem3.hpp"
+#include "solved_problems/problems/diffusion/tokamak_anisotropy.hpp"
 
 //
 //

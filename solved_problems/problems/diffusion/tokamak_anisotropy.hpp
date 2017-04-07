@@ -41,7 +41,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    * @brief pi
    */
   const double pi = M_PI;
-  const double epsinv = 1.0e+3;
+  const double epsinv = 1.0e3;
   const double r_i = 0.7;
   const double r_o = 1.0;
   /**
@@ -56,8 +56,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   {
     return 0.0;
 
-      //-0.25 * cos(2 * p[1]) * sin(p[0]) *
-      //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
+    //-0.25 * cos(2 * p[1]) * sin(p[0]) *
+    //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
   }
 
   /**
@@ -66,7 +66,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
     double temperature = 1.0e-4;
-    if (sqrt(p[0]*p[0] + p[1]*p[1]) > 0.99)
+    if (sqrt(p[0] * p[0] + p[1] * p[1]) > 0.99)
       temperature = 5.0e-5;
     return temperature;
   }
@@ -78,11 +78,10 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   {
     return dealii::Tensor<1, dim>({0, 0, 0});
 
-//     ({-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-//        2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-//        -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-//          (1 + sin(p[2]) * sin(p[2]))});
-
+    //     ({-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
+    //        2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
+    //        -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
+    //          (1 + sin(p[2]) * sin(p[2]))});
   }
 
   /**
@@ -111,47 +110,48 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &p)
   {
 
-    double r     = std::sqrt( p[0]*p[0] + p[1]*p[1]);
+    double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
     double z = p[2];
     double theta;
-    
-    if(p[0]!= 0.0)
-      { 
-	theta = std::atan(p[1]/p[0]);
-      }
-    else if(p[1] > 0.0)
-      {
-	theta = pi/2.0;
-      }
-    else if(p[1]<0)
-      {
-	theta = 3.0*pi/2.0;
-      }
 
-    double psitilde  = 0.002;
-    double psishape  = (r*r)  * (1. - r)*(1. - r);
-    double psishapep = 2.0*r * (1. - r)*(1. - r) - 2.*r*r * (1. - r); //diff(psishape, x);
-    double psi32     = std::cos(3.0*theta-2.0*z);
-    double psi43     = std::cos(4.0*theta-3.0*z);
-    double psip32    = -3.0*std::sin(3.0*theta-2.0*z);
-    double psip43    = -4.0*std::sin(4.0*theta-3.0*z);
-    double psipert   = psitilde*(psi32+psi43);
-    double psipertp  = psitilde*(psip32+psip43);
-    double qsafety   = 0.2*std::exp(r/0.3);
-    double br        = psishape*psipertp;
-    double btheta    = -psishapep*psipert + 1.0/qsafety;
-    double bz        = 1.0;
+    if (p[0] != 0.0)
+    {
+      theta = std::atan(p[1] / p[0]);
+    }
+    else if (p[1] > 0.0)
+    {
+      theta = pi / 2.0;
+    }
+    else if (p[1] < 0)
+    {
+      theta = 3.0 * pi / 2.0;
+    }
+
+    double psitilde = 0.002;
+    double psishape = (r * r) * (1. - r) * (1. - r);
+    double psishapep = 2.0 * r * (1. - r) * (1. - r) -
+                       2. * r * r * (1. - r); // diff(psishape, x);
+    double psi32 = std::cos(3.0 * theta - 2.0 * z);
+    double psi43 = std::cos(4.0 * theta - 3.0 * z);
+    double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
+    double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
+    double psipert = psitilde * (psi32 + psi43);
+    double psipertp = psitilde * (psip32 + psip43);
+    double qsafety = 0.2 * std::exp(r / 0.3);
+    double br = psishape * psipertp;
+    double btheta = -psishapep * psipert + 1.0 / qsafety;
+    double bz = 1.0;
 
     dealii::Tensor<2, dim> result;
-    result[0][0] = 1.0+(epsinv - 1.)*br*br;
-    result[0][1] = (epsinv -1.)*br*btheta;
-    result[0][2] = (epsinv -1.)*br*bz;
+    result[0][0] = 1.0 + (epsinv - 1.) * br * br;
+    result[0][1] = (epsinv - 1.) * br * btheta;
+    result[0][2] = (epsinv - 1.) * br * bz;
     result[1][0] = result[0][1];
-    result[1][1] = 1.0/(r*r) + (epsinv - 1.) * btheta * btheta;
-    result[1][2] = (epsinv -1)*btheta*bz;
+    result[1][1] = 1.0 / (r * r) + (epsinv - 1.) * btheta * btheta;
+    result[1][2] = (epsinv - 1) * btheta * bz;
     result[2][0] = result[0][2];
     result[2][1] = result[1][2];
-    result[2][2] = 1. + (epsinv - 1.)*bz * bz;
+    result[2][2] = 1. + (epsinv - 1.) * bz * bz;
     result[2][2] = 1. / (1. + sin(p[2]) * sin(p[2]));
     return dealii::invert(result);
   }
@@ -162,7 +162,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0;
+    return 1.0e6;
     //
   }
 };
@@ -188,7 +188,7 @@ template <int dim, int spacedim = dim> struct Problem1
     double r_i = 0.7;
     double r_o = 1.0;
     dealii::CylindricalManifold<dim> manifold1(2);
-    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 6, 2);
+    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 15, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -266,12 +266,12 @@ template <int dim, int spacedim = dim> struct Problem1
       MPI_Comm_rank(comm, &comm_rank);
       MPI_Comm_size(comm, &comm_size);
 
-      nargil::mesh<dim> mesh1(comm, 1, true); 
+      nargil::mesh<dim> mesh1(comm, 1, true);
 
       problem_data<dim> data1;
 
       mesh1.generate_mesh(mesh_gen);
-      BasisType basis1(1, 2);
+      BasisType basis1(2, 3);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
@@ -332,7 +332,9 @@ template <int dim, int spacedim = dim> struct Problem1
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
         model_manager1.apply_on_owned_cells(
-	  &model1, CellManagerType::interpolate_to_interior);// exact interpolated to u and q
+          &model1, CellManagerType::interpolate_to_interior); // exact
+                                                              // interpolated to
+                                                              // u and q
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_errors, &sum_of_L2_errors);

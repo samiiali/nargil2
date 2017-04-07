@@ -496,11 +496,15 @@ void nargil::diffusion<dim,
     // Loop 1
     for (unsigned i_face_quad = 0; i_face_quad < face_quad_size; ++i_face_quad)
     {
-      const double tau_at_quad =
-        own_cell->my_data->tau(face_quad_locs[i_face_quad]);
+      dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
+      const dealii::Tensor<2, dim> &kappa_inv_at_quad =
+        own_cell->my_data->kappa_inv(face_quad_locs[i_face_quad]);
+      const dealii::Tensor<2, dim> &kappa_at_quad =
+        dealii::invert(kappa_inv_at_quad);
+      double tau_at_quad = own_cell->my_data->tau(face_quad_locs[i_face_quad]);
+      tau_at_quad *= n_vec * kappa_at_quad * n_vec;
       //
       double face_JxW = fe_face_val->JxW(i_face_quad);
-      dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
       //
       for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
       {

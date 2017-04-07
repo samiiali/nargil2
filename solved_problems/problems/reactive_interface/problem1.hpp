@@ -50,7 +50,7 @@ struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
   /**
    * @brief rhs_func.
    */
-  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  virtual double Ln_func(const dealii::Point<spacedim> &p)
   {
     return -0.25 * cos(2 * p[1]) * sin(p[0]) *
            (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
@@ -59,7 +59,7 @@ struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
   /**
    * @brief gD_func.
    */
-  virtual double gD_func(const dealii::Point<spacedim> &p)
+  virtual double rho_n_BC(const dealii::Point<spacedim> &p)
   {
     return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
   }
@@ -79,7 +79,7 @@ struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
   /**
    * @brief exact_u
    */
-  virtual double exact_u(const dealii::Point<spacedim> &p)
+  virtual double exact_rho_n(const dealii::Point<spacedim> &p)
   {
     return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
   }
@@ -87,7 +87,7 @@ struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
   /**
    * @brief exact_q
    */
-  virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
+  virtual dealii::Tensor<1, dim> exact_q_n(const dealii::Point<spacedim> &p)
   {
     return dealii::Tensor<1, dim>(
       {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
@@ -225,6 +225,7 @@ template <int dim, int spacedim = dim> struct Problem1
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
+      /*
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
@@ -304,6 +305,7 @@ template <int dim, int spacedim = dim> struct Problem1
       }
       //
       //
+      */
     }
     //
 

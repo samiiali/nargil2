@@ -83,12 +83,32 @@ struct reactive_interface : public cell<dim, spacedim>
     /**
      * @brief rhs_func.
      */
-    virtual double rhs_func(const dealii::Point<spacedim> &) = 0;
+    virtual double Ln_func(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief gD_func.
      */
-    virtual double gD_func(const dealii::Point<spacedim> &) = 0;
+    virtual double rho_n_BC(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief gD_func.
+     */
+    virtual double rho_p_BC(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief gD_func.
+     */
+    virtual double mu_n(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief gD_func.
+     */
+    virtual double mu_p(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief gD_func.
+     */
+    virtual double phi_s_BC(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief gN_func.
@@ -98,12 +118,13 @@ struct reactive_interface : public cell<dim, spacedim>
     /**
      * @brief exact_u
      */
-    virtual double exact_u(const dealii::Point<spacedim> &) = 0;
+    virtual double exact_rho_n(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief exact_q
      */
-    virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &) = 0;
+    virtual dealii::Tensor<1, dim>
+    exact_q_n(const dealii::Point<spacedim> &) = 0;
 
     /**
      *
@@ -371,36 +392,50 @@ struct reactive_interface : public cell<dim, spacedim>
 
   /**
    *
-   * Here, we solve the reactive interface problem in each subdomain.
-   * The final goal here is to solve the problem in
-   * two subdomains along with the interface condition implicitly. So, we start
-   * with the simplified problem:
+   * Here, we simulate a reactive interface \f$(\Sigma)\f$ between a
+   * semiconductor (\f$\Omega_S\f$) and an elecrolyte medium (\f$\Omega_E\f$).
+   * We want to solve the coupled equations in the domain \f$\Omega = \Omega_S
+   * \cup \Omega_E\f$. The densities of elctrons (\f$\rho_n\f$) and holes
+   * (\f$\rho_p\f$) in the semiconductor are coupled with the densities of
+   * reductants (\f$\rho_r\f$) and oxidants (\f$\rho_o\f$) in the electrolyte.
+   * Hence, a coupled system of advection-diffusion equations governs these
+   * densities. The final goal here is to solve these coupled equations
+   * implicitly. Meanwhile, the advection veclocities in these equations are
+   * defined based on the electrical force (\f$\mathbf E = -\nabla \phi\f$),
+   * with \f$\phi\f$ being the electric potential. Poisson's equation governs
+   * the electric potential as follows:
+   * \f[
+   *   \begin{aligned}
+   *   \lambda^{-2} \mathbf E + \nabla \phi &= 0, \\
+   *   \nabla \cdot \mathbf E &= f,
+   *   \end{aligned}\tag{1}
+   * \f]
+   * The solution technique to this equation is discussed in the
+   * diffusion::hdg_manager (with \f$\kappa = \lambda^2\f$). On the other
+   * hand, the advection-diffusion equations governing the densities can
+   * be written as:
    * \f[
    *   \begin{aligned}
    *   \partial_t \rho_n -
    *   \nabla \cdot \mu_n
    *   \left(
    *     \alpha_n \rho_n \nabla \phi + \nabla \rho_n
-   *   \right) &= L_1, \\
-   *   -\nabla \cdot (\nabla \phi) &=0.
+   *   \right) &= L_n.
    *   \end{aligned}
    * \f]
    * To know about each of the above unknowns and parameters, one can visit
    * <a href="http://dx.doi.org/10.1016/j.jcp.2016.08.026"> this article</a>.
-   *
    * We solve this equation by writing it in terms of a first order system:
    * \f[
    *   \begin{aligned}
    *     \mu_n^{-1}\mathbf q_n
    *       + \nabla \rho_n &= 0, \\
    *     \partial_t \rho_n
-   *     + \nabla \cdot (\mu_n \alpha_n \rho_n \mathbf E)
-   *     + \nabla \cdot \mathbf q_n &= L_1, \\
-   *     \mathbf E + \nabla \phi &= 0, \\
-   *     \nabla \cdot \mathbf E &= L_2.
+   *     + \nabla \cdot (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n)
+   *     + \nabla \cdot \mathbf q_n &= L_n.
    *   \end{aligned}
    * \f]
-   * We satisfy this system in the weak sense, by testing it against proper test
+   * We satisfy this equation in the weak sense, by testing it against proper test
    * functions:
    * \f[
    *   \begin{aligned}
@@ -409,61 +444,37 @@ struct reactive_interface : public cell<dim, spacedim>
    *       - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *     (\partial_t \rho_n, w)
    *       + \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
-   *       + \langle {\mathbf q}^*_n \cdot \mathbf n, w\rangle
-   *       - (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
-   *       - (\mathbf q_n , \nabla w) &= L_1(w), \\
-   *     (\mathbf E, \mathbf P)
-   *       + \langle \hat \phi , \mathbf P \cdot \mathbf n \rangle
-   *       - (\phi , \nabla \cdot \mathbf P) &= 0, \\
-   *     \langle {\mathbf E}^* \cdot \mathbf n, W \rangle
-   *       - (\mathbf E , \nabla W)  &= L_2(W).
-   *   \end{aligned} \tag{1}
+   *       - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n, \nabla w)
+   *       - (\mathbf q_n , \nabla w) &= L_n(w), \\
+   *   \end{aligned} \tag{2}
    * \f]
-   * Here, we use the follwoing definitions for the numerical fluxes
-   * \f${\mathbf E}^*, \boldsymbol H_n, {\mathbf q}_n^*\f$:
+   * Here, \f$\mathbf E^*\f$ denotes the numerical flux corresponding to
+   * \f$\mathbf E\f$. This is a known quantity, since we have solved Eq. (1)
+   * proior to Eq. (2) and we have \f$\mathbf E^*\f$.
+   * Meanwhile, we use the follwoing definitions
+   * for the numerical flux \f$\boldsymbol H^*_n\f$:
    * \f[
    * \begin{aligned}
-   *   {\mathbf E}^* \cdot \mathbf n &=
-   *     \mathbf E \cdot \mathbf n + \sigma_1 (\phi - \hat \phi), \\
-   *   {\mathbf q}^*_n \cdot \mathbf n &=
-   *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n), \\
    *   {\boldsymbol H}^*_n \cdot \mathbf n &=
-   *     \mu_n \alpha_n \left[\hat \rho_n {\mathbf E}^* \cdot \mathbf n
-   *     + \beta_{n} (\rho_n - \hat \rho_n ) \right] \\
-   *   &= \mu_n \alpha_n
-   *   \left[
-   *     \hat \rho_n \mathbf E \cdot \mathbf n
-   *     + \sigma_1\hat \rho_n(\phi - \hat \phi)
-   *     + \beta_n (\rho_n - \hat \rho_n)
-   *   \right].
+   *     (\mu_n \alpha_n \lambda^{-2} {\mathbf E}^* \cdot \mathbf n)
+   *     \hat \rho_n + \mathbf q_n \cdot \mathbf n +
+   *     \tau_{n} (\rho_n - \hat \rho_n ).
    * \end{aligned}
    * \f]
-   * In the first step, we can solve the first two equations in system (1),
-   * assuming that \f$\mathbf E\f$ is known.
-   * This way, we avoid the nonlinearity issues. Moreover, we can
-   * check the correct choice of penalty parameter \f$\beta\f$. No need to
-   * mention that this will result in a convection diffusion equation. So,
-   * we want to satisfy the following variational form (we will add the time
-   * derivative term later):
+   * To solve this equation, we want to satisfy the following variational
+   * form (we will add the time derivative term later):
    * \f[
    * \begin{aligned}
    *   (\mu_n^{-1} \mathbf q_n, \mathbf p)
    *     + \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
    *     - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *   \langle
-   *     \mu_n \alpha_n [
-   *       \hat \rho_n \mathbf E \cdot \mathbf n
-   *       + \beta_n (\rho_n - \hat \rho_n)], w
-   *   \rangle +
-   *   \langle
+   *     (\mu_n \alpha_n \lambda^{-2} {\mathbf E}^* \cdot \mathbf n)
+   *     \hat \rho_n +
    *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n),w
    *   \rangle
-   *   - (\mu_n \alpha_n \rho_n \mathbf E , \nabla w)
-   *   - (\mathbf q_n , \nabla w) &= L_1(w), \\
-   *   \sum \langle
-   *     \boldsymbol H_n^* \cdot \mathbf n + \mathbf q^*\cdot \mathbf n,
-   *     \mu
-   *   \rangle &= \langle g_N, \mu \rangle.
+   *   - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n, \nabla w)
+   *   - (\mathbf q_n , \nabla w) &= L_n(w).
    * \end{aligned}
    * \f]
    * And finally,
@@ -471,7 +482,7 @@ struct reactive_interface : public cell<dim, spacedim>
    * \begin{aligned}
    *   a_1(\mathbf q_n,\mathbf p) - b_1(\rho_n, \mathbf p)
    *     + c_1(\hat \rho_n, \mathbf p) &= 0, \\
-   *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w) + e_1(\hat \rho_n, w) &= L_1(w),
+   *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w) + e_1(\hat \rho_n, w) &= L_n(w),
    * \\
    * \end{aligned}
    * \f]
@@ -484,22 +495,50 @@ struct reactive_interface : public cell<dim, spacedim>
    *                                  \mathbf n\rangle,
    *   \\
    *   d_1(\rho,w) =
-   *     \left\langle
-   *       (\mu_n \alpha_n \beta_n + \tau_n) \rho_n , w
-   *     \right\rangle
-   *     - (\mu_n \alpha_n \mathbf E \rho_n , \nabla w) , \quad
+   *     \left\langle \tau_n \rho_n , w \right\rangle
+   *     - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n , \nabla w) , \quad
    *   e_1(\hat \rho, w) =
    *     \left\langle
-   *       (\mu_n \alpha_n \mathbf E \cdot \mathbf n
-   *        - \mu_n \alpha_n \beta_n - \tau_n) \hat \rho_n , w
+   *       (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \cdot \mathbf n
+   *        - \tau_n) \hat \rho_n , w
    *     \right \rangle
    * \end{gathered}
    * \f]
-   * Now, we want to solve Eqs. (1) using Newton iterations. All of these
-   * equations are linear, except the first one. The Newton iteration
-   * for this equation can be written as:
+   * Similar equations that we mentioned here for electron density
+   * \f$(\rho_n)\f$ holds for holes \f$(\rho_p)\f$:
    * \f[
+   *   \partial_t \rho_p - \nabla \cdot \mu_p
+   *   \left(
+   *     \alpha_p \rho_p \nabla \phi + \nabla \rho_p
+   *   \right) = L_p.
    * \f]
+   * According to the article we mentioned above, \f$\mu_n = 1350
+   * \text{ V}/\text{cm}^2\f$, \f$\mu_p = 480 \text{ V}/\text{cm}^2\f$,
+   * \f$\alpha_n = -1\f$, and \f$\alpha_p = 1\f$.
+   *
+   * On the other hand in the electrolyte region, similar equations hold
+   * for the densities of reductants \f$(\rho_r)\f$ and oxidants
+   * \f$(\rho_o)\f$, i.e.:
+   * \f[
+   *   \begin{gathered}
+   *   \partial_t \rho_r - \nabla \cdot \mu_r
+   *   \left(
+   *     \alpha_r \rho_r \nabla \phi + \nabla \rho_r
+   *   \right) = L_r, \\
+   *   \partial_t \rho_o - \nabla \cdot \mu_o
+   *   \left(
+   *     \alpha_o \rho_o \nabla \phi + \nabla \rho_o
+   *   \right) = L_o.
+   *   \end{gathered}
+   * \f]
+   * Despite the quite simple structure of the governing equations that
+   * we mentioned above, the boundary conditions of these equations are
+   * a set of nonlinear interface conditions:
+   * \f[
+   *   \begin{gather}
+   *   \end{gather}
+   * \f]
+   *
    *
    */
   template <typename BasisType>

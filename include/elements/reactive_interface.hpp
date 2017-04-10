@@ -435,8 +435,8 @@ struct reactive_interface : public cell<dim, spacedim>
    *     + \nabla \cdot \mathbf q_n &= L_n.
    *   \end{aligned}
    * \f]
-   * We satisfy this equation in the weak sense, by testing it against proper test
-   * functions:
+   * We satisfy this equation in the weak sense, by testing it against proper
+   * test functions:
    * \f[
    *   \begin{aligned}
    *     (\mu_n^{-1} \mathbf q_n, \mathbf p)
@@ -536,6 +536,9 @@ struct reactive_interface : public cell<dim, spacedim>
    * a set of nonlinear interface conditions:
    * \f[
    *   \begin{gather}
+   *     {\mathbf n}_{\Sigma,S} \cdot \mu_n\left(-\alpha_n \rho_n \nabla \Phi
+   * -\nabla
+   *     \rho_n \right) &=I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o})
    *   \end{gather}
    * \f]
    *

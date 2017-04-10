@@ -188,7 +188,7 @@ template <int dim, int spacedim = dim> struct Problem1
     double r_i = 0.7;
     double r_o = 1.0;
     dealii::CylindricalManifold<dim> manifold1(2);
-    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 15, 1);
+    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 22, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -271,7 +271,7 @@ template <int dim, int spacedim = dim> struct Problem1
       problem_data<dim> data1;
 
       mesh1.generate_mesh(mesh_gen);
-      BasisType basis1(2, 3);
+      BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 

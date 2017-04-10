@@ -448,6 +448,164 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
    */
   solver_state::state my_state;
 };
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim = dim>
+struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
+{
+  /**
+   *
+   * @brief The constructor of the class.
+   *
+   */
+  petsc_implicit_cg_solver(const int in_solver_props,
+                           const dof_counter<dim, spacedim> &,
+                           const MPI_Comm &in_comm);
+
+  /**
+   *
+   *
+   *
+   */
+  virtual ~petsc_implicit_cg_solver();
+
+  /**
+   *
+   * @brief initializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  void init_components(const int in_solver_props, const int update_opts);
+
+  /**
+   *
+   * @brief reinitializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  void reinit_components(const int in_solver_props, const int update_opts);
+
+  /**
+   *
+   * @brief frees the memory of the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  void free_components(const int update_opts);
+
+  /**
+   *
+   * @brief initializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  void push_to_global_mat(const int *rows, const int *cols,
+                          const Eigen::MatrixXd &vals,
+                          const InsertMode ins_mode);
+
+  /**
+   *
+   * @brief initializes the matrix and rhs vec and exact_sol vec.
+   *
+   */
+  void push_to_rhs_vec(const int *rows, const Eigen::VectorXd &vals,
+                       const InsertMode ins_mode);
+
+  /**
+   *
+   * @brief push values to exact solution vector x_exact
+   *
+   */
+  void push_to_exact_sol(const int *rows, const Eigen::VectorXd &vals,
+                         const InsertMode ins_mode);
+
+  /**
+   *
+   * @brief Finishes the assembling process.
+   *
+   */
+  void finish_assemble(const int keys);
+
+  /**
+   *
+   * @brief factors the system
+   *
+   */
+  void form_factors();
+
+  /**
+   *
+   * @brief solves the system
+   *
+   */
+  void solve_system(Vec *sol);
+
+  /**
+   *
+   *
+   *
+   */
+  std::vector<double>
+  get_local_part_of_global_vec(Vec *petsc_vec,
+                               const bool destroy_petsc_vec = true);
+
+  /**
+   *
+   *
+   *
+   */
+  const MPI_Comm *my_comm;
+
+  /**
+   *
+   * @brief my_dof_counter
+   *
+   */
+  const dof_counter<dim, spacedim> *my_dof_counter;
+
+  /**
+   *
+   * The sparse global stiffness matrix.
+   *
+   */
+  Mat A;
+
+  /**
+   *
+   * @brief b
+   *
+   */
+  Vec b;
+
+  /**
+   *
+   * @brief x
+   *
+   */
+  Vec exact_sol;
+
+  /**
+   *
+   *
+   *
+   */
+  PC pc;
+
+  /**
+   *
+   * the krylov space of the solver.
+   *
+   */
+  KSP ksp;
+
+  /**
+   *
+   * @brief the current state of the solver
+   *
+   */
+  solver_state::state my_state;
+};
 }
 }
 

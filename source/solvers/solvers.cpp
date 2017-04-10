@@ -673,9 +673,9 @@ void nargil::solvers::petsc_implicit_cg_solver<dim, spacedim>::form_factors()
   KSPSetFromOptions(ksp);
   KSPSetTolerances(ksp, 1.E-6, PETSC_DEFAULT, PETSC_DEFAULT, 40000);
   KSPGetPC(ksp, &pc);
-  PCSetType(pc, PCGAMG);
+  PCSetType(pc, PCHYPRE);
   PCSetFromOptions(pc);
-  PCGAMGSetNSmooths(pc, 1);
+  // PCGAMGSetNSmooths(pc, 1);
   //
   my_state = solver_state::ready_to_solve;
 }

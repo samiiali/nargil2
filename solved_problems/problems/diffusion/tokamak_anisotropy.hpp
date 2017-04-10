@@ -66,7 +66,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
     double temperature = 1.0e-4;
-    if (sqrt(p[0] * p[0] + p[1] * p[1]) > 0.99)
+    if (sqrt(p[0] * p[0] + p[1] * p[1]) > 1.0 - 1.e-4)
       temperature = 5.0e-5;
     return temperature;
   }
@@ -188,7 +188,7 @@ template <int dim, int spacedim = dim> struct Problem1
     double r_i = 0.7;
     double r_o = 1.0;
     dealii::CylindricalManifold<dim> manifold1(2);
-    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 22, 1);
+    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, r_i, r_o, 20, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -217,7 +217,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
     the_mesh.set_all_manifold_ids(0);
     the_mesh.set_manifold(0, manifold1);
-    the_mesh.refine_global(4);
+    the_mesh.refine_global(5);
     the_mesh.set_manifold(0);
   }
 

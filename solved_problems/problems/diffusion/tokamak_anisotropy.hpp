@@ -42,7 +42,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   const double pi = M_PI;
   const double epsinv = 1.0e6;
-  const double r_i = 0.54;
+  const double r_i = 0.55;
   const double r_o =0.63;
   /**
    * @brief Constructor.
@@ -190,7 +190,7 @@ template <int dim, int spacedim = dim> struct Problem1
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     // r_o , r_i are redefined here.
-    double r_i = 0.54;
+    double r_i = 0.55;
     double r_o =0.63;
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2.*M_PI*5.0, r_i, r_o, 15, 1);

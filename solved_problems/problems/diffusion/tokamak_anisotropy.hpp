@@ -42,8 +42,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   const double pi = M_PI;
   const double epsinv = 1.0e6;
-  const double r_i = 0.54;
-  const double r_o = 0.63;
+  const double r_i = 0.55;
+  const double r_o =0.63;
   /**
    * @brief Constructor.
    */

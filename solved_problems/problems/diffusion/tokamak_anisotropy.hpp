@@ -43,7 +43,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   const double pi = M_PI;
   const double epsinv = 1.0e6;
   const double r_i = 0.54;
-  const double r_o =0.63;
+  const double r_o = 0.63;
   /**
    * @brief Constructor.
    */
@@ -110,6 +110,33 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &p)
   {
 
+    //
+    // Here we change the coordinates and use a rectangle with periodic BC
+    // instead of the annulus that we have:
+    //
+    //
+    //                              | y = r
+    //                              |
+    //                              |
+    //                              |
+    //                              |
+    // r = ro -|------------------------------------------|
+    //         |                    |                     |
+    //         |                    |                     |
+    //         |                    ----------------------|----- x
+    //         |                                          |
+    //         |                                          |
+    // r = ri -|------------------------------------------|
+    //       -pi                                         pi
+    //
+    //
+    //
+    // As a result r will be equivalent to y, i.e. y = r - rm, with
+    // rm = (0.63 + 0.54) / 2 . Meanwhile, x is equivalent to theta
+    // and x \in [-pi,pi]. That is why, we add the new function
+    // generate_rect_mesh() and replace mesh_gen() in this example.
+    //
+
     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
     double z = p[2];
     double theta;
@@ -117,31 +144,32 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     //    if (p[0] != 0.0)
     //{
     theta = std::atan2(p[1], p[0]);
-      //}
-      //else if (p[1] > 0.0)
-      //{
-      // theta = pi / 2.0;
-      //}
-      //else if (p[1] < 0)
-      //{
-      //theta = 3.0 * pi / 2.0;
-      //}
+    //}
+    // else if (p[1] > 0.0)
+    //{
+    // theta = pi / 2.0;
+    //}
+    // else if (p[1] < 0)
+    //{
+    // theta = 3.0 * pi / 2.0;
+    //}
 
-    
-    double R = 5.0; double a = 1.0; double B0 = 1.0;
+    double R = 5.0;
+    double a = 1.0;
+    double B0 = 1.0;
     double psitilde = 0.002;
-    double psishape = a*B0*(r * r) * (1. - r) * (1. - r);
-    double psishapep = 2.0*a*B0*r * (1. - r) * (1. - r) -
-                       2.0*a*B0*r * r * (1. - r); // diff(psishape, x);
+    double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
+    double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
+                       2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
     double psi32 = std::cos(3.0 * theta - 2.0 * z);
     double psi43 = std::cos(4.0 * theta - 3.0 * z);
     double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
     double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
     double psipert = psitilde * (psi32 + psi43);
     double psipertp = psitilde * (psip32 + psip43);
-    double qsafety = 0.2 * std::exp(r/(a*0.3));
-    double br = (psishape * psipertp)/(r*B0);
-    double btheta = -(psishapep * psipert)/B0 + r / (R*qsafety);
+    double qsafety = 0.2 * std::exp(r / (a * 0.3));
+    double br = (psishape * psipertp) / (r * B0);
+    double btheta = -(psishapep * psipert) / B0 + r / (R * qsafety);
     double bz = 1.0;
 
     dealii::Tensor<2, dim> result;
@@ -155,9 +183,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     result[2][1] = result[1][2];
     result[2][2] = 1. + (epsinv - 1.) * bz * bz;
     // result[2][2] = 1. / (1. + sin(p[2]) * sin(p[2]));
-//     result[0][0] = 1.0;
-//     result[1][1] = 1.0;
-//     result[2][2] = 1.0;
+    // result[0][0] = 1.0;
+    // result[1][1] = 1.0;
+    // result[2][2] = 1.0;
     return dealii::invert(result);
   }
 
@@ -191,9 +219,10 @@ template <int dim, int spacedim = dim> struct Problem1
   {
     // r_o , r_i are redefined here.
     double r_i = 0.54;
-    double r_o =0.63;
+    double r_o = 0.63;
     dealii::CylindricalManifold<dim> manifold1(2);
-    dealii::GridGenerator::cylinder_shell(the_mesh, 2.*M_PI*5.0, r_i, r_o, 15, 1);
+    dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
+                                          15, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -217,13 +246,41 @@ template <int dim, int spacedim = dim> struct Problem1
       periodic_faces;
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 10, 11, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI *5.0}));
+      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
 
     the_mesh.set_all_manifold_ids(0);
     the_mesh.set_manifold(0, manifold1);
     the_mesh.refine_global(5);
     the_mesh.set_manifold(0);
+  }
+
+  /**
+   * @brief adaptive_mesh_gen
+   */
+  static void generate_rect_mesh(
+    dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
+  {
+    // r_o , r_i are redefined here.
+    double r_i = 0.54;
+    double r_o = 0.63;
+    std::vector<unsigned> refine_repeats = {10, 3, 1};
+    dealii::Point<dim> corner_1(-M_PI, r_i, 0.);
+    dealii::Point<dim> corner_2(M_PI, r_o, 2 * 5 * M_PI);
+    dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
+                                                      corner_1, corner_2, true);
+    std::vector<dealii::GridTools::PeriodicFacePair<
+      typename dealii::parallel::distributed::Triangulation<
+        dim>::cell_iterator> >
+      periodic_faces;
+    dealii::GridTools::collect_periodic_faces(
+      the_mesh, 0, 1, 0, periodic_faces,
+      dealii::Tensor<1, dim>({2.0 * M_PI, 0., 0.}));
+    dealii::GridTools::collect_periodic_faces(
+      the_mesh, 4, 5, 2, periodic_faces,
+      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
+    the_mesh.add_periodicity(periodic_faces);
+    the_mesh.refine_global(4);
   }
 
   /**
@@ -237,7 +294,39 @@ template <int dim, int spacedim = dim> struct Problem1
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 || face->center()[2] < 1.e-6)
+        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
+            face->center()[2] < 1.e-6)
+        {
+          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        }
+        else
+        {
+          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+        }
+      }
+      else
+      {
+        in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+      }
+    }
+  }
+
+  /**
+   * @brief dofs_on_nodes
+   */
+  static void assign_rect_mesh_BCs(CellManagerType *in_manager)
+  {
+    unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
+    for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+    {
+      auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
+      if (face->at_boundary())
+      {
+        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
+            face->center()[2] < 1.e-6 || face->center()[0] < -M_PI + 1.e-6 ||
+            face->center()[0] > M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -275,7 +364,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
       problem_data<dim> data1;
 
-      mesh1.generate_mesh(mesh_gen);
+      mesh1.generate_mesh(generate_rect_mesh);
       BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
@@ -288,9 +377,9 @@ template <int dim, int spacedim = dim> struct Problem1
         model_manager1.form_dof_handlers(&model1, &basis1);
 
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         dof_counter1.template count_globals<BasisType>(&model1);
         //
         model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,

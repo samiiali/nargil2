@@ -378,7 +378,7 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
   PCFactorSetUpMatSolverPackage(pc);
   PCFactorGetMatrix(pc, &factor_mat);
   // choosing the parallel computing icntl(28) = 2
-  // MatMumpsSetIcntl(factor_mat, 28, 2);
+  MatMumpsSetIcntl(factor_mat, 28, 2);
   // sequential ordering icntl(7) = 2 */
   MatMumpsSetIcntl(factor_mat, 7, 3);
   // MatMumpsSetIcntl(factor_mat, 29, 2);
@@ -399,7 +399,7 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
 
   // Numerical pivoting
   MatMumpsSetCntl(factor_mat, 1, 0.1);
-  // MatMumpsSetCntl(factor_mat, 2, 1.E-14);
+  MatMumpsSetCntl(factor_mat, 2, 1.E-14);
 
   // Null pivot row detection
   MatMumpsSetCntl(factor_mat, 3, -1.E-14);

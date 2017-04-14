@@ -41,7 +41,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    * @brief pi
    */
   const double pi = M_PI;
-  const double epsinv = 1.0e6;
+  const double epsinv = 1.0e11;
   const double r_i = 0.55;
   const double r_o =0.63;
   /**
@@ -54,7 +54,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
-    return 0.0;
+    double r = p[0];
+    return -std::pow(r,8) * (16.0*std::pow(r*r - 1,7) + 224.*r*r*std::pow(r*r - 1,6));
 
     //-0.25 * cos(2 * p[1]) * sin(p[0]) *
     //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
@@ -65,9 +66,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    double temperature = 1.0e-5;
-    if (sqrt(p[0] * p[0] + p[1] * p[1]) > 0.63 - 1.e-6)
-      temperature = 1.0e-6;
+    double temperature = .096;
+    if (p[0] > 0.63 - 1.e-6)
+      temperature = .055;
     return temperature;
   }
 
@@ -127,8 +128,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     //         |                                          |
     //         |                                          |
     // r = ri -|------------------------------------------|
-    //       -pi                                         pi
-    //
+    //       -pi*cl                                         pi*cl
+    // cl =(ro+ri)/2
     //
     //
     // As a result r will be equivalent to y, i.e. y = r - rm, with
@@ -137,22 +138,13 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     // generate_rect_mesh() and replace mesh_gen() in this example.
     //
 
-    double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
-    double z = p[2];
-    double theta;
+//     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
+//     double z = p[2];
+//     double theta = std::atan2(p[1], p[0]);
 
-    //    if (p[0] != 0.0)
-    //{
-    theta = std::atan2(p[1], p[0]);
-    //}
-    // else if (p[1] > 0.0)
-    //{
-    // theta = pi / 2.0;
-    //}
-    // else if (p[1] < 0)
-    //{
-    // theta = 3.0 * pi / 2.0;
-    //}
+    double r = p[0];
+    double theta = p[1];
+    double z = p[2];
 
     double R = 5.0;
     double a = 1.0;
@@ -195,7 +187,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0e6;
+    return 1.0e7;
     //
   }
 };
@@ -218,7 +210,7 @@ template <int dim, int spacedim = dim> struct Problem1
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     // r_o , r_i are redefined here.
-    double r_i = 0.54;
+    double r_i = 0.55;
     double r_o = 0.63;
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
@@ -262,11 +254,11 @@ template <int dim, int spacedim = dim> struct Problem1
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     // r_o , r_i are redefined here.
-    double r_i = 0.54;
+    double r_i = 0.55;
     double r_o = 0.63;
-    std::vector<unsigned> refine_repeats = {10, 3, 1};
-    dealii::Point<dim> corner_1(-M_PI, r_i, 0.);
-    dealii::Point<dim> corner_2(M_PI, r_o, 2 * 5 * M_PI);
+    std::vector<unsigned> refine_repeats = {100, 100, 1};
+    dealii::Point<dim> corner_1(r_i, 0.,0.);
+    dealii::Point<dim> corner_2(r_o, 2.*M_PI, 5.* 2. *M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -274,13 +266,13 @@ template <int dim, int spacedim = dim> struct Problem1
         dim>::cell_iterator> >
       periodic_faces;
     dealii::GridTools::collect_periodic_faces(
-      the_mesh, 0, 1, 0, periodic_faces,
-      dealii::Tensor<1, dim>({2.0 * M_PI, 0., 0.}));
+      the_mesh, 2, 3, 1, periodic_faces,
+      dealii::Tensor<1, dim>({0.0, 2.0 * M_PI, 0.}));
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 4, 5, 2, periodic_faces,
       dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
-    the_mesh.refine_global(4);
+    //the_mesh.refine_global(4);
   }
 
   /**
@@ -325,8 +317,8 @@ template <int dim, int spacedim = dim> struct Problem1
       if (face->at_boundary())
       {
         if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
-            face->center()[2] < 1.e-6 || face->center()[0] < -M_PI + 1.e-6 ||
-            face->center()[0] > M_PI - 1.e-6)
+            face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
+            face->center()[1] > 2.*M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -391,10 +383,15 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-          solver_keys, dof_counter1, comm);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assemble_globals, &solver1);
+//         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+//           solver_keys, dof_counter1, comm);
+//         model_manager1.apply_on_owned_cells(
+//           &model1, CellManagerType::assemble_globals, &solver1);
+	nargil::solvers::petsc_direct_solver<dim> solver1(
+	   solver_keys, dof_counter1, comm);
+	model_manager1.apply_on_owned_cells(
+           &model1, CellManagerType::assemble_globals, &solver1);
+
         //
         Vec sol_vec2;
         solver1.finish_assemble(update_keys);

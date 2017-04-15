@@ -119,6 +119,57 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
+   *
+   * This structure contains all of the required data, such as rhs, BCs, ...
+   * to solve the problem.
+   *
+   *
+   */
+  struct viz_data
+  {
+    /**
+     *
+     */
+    viz_data(const MPI_Comm in_comm,
+             const dealii::DoFHandler<dim, spacedim> *,
+             const LA::MPI::Vector *,
+             const std::string &,
+             const std::string &,
+             const std::string &);
+
+    /**
+     *
+     */
+    const MPI_Comm my_comm;
+
+    /**
+     *
+     */
+    const dealii::DoFHandler<dim, spacedim> *my_dof_handler;
+
+    /**
+     *
+     */
+    const LA::MPI::Vector *my_viz_sol;
+
+    /**
+     *
+     */
+    const std::string my_out_filename;
+
+    /**
+     *
+     */
+    const std::string my_u_name;
+
+    /**
+     *
+     */
+    const std::string my_q_name;
+  };
+
+  /**
+   *
    * This function is called from cell::create. This function cannot
    * be const, because the diffusion::my_manager is changed in this
    * function.
@@ -574,6 +625,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from static fill_viz_vec_with_exact_sol().
+     *
+     */
+    void
+    fill_my_viz_vec_with_exact_sol(distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
      * Called from fill_refn_vector().
      *
      */
@@ -627,6 +686,15 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Fills the visualization vector with the exact solution.
+     *
+     */
+    static void
+    fill_viz_vec_with_exact_sol(diffusion *in_cell,
+                                distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
      * Fills the refinement vector of the element.
      *
      */
@@ -673,10 +741,7 @@ struct diffusion : public cell<dim, spacedim>
      * This function writes the vtk output.
      *
      */
-    static void
-    visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                      const LA::MPI::Vector &visual_solu,
-                      unsigned const &time_level);
+    static void visualize_results(const viz_data &in_viz_data);
 
     /**
      *

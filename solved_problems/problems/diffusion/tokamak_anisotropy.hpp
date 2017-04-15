@@ -43,7 +43,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   const double pi = M_PI;
   const double epsinv = 1.0e11;
   const double r_i = 0.55;
-  const double r_o =0.63;
+  const double r_o = 0.63;
   /**
    * @brief Constructor.
    */
@@ -55,7 +55,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
     double r = p[0];
-    return -std::pow(r,8) * (16.0*std::pow(r*r - 1,7) + 224.*r*r*std::pow(r*r - 1,6));
+    return -std::pow(r, 8) * (16.0 * std::pow(r * r - 1, 7) +
+                              224. * r * r * std::pow(r * r - 1, 6));
 
     //-0.25 * cos(2 * p[1]) * sin(p[0]) *
     //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
@@ -98,11 +99,33 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
-    return dealii::Tensor<1, dim>(
-      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-         (1 + sin(p[2]) * sin(p[2]))});
+    double r = p[0];
+    double theta = p[1];
+    double z = p[2];
+
+    double R = 5.0;
+    double a = 1.0;
+    double B0 = 1.0;
+    double psitilde = 0.002;
+    double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
+    double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
+                       2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
+    double psi32 = std::cos(3.0 * theta - 2.0 * z);
+    double psi43 = std::cos(4.0 * theta - 3.0 * z);
+    double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
+    double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
+    double psipert = psitilde * (psi32 + psi43);
+    double psipertp = psitilde * (psip32 + psip43);
+    double qsafety = 0.2 * std::exp(r / (a * 0.3));
+    double br = (psishape * psipertp) / (r * B0);
+    double btheta = -(psishapep * psipert) / B0 + r / (R * qsafety);
+    double bz = 1.0;
+    return dealii::Tensor<1, dim>({br, btheta, bz});
+    //    return dealii::Tensor<1, dim>(
+    //      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
+    //       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
+    //       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
+    //         (1 + sin(p[2]) * sin(p[2]))});
   }
 
   /**
@@ -138,9 +161,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     // generate_rect_mesh() and replace mesh_gen() in this example.
     //
 
-//     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
-//     double z = p[2];
-//     double theta = std::atan2(p[1], p[0]);
+    //     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
+    //     double z = p[2];
+    //     double theta = std::atan2(p[1], p[0]);
 
     double r = p[0];
     double theta = p[1];
@@ -256,9 +279,9 @@ template <int dim, int spacedim = dim> struct Problem1
     // r_o , r_i are redefined here.
     double r_i = 0.55;
     double r_o = 0.63;
-    std::vector<unsigned> refine_repeats = {100, 100, 1};
-    dealii::Point<dim> corner_1(r_i, 0.,0.);
-    dealii::Point<dim> corner_2(r_o, 2.*M_PI, 5.* 2. *M_PI);
+    std::vector<unsigned> refine_repeats = {40, 40, 10};
+    dealii::Point<dim> corner_1(r_i, 0., 0.);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI, 5. * 2. * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -272,7 +295,7 @@ template <int dim, int spacedim = dim> struct Problem1
       the_mesh, 4, 5, 2, periodic_faces,
       dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
-    //the_mesh.refine_global(4);
+    // the_mesh.refine_global(4);
   }
 
   /**
@@ -318,7 +341,7 @@ template <int dim, int spacedim = dim> struct Problem1
       {
         if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
             face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
-            face->center()[1] > 2.*M_PI - 1.e-6)
+            face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -383,14 +406,12 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-//         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-//           solver_keys, dof_counter1, comm);
-//         model_manager1.apply_on_owned_cells(
-//           &model1, CellManagerType::assemble_globals, &solver1);
-	nargil::solvers::petsc_direct_solver<dim> solver1(
-	   solver_keys, dof_counter1, comm);
-	model_manager1.apply_on_owned_cells(
-           &model1, CellManagerType::assemble_globals, &solver1);
+        //         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+        //           solver_keys, dof_counter1, comm);
+        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                          dof_counter1, comm);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::assemble_globals, &solver1);
 
         //
         Vec sol_vec2;
@@ -420,12 +441,31 @@ template <int dim, int spacedim = dim> struct Problem1
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
         dist_refn_vec.copy_to_global_vec(global_refn_vec);
 
-        CellManagerType::visualize_results(model_manager1.local_dof_handler,
-                                           global_sol_vec, i_cycle);
+        //
+        // We prepare the visulization data
+        //
+        std::string cycle_string = std::to_string(i_cycle);
+        cycle_string =
+          std::string(2 - cycle_string.length(), '0') + cycle_string;
+        typename ModelEq::viz_data viz_data1(
+          comm, &model_manager1.local_dof_handler, &global_sol_vec,
+          "solution" + cycle_string, "Temperature", "Heat flow");
+
+        // Now we visualize the results
+        CellManagerType::visualize_results(viz_data1);
+
+        // We interpolated exact u and q to u_exact and q_exact
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::interpolate_to_interior); // exact
-                                                              // interpolated to
-                                                              // u and q
+          &model1, CellManagerType::interpolate_to_interior);
+        //
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::fill_viz_vec_with_exact_sol, &dist_sol_vec);
+        dist_sol_vec.copy_to_global_vec(global_sol_vec);
+        typename ModelEq::viz_data viz_data2(
+          comm, &model_manager1.local_dof_handler, &global_sol_vec,
+          "kappa_comps" + cycle_string, "Temperature", "b components");
+        CellManagerType::visualize_results(viz_data2);
+
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_errors, &sum_of_L2_errors);

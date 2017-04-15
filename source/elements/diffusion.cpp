@@ -68,6 +68,28 @@ const BasisType *nargil::diffusion<dim, spacedim>::get_basis() const
 //
 
 template <int dim, int spacedim>
+nargil::diffusion<dim, spacedim>::viz_data::viz_data(
+  const MPI_Comm in_comm,
+  const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
+  const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
+  const std::string &in_filename, const std::string &in_u_name,
+  const std::string &in_q_name)
+  : my_comm(in_comm),
+    my_dof_handler(in_dof_handler),
+    my_viz_sol(in_viz_sol),
+    my_out_filename(in_filename),
+    my_u_name(in_u_name),
+    my_q_name(in_q_name)
+{
+}
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim>
 nargil::diffusion<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   const unsigned poly_order, const unsigned quad_order)
   : base_basis<dim, spacedim>(),
@@ -638,6 +660,29 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_my_viz_vec_with_exact_sol(distributed_vector<dim, spacedim> *out_vec)
+{
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->local_interior_unkn_idx[i_unkn];
+    out_vec->assemble(idx1, exact_u(i_unkn));
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+    {
+      int idx2 =
+        this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
+      out_vec->assemble(idx2, exact_q(i_dim * n_scalar_unkns + i_unkn));
+    }
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::fill_my_refn_vector(distributed_vector<dim, spacedim> *out_vec)
 {
@@ -783,6 +828,19 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
 
 template <int dim, int spacedim>
 template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_viz_vec_with_exact_sol(diffusion *in_cell,
+                              distributed_vector<dim, spacedim> *out_vec)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_viz_vec_with_exact_sol(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_refn_vector(
   diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec)
 {
@@ -846,30 +904,29 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_errors(
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                    const LA::MPI::Vector &visual_solu,
-                    const unsigned &time_level)
+void nargil::diffusion<dim, spacedim>::hdg_manager<
+  BasisType>::visualize_results(const viz_data &in_viz_data)
 {
-  const auto &tria = dof_handler.get_triangulation();
+  unsigned time_level = 0;
+  const auto &tria = in_viz_data.my_dof_handler->get_triangulation();
   unsigned n_active_cells = tria.n_active_cells();
   int comm_rank, comm_size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+  MPI_Comm_rank(in_viz_data.my_comm, &comm_rank);
+  MPI_Comm_size(in_viz_data.my_comm, &comm_size);
   unsigned refn_cycle = 0;
   dealii::DataOut<dim> data_out;
-  data_out.attach_dof_handler(dof_handler);
+  data_out.attach_dof_handler(*in_viz_data.my_dof_handler);
   std::vector<std::string> solution_names(dim + 1);
-  solution_names[0] = "head";
+  solution_names[0] = in_viz_data.my_u_name;
   for (unsigned i1 = 0; i1 < dim; ++i1)
-    solution_names[i1 + 1] = "flow";
+    solution_names[i1 + 1] = in_viz_data.my_q_name;
   std::vector<dealii::DataComponentInterpretation::DataComponentInterpretation>
     data_component_interpretation(
       1, dealii::DataComponentInterpretation::component_is_scalar);
   for (unsigned i1 = 0; i1 < dim; ++i1)
     data_component_interpretation.push_back(
       dealii::DataComponentInterpretation::component_is_part_of_vector);
-  data_out.add_data_vector(visual_solu,
+  data_out.add_data_vector(*in_viz_data.my_viz_sol,
                            solution_names,
                            dealii::DataOut<dim>::type_dof_data,
                            data_component_interpretation);
@@ -882,7 +939,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   data_out.build_patches();
 
   const std::string filename =
-    ("solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
+    (in_viz_data.my_out_filename + "-" +
      dealii::Utilities::int_to_string(comm_rank, 4) + "-" +
      dealii::Utilities::int_to_string(time_level, 4));
   std::ofstream output((filename + ".vtu").c_str());
@@ -892,10 +949,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   {
     std::vector<std::string> filenames;
     for (unsigned int i = 0; i < comm_size; ++i)
-      filenames.push_back(
-        "solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
-        dealii::Utilities::int_to_string(i, 4) + "-" +
-        dealii::Utilities::int_to_string(time_level, 4) + ".vtu");
+      filenames.push_back(in_viz_data.my_out_filename + "-" +
+                          dealii::Utilities::int_to_string(i, 4) + "-" +
+                          dealii::Utilities::int_to_string(time_level, 4) +
+                          ".vtu");
     std::ofstream master_output((filename + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }

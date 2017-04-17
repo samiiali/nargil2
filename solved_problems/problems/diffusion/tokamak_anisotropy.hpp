@@ -41,7 +41,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    * @brief pi
    */
   const double pi = M_PI;
-  const double epsinv = 1.0e11;
+  const double epsinv = 1.0e10;
   const double r_i = 0.55;
   const double r_o =0.63;
   /**
@@ -55,7 +55,10 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
     double r = p[0];
-    return -std::pow(r,8) * (16.0*std::pow(r*r - 1,7) + 224.*r*r*std::pow(r*r - 1,6));
+    //return 0.0;
+    return (56.0*pow(r,6.0) * pow((1-r),16.0) + 256.0 * pow(r,7.0) * pow((1-r),15.0) + 240.0*pow(r,8.0) * pow((1-r),14.0));
+
+      //-std::pow(r,8) * (16.0*std::pow(r*r - 1,7) + 224.*r*r*std::pow(r*r - 1,6));
 
     //-0.25 * cos(2 * p[1]) * sin(p[0]) *
     //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
@@ -66,9 +69,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    double temperature = .096;
+    double temperature = 4.7e-4;
     if (p[0] > 0.63 - 1.e-6)
-      temperature = .055;
+      temperature = 4.1e-4;
     return temperature;
   }
 
@@ -138,9 +141,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     // generate_rect_mesh() and replace mesh_gen() in this example.
     //
 
-//     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
-//     double z = p[2];
-//     double theta = std::atan2(p[1], p[0]);
+    //     double r = std::sqrt(p[0] * p[0] + p[1] * p[1]);
+    //     double z = p[2];
+    //     double theta = std::atan2(p[1], p[0]);
 
     double r = p[0];
     double theta = p[1];
@@ -187,7 +190,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0e7;
+    return 1.0e6;
     //
   }
 };
@@ -256,7 +259,7 @@ template <int dim, int spacedim = dim> struct Problem1
     // r_o , r_i are redefined here.
     double r_i = 0.55;
     double r_o = 0.63;
-    std::vector<unsigned> refine_repeats = {100, 100, 1};
+    std::vector<unsigned> refine_repeats = {50, 20, 20};
     dealii::Point<dim> corner_1(r_i, 0.,0.);
     dealii::Point<dim> corner_2(r_o, 2.*M_PI, 5.* 2. *M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,

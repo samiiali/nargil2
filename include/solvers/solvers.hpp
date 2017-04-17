@@ -14,7 +14,7 @@ template <int dim, int spacedim> struct dof_counter;
 
 /**
  *
- *
+ * Containing the solvers of the linear system and their options, tyeps, etc.
  *
  */
 namespace solvers
@@ -83,6 +83,11 @@ enum type
  */
 namespace solver_props
 {
+/**
+ *
+ * @brief The properties of the global system matrix.
+ *
+ */
 enum props
 {
   default_option = 0,
@@ -94,7 +99,7 @@ enum props
 
 /**
  *
- * The namespace for the state of the solver.
+ * @brief The namespace for the state of the solver.
  *
  */
 namespace solver_state
@@ -116,7 +121,7 @@ enum state
 /**
  *
  *
- * The base class for all implicit solvers.
+ * @brief The base class for all implicit solvers.
  *
  *
  */
@@ -131,7 +136,7 @@ template <int dim, int spacedim> struct base_implicit_solver
 
   /**
    *
-   * The destructor.
+   * @brief The destructor.
    *
    */
   virtual ~base_implicit_solver() {}
@@ -297,6 +302,12 @@ struct simple_implicit_solver : public base_implicit_solver<dim, spacedim>
 //
 //
 
+/**
+ *
+ *
+ * The direct solver of PETSc which is based on MUMPS.
+ *
+ */
 template <int dim, int spacedim = dim>
 struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 {
@@ -311,7 +322,7 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * The destructor.
    *
    */
   virtual ~petsc_direct_solver();
@@ -385,7 +396,8 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * Gives a std::vector object containing the local part of the
+   * global vector.
    *
    */
   std::vector<double>
@@ -394,7 +406,7 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * @brief A pointer to the MPI Communicator.
    *
    */
   const MPI_Comm *my_comm;
@@ -429,7 +441,7 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * The proconditioner.
    *
    */
   PC pc;
@@ -455,6 +467,13 @@ struct petsc_direct_solver : public base_implicit_solver<dim, spacedim>
 //
 //
 
+/**
+ *
+ *
+ * The wrapper for CG iterative solver of PETSc.
+ *
+ *
+ */
 template <int dim, int spacedim = dim>
 struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
 {
@@ -469,7 +488,7 @@ struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * The destructor.
    *
    */
   virtual ~petsc_implicit_cg_solver();
@@ -543,7 +562,8 @@ struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * Gives a std::vector containing the local part of the global
+   * PETSc Vec.
    *
    */
   std::vector<double>
@@ -552,7 +572,7 @@ struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * A pointer to MPI Communicator.
    *
    */
   const MPI_Comm *my_comm;
@@ -587,7 +607,7 @@ struct petsc_implicit_cg_solver : public base_implicit_solver<dim, spacedim>
 
   /**
    *
-   *
+   * The preconditioner object.
    *
    */
   PC pc;

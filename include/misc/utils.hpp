@@ -14,6 +14,12 @@ namespace LA
 using namespace dealii::LinearAlgebraPETSc;
 }
 
+//
+//
+//
+//
+//
+
 namespace nargil
 {
 /**
@@ -50,6 +56,11 @@ void Tokenize(const std::string &str_in,
 //
 //
 
+/**
+ *
+ * @brief Wipes the object out of memory.
+ *
+ */
 template <typename T> void reck_it_Ralph(T *obj) { T().swap(*obj); }
 
 /**
@@ -136,7 +147,10 @@ template <int dim, int spacedim = dim> struct distributed_vector
 /**
  *
  *
- * This is the derived classes for ...
+ * This is the derived classes to give access to the dealii cells corresponding
+ * to each element. The main point of this class is to have generic_neighbor or
+ * generic_... function which works for either interior cells or the cells on
+ * the boundary.
  *
  *
  */
@@ -145,35 +159,42 @@ struct dealiiTriCell : public baseTriCell<dim, spacedim>
 {
   /**
    *
-   *
+   * @brief The constructor.
    *
    */
   dealiiTriCell();
 
   /**
    *
-   *
+   * For the cells inside the domain this function returns the
+   * regular neighbor, and for the cells on the periodic boundary it
+   * returns the periodic_neighbor.
    *
    */
   dealiiTriCell generic_neighbor(const unsigned i_face);
 
   /**
    *
-   *
+   * For the cells inside the domain this function returns if the
+   * neighbor is coarser, and for the cells on the periodic boundary it
+   * returns the periodic_neighbor is coarser.
    *
    */
   bool generic_neighbor_is_coarser(const unsigned i_face);
 
   /**
    *
-   *
+   * For the cells inside the domain this function returns the
+   * face number of the regular element attached to this element. For
+   * the cells on the periodic boundary it returns the face number of the
+   * periodic_neighbor which is attached to this cell.
    *
    */
   unsigned generic_neighbor_face_no(const unsigned i_face);
 
   /**
    *
-   *
+   * Similar to the above two fucntions (Yes, I am lazy).
    *
    */
   dealiiTriCell generic_neighbor_child_on_subface(const unsigned i_face,

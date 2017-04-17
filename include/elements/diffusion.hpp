@@ -96,25 +96,76 @@ struct diffusion : public cell<dim, spacedim>
     virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact_u.
      */
     virtual double exact_u(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief exact_q
+     * @brief exact_q.
      */
     virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the inverse of diffusivity tensor.
      */
     virtual dealii::Tensor<2, dim>
     kappa_inv(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the stabilization parameter.
      */
     virtual double tau(const dealii::Point<spacedim> &) = 0;
+  };
+
+  /**
+   *
+   *
+   * This structure contains all of the data for visualizing the solution.
+   *
+   *
+   */
+  struct viz_data
+  {
+    /**
+     * @brief The constructor of the structure.
+     */
+    viz_data(const MPI_Comm in_comm,
+             const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
+             const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
+             const std::string &in_filename, const std::string &in_u_name,
+             const std::string &in_q_name);
+
+    /**
+     * @brief MPI Communicator.
+     */
+    const MPI_Comm my_comm;
+
+    /**
+     * The corresponding deal.II DoFHandler object.
+     */
+    const dealii::DoFHandler<dim, spacedim> *my_dof_handler;
+
+    /**
+     * The deal.II parallel solution vector.
+     */
+    const LA::MPI::Vector *my_viz_sol;
+
+    /**
+     * The output filename.
+     */
+    const std::string my_out_filename;
+
+    /**
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Head or Temperature).
+     */
+    const std::string my_u_name;
+
+    /**
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
+     */
+    const std::string my_q_name;
   };
 
   /**
@@ -574,6 +625,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from static fill_viz_vec_with_exact_sol().
+     *
+     */
+    void
+    fill_my_viz_vec_with_exact_sol(distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
      * Called from fill_refn_vector().
      *
      */
@@ -627,6 +686,15 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Fills the visualization vector with the exact solution.
+     *
+     */
+    static void
+    fill_viz_vec_with_exact_sol(diffusion *in_cell,
+                                distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
      * Fills the refinement vector of the element.
      *
      */
@@ -673,10 +741,7 @@ struct diffusion : public cell<dim, spacedim>
      * This function writes the vtk output.
      *
      */
-    static void
-    visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                      const LA::MPI::Vector &visual_solu,
-                      unsigned const &time_level);
+    static void visualize_results(const viz_data &in_viz_data);
 
     /**
      *

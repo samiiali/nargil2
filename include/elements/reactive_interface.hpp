@@ -108,7 +108,7 @@ struct reactive_interface : public cell<dim, spacedim>
     /**
      * @brief gD_func.
      */
-    virtual double phi_s_BC(const dealii::Point<spacedim> &) = 0;
+    virtual double phi_BC(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief gN_func.
@@ -127,15 +127,66 @@ struct reactive_interface : public cell<dim, spacedim>
     exact_q_n(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the inverse of diffusivity tensor.
      */
     virtual dealii::Tensor<2, dim>
     kappa_inv(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the stabilization parameter.
      */
     virtual double tau(const dealii::Point<spacedim> &) = 0;
+  };
+
+  /**
+   *
+   *
+   * This structure contains all of the data for visulaizing the solution.
+   *
+   *
+   */
+  struct viz_data
+  {
+    /**
+     * @brief The constructor of the structure.
+     */
+    viz_data(const MPI_Comm in_comm,
+             const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
+             const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
+             const std::string &in_filename, const std::string &in_u_name,
+             const std::string &in_q_name);
+
+    /**
+     * @brief MPI Communicator.
+     */
+    const MPI_Comm my_comm;
+
+    /**
+     * The corresponding deal.II DoFHandler object.
+     */
+    const dealii::DoFHandler<dim, spacedim> *my_dof_handler;
+
+    /**
+     * The deal.II parallel solution vector.
+     */
+    const LA::MPI::Vector *my_viz_sol;
+
+    /**
+     * The output filename.
+     */
+    const std::string my_out_filename;
+
+    /**
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Head or Temperature).
+     */
+    const std::string my_u_name;
+
+    /**
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
+     */
+    const std::string my_q_name;
   };
 
   /**
@@ -537,8 +588,15 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    *   \begin{gather}
    *     {\mathbf n}_{\Sigma,S} \cdot \mu_n\left(-\alpha_n \rho_n \nabla \Phi
-   * -\nabla
-   *     \rho_n \right) &=I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o})
+   *       -\nabla \rho_n \right) = I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *     {\mathbf n}_{\Sigma,S} \cdot \mu_p\left(-\alpha_p \rho_p \nabla \Phi
+   *       -\nabla \rho_p \right) = I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r}), \\
+   *     {\mathbf n}_{\Sigma,E} \cdot \mu_r\left(-\alpha_r \rho_r \nabla \Phi
+   *       -\nabla \rho_r \right) = I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
+   *                              - I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *     {\mathbf n}_{\Sigma,E} \cdot \mu_o\left(-\alpha_o \rho_o \nabla \Phi
+   *       -\nabla \rho_o \right) = - I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
+   *                                + I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}).
    *   \end{gather}
    * \f]
    *

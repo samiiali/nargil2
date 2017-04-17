@@ -96,23 +96,23 @@ struct diffusion : public cell<dim, spacedim>
     virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact_u.
      */
     virtual double exact_u(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief exact_q
+     * @brief exact_q.
      */
     virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the inverse of diffusivity tensor.
      */
     virtual dealii::Tensor<2, dim>
     kappa_inv(const dealii::Point<spacedim> &) = 0;
 
     /**
-     *
+     * @brief the stabilization parameter.
      */
     virtual double tau(const dealii::Point<spacedim> &) = 0;
   };
@@ -120,50 +120,50 @@ struct diffusion : public cell<dim, spacedim>
   /**
    *
    *
-   * This structure contains all of the required data, such as rhs, BCs, ...
-   * to solve the problem.
+   * This structure contains all of the data for visualizing the solution.
    *
    *
    */
   struct viz_data
   {
     /**
-     *
+     * @brief The constructor of the structure.
      */
     viz_data(const MPI_Comm in_comm,
-             const dealii::DoFHandler<dim, spacedim> *,
-             const LA::MPI::Vector *,
-             const std::string &,
-             const std::string &,
-             const std::string &);
+             const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
+             const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
+             const std::string &in_filename, const std::string &in_u_name,
+             const std::string &in_q_name);
 
     /**
-     *
+     * @brief MPI Communicator.
      */
     const MPI_Comm my_comm;
 
     /**
-     *
+     * The corresponding deal.II DoFHandler object.
      */
     const dealii::DoFHandler<dim, spacedim> *my_dof_handler;
 
     /**
-     *
+     * The deal.II parallel solution vector.
      */
     const LA::MPI::Vector *my_viz_sol;
 
     /**
-     *
+     * The output filename.
      */
     const std::string my_out_filename;
 
     /**
-     *
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Head or Temperature).
      */
     const std::string my_u_name;
 
     /**
-     *
+     * A string containing the name of the \f$u\f$ variable in the formulation.
+     * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
      */
     const std::string my_q_name;
   };

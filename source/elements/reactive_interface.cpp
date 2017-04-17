@@ -69,6 +69,28 @@ const BasisType *nargil::reactive_interface<dim, spacedim>::get_basis() const
 //
 
 template <int dim, int spacedim>
+nargil::reactive_interface<dim, spacedim>::viz_data::viz_data(
+  const MPI_Comm in_comm,
+  const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
+  const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
+  const std::string &in_filename, const std::string &in_u_name,
+  const std::string &in_q_name)
+  : my_comm(in_comm),
+    my_dof_handler(in_dof_handler),
+    my_viz_sol(in_viz_sol),
+    my_out_filename(in_filename),
+    my_u_name(in_u_name),
+    my_q_name(in_q_name)
+{
+}
+
+//
+//
+//
+//
+//
+
+template <int dim, int spacedim>
 nargil::reactive_interface<dim, spacedim>::hdg_polybasis::hdg_polybasis(
   const unsigned poly_order, const unsigned quad_order)
   : base_basis<dim, spacedim>(),

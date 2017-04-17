@@ -31,11 +31,34 @@
 
 /**
  *
- * This problem checks the periodic BC on a distributed grid.
+ * Let us solve the reactive interface problem with the following setup:
+ *
+ *
+ *       y=\pi/2     |-----------------|------------------|
+ *                   |                 |                  |
+ *           \Gamma_C|                 |\Sigma            |
+ *                   |                 |                  |\Gamma_A
+ *                   |     \Omega_S    |       \Omega_E   |
+ *                   |                 |                  |
+ *                   |                 |                  |
+ *       y=-\pi/2    |-----------------|------------------|
+ *                 x=-\pi             x=0               x=\pi
+ *
+ *
+ * Let us assume that:
+ * \f[
+ *   \begin{gather}
+ *     \rho_n = \sin(x) + \cos(y), \quad
+ *     \rho_p = \cos(x-y), \quad
+ *     \rho_r = \sin(x+y), \quad
+ *     \rho_o = \cos(x) - \sin(y).
+ *   \end{gather}
+ * \f]
  *
  */
 template <int dim, int spacedim = dim>
-struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
+struct react_int_problem1_data
+  : public nargil::reactive_interface<dim, spacedim>::data
 {
   /**
    * @brief pi
@@ -45,7 +68,9 @@ struct problem_data : public nargil::reactive_interface<dim, spacedim>::data
   /**
    * @brief Constructor.
    */
-  problem_data() : nargil::reactive_interface<dim, spacedim>::data() {}
+  react_int_problem1_data() : nargil::reactive_interface<dim, spacedim>::data()
+  {
+  }
 
   /**
    * @brief rhs_func.
@@ -218,7 +243,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
       nargil::mesh<dim> mesh1(comm, 1, true);
 
-      problem_data<dim> data1;
+      react_int_problem1_data<dim> data1;
 
       mesh1.generate_mesh(mesh_gen);
       BasisType basis1(1, 2);

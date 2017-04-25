@@ -264,6 +264,16 @@ nargil::diffusion<dim, spacedim>::hdg_polybasis::get_refn_fe() const
 //
 
 template <int dim, int spacedim>
+const dealii::FESystem<dim> *
+nargil::diffusion<dim, spacedim>::hdg_polybasis::get_viz_fe() const
+{
+  return &local_fe;
+}
+
+//
+//
+
+template <int dim, int spacedim>
 unsigned
 nargil::diffusion<dim, spacedim>::hdg_polybasis::get_face_quad_size() const
 {
@@ -331,7 +341,9 @@ template <int dim, int spacedim>
 template <typename BasisType>
 nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::hdg_manager(
   const nargil::diffusion<dim, spacedim> *in_cell, const BasisType *in_basis)
-  : hybridized_cell_manager<dim, spacedim>(in_cell), my_basis(in_basis)
+  : hybridized_cell_manager<dim, spacedim>(in_cell),
+    BCs(2 * dim, boundary_condition::not_set),
+    my_basis(in_basis)
 {
   local_interior_unkn_idx.resize(my_basis->n_local_unkns_per_cell());
 }
@@ -734,7 +746,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
       unsigned idx1 = i_face * n_dofs_per_face;
       if (this->BCs[i_face] == boundary_condition::essential)
         gD_vec(idx1 + i1) = gD_at_face_supp;
-      if (this->BCs[i_face] == boundary_condition::flux_bc)
+      if (this->BCs[i_face] == boundary_condition::natural)
         gN_vec[idx1] = gN_at_face_supp;
     }
   }

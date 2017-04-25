@@ -12,6 +12,6 @@
 int main(int argc, char **argv)
 {
   //
-  Problem1<3>::run(argc, argv);
+  Problem1<2>::run(argc, argv);
   //
 }

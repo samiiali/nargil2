@@ -1,0 +1,2 @@
+-25*exp(sin(x1 - y1))*cos(x1 - y1),
+   25*exp(sin(x1 - y1))*cos(x1 - y1)

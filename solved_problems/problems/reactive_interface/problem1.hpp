@@ -31,7 +31,10 @@
 
 /**
  *
- * Let us solve the reactive interface problem with the following setup:
+ * In this example we use the nargil::rereactive_interface element to solve a 2D
+ * problem. Let us solve the reactive interface problem with the following
+ * setup:
+ *
  *
  *
  *       y=\pi/2     |-----------------|------------------|
@@ -45,9 +48,11 @@
  *                 x=-\pi             x=0               x=\pi
  *
  *
+ *
  * Let us assume that:
  * \f[
  *   \begin{gather}
+ *     \phi = \exp(\sin(x-y)), \quad
  *     \rho_n = \sin(x) + \cos(y), \quad
  *     \rho_p = \cos(x-y), \quad
  *     \rho_r = \sin(x+y), \quad
@@ -73,75 +78,279 @@ struct react_int_problem1_data
   }
 
   /**
-   * @brief rhs_func.
+   * @brief rhs_func of \f$\rho_n\f$ equation.
    */
-  virtual double Ln_func(const dealii::Point<spacedim> &p)
+  virtual double rho_n_rhs_func(const dealii::Point<spacedim> &p) final
   {
-    return -0.25 * cos(2 * p[1]) * sin(p[0]) *
-           (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
+    double x1 = p[0];
+    double y1 = p[1];
+    cos(x1) + sin(x1) +
+      exp(sin(x1 - y1)) *
+        (cos(x1 - y1) * (cos(x1) + cos(2 * x1 - y1) + cos(y1) +
+                         (-1 + 2 * cos(x1 - y1)) * sin(x1)) -
+         2 * (cos(x1) + sin(x1)) * sin(x1 - y1));
   }
 
   /**
-   * @brief gD_func.
+   * @brief rhs_func of \f$\rho_n\f$ equation.
    */
-  virtual double rho_n_BC(const dealii::Point<spacedim> &p)
+  virtual double rho_p_rhs_func(const dealii::Point<spacedim> &p) final
   {
-    return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
+    double x1 = p[0];
+    double y1 = p[1];
+    2 * (cos(x1) - sin(y1) -
+         ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
+           sin(2 * x1 - 3 * y1) - 4 * sin(2 * x1 - y1) - sin(y1)) *
+          (cosh(sin(x1 - y1)) + sinh(sin(x1 - y1)))) /
+           2.);
   }
 
   /**
-   * @brief gN_func.
+   * @brief rhs_func of \f$\rho_r\f$ equation.
    */
-  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
+  virtual double rho_r_rhs_func(const dealii::Point<spacedim> &p) final
   {
-    return dealii::Tensor<1, dim>(
-      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-         (1 + sin(p[2]) * sin(p[2]))});
+    double x1 = p[0];
+    double y1 = p[1];
+    6 * (1 + exp(sin(x1 - y1)) * (pow(cos(x1 - y1), 2) - sin(x1 - y1))) *
+      sin(x1 + y1);
   }
 
   /**
-   * @brief exact_u
+   * @brief rhs_func of \f$\rho_o\f$ equation.
    */
-  virtual double exact_rho_n(const dealii::Point<spacedim> &p)
+  virtual double rho_o_rhs_func(const dealii::Point<spacedim> &p) final
   {
-    return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
+    double x1 = p[0];
+    double y1 = p[1];
+    4 * (4 * cos(x1) - 4 * sin(y1) -
+         ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
+           sin(2 * x1 - 3 * y1) - 4 * sin(2 * x1 - y1) - sin(y1)) *
+          (cosh(sin(x1 - y1)) + sinh(sin(x1 - y1)))) /
+           2.);
   }
 
   /**
-   * @brief exact_q
+   * @brief Dirichlet BC for \f$\rho_n\f$
    */
-  virtual dealii::Tensor<1, dim> exact_q_n(const dealii::Point<spacedim> &p)
+  virtual double gD_rho_n(const dealii::Point<spacedim> &p) final
   {
-    return dealii::Tensor<1, dim>(
-      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-         (1 + sin(p[2]) * sin(p[2]))});
+    double x1 = p[0];
+    double y1 = p[1];
+    return sin(x1) + cos(x1);
   }
 
   /**
-   *
+   * @brief Dirichlet BC for \f$\rho_p\f$
    */
-  virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &p)
+  virtual double gD_rho_p(const dealii::Point<spacedim> &p) final
   {
-    dealii::Tensor<2, dim> result;
-    result[0][0] = 1.0;
-    result[1][1] = 1.0;
-    result[2][2] = 1. / (1 + sin(p[2]) * sin(p[2]));
+    double x1 = p[0];
+    double y1 = p[1];
+    return cos(x1 - y1);
+  }
+
+  /**
+   * @brief Dirichlet BC for \f$\rho_r\f$
+   */
+  virtual double gD_rho_r(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return sin(x1 + y1);
+  }
+
+  /**
+   * @brief Dirichlet BC for \f$\rho_o\f$
+   */
+  virtual double gD_rho_o(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return cos(x1) - sin(y1);
+  }
+
+  /**
+   * @brief Dirichlet BC for \f$\rho_n\f$
+   */
+  virtual dealii::Tensor<1, dim> gN_rho_n(const dealii::Point<spacedim> &) final
+  {
+    dealii::Tensor<1, dim> result;
+    return result;
+  }
+
+  /**
+   * @brief Dirichlet BC for \f$\rho_p\f$
+   */
+  virtual dealii::Tensor<1, dim> gN_rho_p(const dealii::Point<spacedim> &) final
+  {
+    dealii::Tensor<1, dim> result;
+    return result;
+  }
+
+  /**
+   * @brief Dirichlet BC for \f$\rho_r\f$
+   */
+  virtual dealii::Tensor<1, dim> gN_rho_r(const dealii::Point<spacedim> &) final
+  {
+    dealii::Tensor<1, dim> result;
+    return result;
+  }
+  /**
+   * @brief Dirichlet BC for \f$\rho_o\f$
+   */
+  virtual dealii::Tensor<1, dim> gN_rho_o(const dealii::Point<spacedim> &) final
+  {
+    dealii::Tensor<1, dim> result;
     return result;
   }
 
   /**
    *
    */
-  virtual double tau(const dealii::Point<spacedim> &)
+  virtual double lambda_inv2_S(
+    const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    //
     return 1.0;
-    //
   }
+
+  /**
+   *
+   */
+  virtual double
+  lambda_inv2_E(const dealii::Point<spacedim> & = dealii::Point<spacedim>())
+  {
+    return 1.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_n\f$.
+   */
+  virtual double
+  mu_n(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 1.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_p\f$.
+   */
+  virtual double
+  mu_p(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 2.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_r\f$.
+   */
+  virtual double
+  mu_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 3.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_o\f$.
+   */
+  virtual double
+  mu_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 4.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_n\f$.
+   */
+  virtual double
+  alpha_n(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return -1.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_p\f$.
+   */
+  virtual double
+  alpha_p(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 1.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_r\f$.
+   */
+  virtual double
+  alpha_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return -1.0;
+  }
+
+  /**
+   * @brief Value of \f$\mu_o\f$.
+   */
+  virtual double
+  alpha_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
+  {
+    return 1.0;
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_rho_n(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    return sin(x1) + cos(x1);
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_rho_p(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return cos(x1 - y1);
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_rho_r(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return sin(x1 + y1);
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_rho_o(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return cos(x1) - sin(y1);
+  }
+
+  /**
+   * @brief Electric field.
+   */
+  virtual dealii::Tensor<1, dim>
+  electric_field(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result({-25 * exp(sin(x1 - y1)) * cos(x1 - y1),
+                                   25 * exp(sin(x1 - y1)) * cos(x1 - y1)});
+    return result;
+  }
+
+  /**
+   * @brief the stabilization parameter.
+   */
+  virtual double tau(const dealii::Point<spacedim> &) final { return 1.0; }
 };
 
 /**
@@ -162,65 +371,67 @@ template <int dim, int spacedim = dim> struct Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    dealii::CylindricalManifold<dim> manifold1(2);
-    dealii::GridGenerator::cylinder_shell(the_mesh, 2 * M_PI, 0.9, 1.0, 6, 6);
-
-    // Here we assign boundary id 10 and 11 to the bottom and top caps of
-    // the cylindrical shell.
-    for (auto &&i_cell : the_mesh.active_cell_iterators())
-    {
-      for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
-      {
-        if (i_cell->face(i_face)->at_boundary())
-        {
-          dealii::Point<dim> face_center = i_cell->face(i_face)->center();
-          if (face_center[2] < 0.10)
-            i_cell->face(i_face)->set_boundary_id(10);
-          if (face_center[2] > 2 * M_PI - 0.1)
-            i_cell->face(i_face)->set_boundary_id(11);
-        }
-      }
-    }
+    std::vector<unsigned> refine_repeats = {20, 10};
+    dealii::Point<dim> corner_1(-M_PI, -M_PI / 2.);
+    dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
+    dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
+                                                      corner_1, corner_2, true);
+    /*
     std::vector<dealii::GridTools::PeriodicFacePair<
       typename dealii::parallel::distributed::Triangulation<
         dim>::cell_iterator> >
       periodic_faces;
     dealii::GridTools::collect_periodic_faces(
-      the_mesh, 10, 11, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0., 2 * M_PI}));
+      the_mesh, 2, 3, 1, periodic_faces,
+      dealii::Tensor<1, dim>({0.0, 2.0 * M_PI, 0.}));
+    dealii::GridTools::collect_periodic_faces(
+      the_mesh, 4, 5, 2, periodic_faces,
+      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
-
-    the_mesh.set_all_manifold_ids(0);
-    the_mesh.set_manifold(0, manifold1);
-    the_mesh.refine_global(3);
-    the_mesh.set_manifold(0);
+    */
   }
 
   /**
-   * @brief dofs_on_nodes
+   *
+   * For this problem we set the elements on the postive x to have essential
+   * boundary condition on \f$\rho_n, \rho_p\f$ and the elements on the
+   * negative x to have essential BC on \f$\rho_r, \rho_o\f$. For elements
+   * in the electrolyte, we use not_set BC with restrained \f$\rho_n, \rho_p\f$.
+   * For elements in semi-conductor, we use not_set BC with restrained
+   * \f$\rho_r, \rho_o\f$.
+   *
    */
   static void assign_BCs(CellManagerType *in_manager)
   {
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
+    in_manager->local_equation_is_active.resize(4, 0);
+    if (in_manager->my_cell->my_dealii_cell->center()[0] < 1.E-4)
+    {
+      in_manager->local_equation_is_active[0] =
+        in_manager->local_equation_is_active[1] = 1;
+    }
+    if (in_manager->my_cell->my_dealii_cell->center()[0] > -1.E-4)
+    {
+      in_manager->local_equation_is_active[2] =
+        in_manager->local_equation_is_active[3] = 1;
+    }
+
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
-      if (face->at_boundary())
+      if (face->center()[0] <= 1.E-4) // We are in semi-conductor
       {
-        if (face->center()[2] > 2. * M_PI - 1.E-4 || face->center()[2] < 1.E-4)
-        {
-          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
-        }
-        else
-        {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-        }
+        in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
+        in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+        in_manager->dof_status_on_faces[i_face][0] =
+          in_manager->dof_status_on_faces[i_face][1] = 0;
       }
-      else
+      if (face->center()[0] >= -1.E-4) // We are in electrolyte
       {
-        in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
+        in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+        in_manager->dof_status_on_faces[i_face][2] =
+          in_manager->dof_status_on_faces[i_face][3] = 0;
       }
     }
   }
@@ -230,11 +441,10 @@ template <int dim, int spacedim = dim> struct Problem1
 
   static void run(int argc, char **argv)
   {
-    static_assert(dim == 3, "dim should be equal to 3.");
+    static_assert(dim == 2, "dim should be equal to 3.");
 
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
-
     {
       const MPI_Comm &comm = PETSC_COMM_WORLD;
       int comm_rank, comm_size;
@@ -250,7 +460,6 @@ template <int dim, int spacedim = dim> struct Problem1
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
-      /*
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
@@ -269,68 +478,73 @@ template <int dim, int spacedim = dim> struct Problem1
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::set_source_and_BCs);
         //
-        int solver_keys = nargil::solvers::solver_props::spd_matrix;
+        int solver_keys = nargil::solvers::solver_props::default_option;
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-                                                          dof_counter1, comm);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assemble_globals, &solver1);
+        //        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        //                                                          dof_counter1,
+        //                                                          comm);
+        //        model_manager1.apply_on_owned_cells(
+        //          &model1, CellManagerType::assemble_globals, &solver1);
         //
-        Vec sol_vec2;
-        solver1.finish_assemble(update_keys);
-        solver1.form_factors();
-        solver1.solve_system(&sol_vec2);
-        std::vector<double> local_sol_vec(
-          solver1.get_local_part_of_global_vec(&sol_vec2));
+        //        Vec sol_vec2;
+        //        solver1.finish_assemble(update_keys);
+        //        solver1.form_factors();
+        //        solver1.solve_system(&sol_vec2);
+        //        std::vector<double> local_sol_vec(
+        //          solver1.get_local_part_of_global_vec(&sol_vec2));
         //
+        std::vector<double> local_sol_vec;
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
         //
         nargil::distributed_vector<dim> dist_sol_vec(
           model_manager1.local_dof_handler, PETSC_COMM_WORLD);
-        nargil::distributed_vector<dim> dist_refn_vec(
-          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
-        //
+        //        nargil::distributed_vector<dim> dist_refn_vec(
+        //          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
+        //        //
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
 
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
+        //        model_manager1.apply_on_owned_cells(
+        //          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
 
         LA::MPI::Vector global_sol_vec;
-        LA::MPI::Vector global_refn_vec;
+        //        LA::MPI::Vector global_refn_vec;
 
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        dist_refn_vec.copy_to_global_vec(global_refn_vec);
+        //        dist_refn_vec.copy_to_global_vec(global_refn_vec);
 
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::interpolate_to_interior);
-        std::vector<double> sum_of_L2_errors(2, 0);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
+        //        model_manager1.apply_on_owned_cells(
+        //          &model1, CellManagerType::interpolate_to_interior);
+        //        std::vector<double> sum_of_L2_errors(2, 0);
+        //        model_manager1.apply_on_owned_cells(
+        //          &model1, CellManagerType::compute_errors,
+        //          &sum_of_L2_errors);
 
-        double u_error_global, q_error_global;
-        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
-        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
+        //        double u_error_global, q_error_global;
+        //        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1,
+        //        MPI_DOUBLE,
+        //                   MPI_SUM, 0, comm);
+        //        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1,
+        //        MPI_DOUBLE,
+        //                   MPI_SUM, 0, comm);
 
-        if (comm_rank == 0)
-        {
-          std::cout << sqrt(u_error_global) << " " << sqrt(q_error_global)
-                    << std::endl;
-        }
+        //        if (comm_rank == 0)
+        //        {
+        //          std::cout << sqrt(u_error_global) << " " <<
+        //          sqrt(q_error_global)
+        //                    << std::endl;
+        //        }
 
-        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
-                          global_refn_vec);
+        //        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
+        //                          global_refn_vec);
       }
       //
       //
-      */
     }
     //
 

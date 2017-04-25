@@ -81,6 +81,13 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
    *
    */
   dealii::DoFHandler<dim, spacedim> refn_dof_handler;
+
+  /**
+   *
+   * The dealii DoFHandler which is used for refining the grid.
+   *
+   */
+  dealii::DoFHandler<dim, spacedim> viz_dof_handler;
 };
 }
 

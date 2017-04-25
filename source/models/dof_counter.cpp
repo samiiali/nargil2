@@ -101,7 +101,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         // dofs that have some dof_names for themselves.
         //
         if (face_i1->at_boundary() &&
-            i_manager->BCs[i_face] != boundary_condition::periodic)
+            i_manager->BCs[i_face] != ModelEq::boundary_condition::periodic)
         {
           i_manager->set_cell_properties(i_face, comm_rank, 0);
           i_manager->set_owned_unkn_ids(i_face, i_local_unkn_on_this_rank,

@@ -67,6 +67,19 @@ struct reactive_interface : public cell<dim, spacedim>
 
   /**
    *
+   * The boundary condition for diffusion problem
+   *
+   */
+  enum class boundary_condition
+  {
+    not_set = 0,
+    essential = 1,
+    natural = 2,
+    periodic = 3
+  };
+
+  /**
+   *
    *
    * This structure contains all of the required data, such as rhs, BCs, ...
    * to solve the problem.
@@ -81,56 +94,154 @@ struct reactive_interface : public cell<dim, spacedim>
     data() {}
 
     /**
-     * @brief rhs_func.
+     * @brief rhs_func of \f$\rho_n\f$ equation.
      */
-    virtual double Ln_func(const dealii::Point<spacedim> &) = 0;
+    virtual double rho_n_rhs_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gD_func.
+     * @brief rhs_func of \f$\rho_n\f$ equation.
      */
-    virtual double rho_n_BC(const dealii::Point<spacedim> &) = 0;
+    virtual double rho_p_rhs_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gD_func.
+     * @brief rhs_func of \f$\rho_r\f$ equation.
      */
-    virtual double rho_p_BC(const dealii::Point<spacedim> &) = 0;
+    virtual double rho_r_rhs_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gD_func.
+     * @brief rhs_func of \f$\rho_o\f$ equation.
      */
-    virtual double mu_n(const dealii::Point<spacedim> &) = 0;
+    virtual double rho_o_rhs_func(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gD_func.
+     * @brief Dirichlet BC for \f$\rho_n\f$
      */
-    virtual double mu_p(const dealii::Point<spacedim> &) = 0;
+    virtual double gD_rho_n(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gD_func.
+     * @brief Dirichlet BC for \f$\rho_p\f$
      */
-    virtual double phi_BC(const dealii::Point<spacedim> &) = 0;
+    virtual double gD_rho_p(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief gN_func.
+     * @brief Dirichlet BC for \f$\rho_r\f$
      */
-    virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &) = 0;
+    virtual double gD_rho_r(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Dirichlet BC for \f$\rho_o\f$
+     */
+    virtual double gD_rho_o(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Dirichlet BC for \f$\rho_n\f$
+     */
+    virtual dealii::Tensor<1, dim>
+    gN_rho_n(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Dirichlet BC for \f$\rho_p\f$
+     */
+    virtual dealii::Tensor<1, dim>
+    gN_rho_p(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Dirichlet BC for \f$\rho_r\f$
+     */
+    virtual dealii::Tensor<1, dim>
+    gN_rho_r(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Dirichlet BC for \f$\rho_o\f$
+     */
+    virtual dealii::Tensor<1, dim>
+    gN_rho_o(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     *
+     */
+    virtual double lambda_inv2_S(
+      const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     *
+     */
+    virtual double lambda_inv2_E(
+      const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_n\f$.
+     */
+    virtual double
+    mu_n(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_p\f$.
+     */
+    virtual double
+    mu_p(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_r\f$.
+     */
+    virtual double
+    mu_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_o\f$.
+     */
+    virtual double
+    mu_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_n\f$.
+     */
+    virtual double
+    alpha_n(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_p\f$.
+     */
+    virtual double
+    alpha_p(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_r\f$.
+     */
+    virtual double
+    alpha_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$\mu_o\f$.
+     */
+    virtual double
+    alpha_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
 
     /**
      * @brief exact_u
      */
-    virtual double exact_rho_n(const dealii::Point<spacedim> &) = 0;
+    virtual double exact_rho_n(const dealii::Point<spacedim> &p) = 0;
 
     /**
-     * @brief exact_q
+     * @brief exact_u
+     */
+    virtual double exact_rho_p(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief exact_u
+     */
+    virtual double exact_rho_r(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief exact_u
+     */
+    virtual double exact_rho_o(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief Electric field.
      */
     virtual dealii::Tensor<1, dim>
-    exact_q_n(const dealii::Point<spacedim> &) = 0;
-
-    /**
-     * @brief the inverse of diffusivity tensor.
-     */
-    virtual dealii::Tensor<2, dim>
-    kappa_inv(const dealii::Point<spacedim> &) = 0;
+    electric_field(const dealii::Point<spacedim> &p) = 0;
 
     /**
      * @brief the stabilization parameter.
@@ -291,9 +402,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * This function returns the number of dofs on each face of the element.
      * The term dof refers to the functions which we want to solve a global
      * equations to obtain them. For example in reactive_interface equation we
-     * solve
-     * for u globally. So, the only global dof is u, and this function
-     * returns 1.
+     * solve for 4 traces globally.
      *
      */
     static unsigned get_n_dofs_per_face();
@@ -336,6 +445,14 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     const dealii::FE_DGQ<dim> *get_refn_fe() const;
+
+    /**
+     *
+     * Returns the finite element basis for the visualization basis of the
+     * element. Only used in hybridized_model_manager::form_dof_handlers().
+     *
+     */
+    const dealii::FESystem<dim> *get_viz_fe() const;
 
     /**
      *
@@ -400,6 +517,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     dealii::FE_DGQ<dim> refn_fe;
+
+    /**
+     *
+     * The dealii FE object which is used for visualization purposes.
+     *
+     */
+    dealii::FESystem<dim> viz_fe;
 
   public:
     /**
@@ -471,7 +595,7 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \nabla \cdot \mu_n
    *   \left(
    *     \alpha_n \rho_n \nabla \phi + \nabla \rho_n
-   *   \right) &= L_n.
+   *   \right) &= f_n.
    *   \end{aligned}
    * \f]
    * To know about each of the above unknowns and parameters, one can visit
@@ -483,7 +607,7 @@ struct reactive_interface : public cell<dim, spacedim>
    *       + \nabla \rho_n &= 0, \\
    *     \partial_t \rho_n
    *     + \nabla \cdot (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n)
-   *     + \nabla \cdot \mathbf q_n &= L_n.
+   *     + \nabla \cdot \mathbf q_n &= f_n.
    *   \end{aligned}
    * \f]
    * We satisfy this equation in the weak sense, by testing it against proper
@@ -495,8 +619,8 @@ struct reactive_interface : public cell<dim, spacedim>
    *       - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *     (\partial_t \rho_n, w)
    *       + \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
-   *       - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n, \nabla w)
-   *       - (\mathbf q_n , \nabla w) &= L_n(w), \\
+   *       - (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n, \nabla w)
+   *       - (\mathbf q_n , \nabla w) &= f_n(w), \\
    *   \end{aligned} \tag{2}
    * \f]
    * Here, \f$\mathbf E^*\f$ denotes the numerical flux corresponding to
@@ -524,16 +648,20 @@ struct reactive_interface : public cell<dim, spacedim>
    *     \hat \rho_n +
    *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n),w
    *   \rangle
-   *   - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n, \nabla w)
-   *   - (\mathbf q_n , \nabla w) &= L_n(w).
+   *   - (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n, \nabla w)
+   *   - (\mathbf q_n , \nabla w) &= f_n(w).
    * \end{aligned}
    * \f]
    * And finally,
    * \f[
    * \begin{aligned}
-   *   a_1(\mathbf q_n,\mathbf p) - b_1(\rho_n, \mathbf p)
+   *   \mu_n^{-1} a_1(\mathbf q_n,\mathbf p) - b_1(\rho_n, \mathbf p)
    *     + c_1(\hat \rho_n, \mathbf p) &= 0, \\
-   *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w) + e_1(\hat \rho_n, w) &= L_n(w),
+   *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w)
+   *                         - \mu_n \alpha_n \lambda^{-2} d_2(\rho_n, w)
+   *                         - e_1(\hat \rho_n, w)
+   *                         + \mu_n \alpha_n \lambda^{-2}e_2(\hat \rho_n, w)
+   *                         &= F_n(w),
    * \\
    * \end{aligned}
    * \f]
@@ -545,14 +673,16 @@ struct reactive_interface : public cell<dim, spacedim>
    *   c_1(\hat \rho_n , \mathbf p) = \langle\hat \rho_n, \mathbf p \cdot
    *                                  \mathbf n\rangle,
    *   \\
-   *   d_1(\rho,w) =
-   *     \left\langle \tau_n \rho_n , w \right\rangle
-   *     - (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \rho_n , \nabla w) , \quad
-   *   e_1(\hat \rho, w) =
+   *   d_1(\rho_n,w) =
+   *     \left\langle \tau_n \rho_n , w \right\rangle, \quad
+   *   d_2(\rho_n,w) =
+   *     (\mathbf E \rho_n , \nabla w) , \quad
+   *   e_1(\hat \rho_n, w) =
+   *     \left\langle \tau_n \hat \rho_n , w \right \rangle, \quad
+   *   e_2(\hat \rho_n, w) =
    *     \left\langle
-   *       (\mu_n \alpha_n \lambda^{-2} \mathbf E^* \cdot \mathbf n
-   *        - \tau_n) \hat \rho_n , w
-   *     \right \rangle
+   *       \mathbf E^* \cdot \mathbf n \hat \rho_n , w
+   *     \right \rangle.
    * \end{gathered}
    * \f]
    * Similar equations that we mentioned here for electron density
@@ -600,6 +730,10 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \end{gather}
    * \f]
    *
+   * ### A note on implementation (For later developers)
+   * In general, in this element, a face can have 4 degrees of freedom, i.e.
+   * \f$\rho_n, \rho_p, \rho_r, \rho_o\f$. The order of degrees of freedom in
+   * counting the unknowns is: \f$\rho_n, \rho_p, \rho_r, \rho_o\f$.
    *
    */
   template <typename BasisType>
@@ -801,12 +935,34 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     const BasisType *my_basis;
 
+    /**
+     *
+     * Contains all of the boundary conditions of on the faces of this
+     * Cell.
+     *
+     */
+    std::vector<boundary_condition> BCs;
+
+    /**
+     *
+     * This bitset is designed for multiphysics problems. It is added when Ali
+     * was solving the reactive interface problem. In this problem we have four
+     * equations which were coupled at the reactive interface. So, there was no
+     * need to perform the computations in the electrolyte for the density of
+     * electrons or holes. On the other hand, it was not necessary to solve the
+     * equations for density of oxidants or reductants in the semi-conductor.
+     * Hence, we are adding this field which tells which equations should be
+     * solved in which domain.
+     *
+     */
+    boost::dynamic_bitset<> local_equation_is_active;
+
     /** @{
      *
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D, E, H;
+    Eigen::MatrixXd A, B, C, D1, D2, E1, E2, H;
     ///@}
 
     /** @{
@@ -814,7 +970,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief All of the element local vectors.
      *
      */
-    Eigen::VectorXd R, F, L;
+    Eigen::VectorXd R, Fn, Fp, Fr, Fo, L;
     ///@}
 
     /** @{
@@ -827,17 +983,31 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /** @{
      *
-     * @brief The source term and applied BCs.
+     * @brief The source terms.
      *
      */
-    Eigen::VectorXd gD_vec, f_vec;
+    Eigen::VectorXd gD_rho_n, gD_rho_p, gD_rho_r, gD_rho_o;
+
+    /**
+     *
+     * @brief The boundary conditions.
+     *
+     */
+    std::vector<dealii::Tensor<1, dim> > E_vec, E_star_vec;
+
+    /**
+     *
+     * @brief The boundary conditions.
+     *
+     */
+    Eigen::VectorXd f_n_vec, f_p_vec, f_r_vec, f_o_vec;
 
     /**
      *
      * @brief The std vector of gN's.
      *
      */
-    std::vector<dealii::Tensor<1, dim> > gN_vec;
+    std::vector<dealii::Tensor<1, dim> > gN_rho_n, gN_rho_p, gN_rho_r, gN_rho_o;
     ///@}
 
     /**

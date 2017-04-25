@@ -19,7 +19,6 @@ nargil::hybridized_cell_manager<dim, spacedim>::hybridized_cell_manager(
   : cell_manager<dim, spacedim>(in_cell),
     unkns_id_in_this_rank(2 * dim),
     unkns_id_in_all_ranks(2 * dim),
-    BCs(2 * dim, boundary_condition::not_set),
     dof_status_on_faces(2 * dim),
     half_range_flag(2 * dim, 0),
     face_owner_rank(2 * dim, -1)

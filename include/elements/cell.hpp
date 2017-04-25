@@ -230,14 +230,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 
   /**
    *
-   * Contains all of the boundary conditions of on the faces of this
-   * Cell.
-   *
-   */
-  std::vector<boundary_condition> BCs;
-
-  /**
-   *
    * We want to know which degrees of freedom are restrained and which are
    * open. Hence, we store a bitset which has its size equal to the number of
    * dofs of each face of the cell and it is 1 if the dof is open, and 0 if it

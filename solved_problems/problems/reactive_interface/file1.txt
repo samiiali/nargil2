@@ -1,0 +1,2 @@
+-25*Power(E,Sin(x1 - y1))*Cos(x1 - y1),
+   25*Power(E,Sin(x1 - y1))*Cos(x1 - y1)

@@ -67,6 +67,19 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
+   * The boundary condition for diffusion problem
+   *
+   */
+  enum class boundary_condition
+  {
+    not_set = 0,
+    essential = 1,
+    natural = 2,
+    periodic = 3
+  };
+
+  /**
+   *
    *
    * This structure contains all of the required data, such as rhs, BCs, ...
    * to solve the problem.
@@ -296,6 +309,7 @@ struct diffusion : public cell<dim, spacedim>
      *
      * Returns the finite element basis for the local basis of the element.
      * Only used in hybridized_model_manager::form_dof_handlers().
+     *
      */
     const dealii::FESystem<dim> *get_local_fe() const;
 
@@ -314,6 +328,14 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     const dealii::FE_DGQ<dim> *get_refn_fe() const;
+
+    /**
+     *
+     * Returns the finite element basis for the visualization basis of the
+     * element. Only used in hybridized_model_manager::form_dof_handlers().
+     *
+     */
+    const dealii::FESystem<dim> *get_viz_fe() const;
 
     /**
      *
@@ -742,6 +764,14 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     static void visualize_results(const viz_data &in_viz_data);
+
+    /**
+     *
+     * Contains all of the boundary conditions of on the faces of this
+     * Cell.
+     *
+     */
+    std::vector<boundary_condition> BCs;
 
     /**
      *

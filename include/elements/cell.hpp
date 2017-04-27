@@ -89,7 +89,29 @@ template <int dim, int spacedim> struct cell_manager
  *
  *
  * This is the base class for all nargil::cell_manager 's with
- * their global unknowns on their faces.
+ * their global unknowns on their faces. The main task of this class
+ * is numbering the unknowns. Let us use the following naming in
+ * our problem:
+ *
+ * dof = The degree of freedom in the continuous problem. This can
+ *       be \f$\hat u\f$ in the diffusion problem.
+ *
+ * unkn = The unknowns which are used to express the dofs on each
+ *        face. For example for quadratic polynomial approximation
+ *        of our dofs, we have 3 unkns.
+ *
+ * As a result, the total number of unknowns in a quadratic element
+ * with 4 dofs (for example the reactive interface problem) is:
+ * n_faces * n_dofs_per_face * n_unkns_per_dof = n_faces * 4 * 3.
+ * The way we number these unkns is as follows:
+ *
+ *        |    } --> Block of n_unkn values for 1st dof of face 1
+ *        |    } --> Block of n_unkn values for 2nd dof of face 1
+ *           .
+ *           .
+ *           .
+ *        |    } --> Block of n_unkn values for (n_dof-1)th dof of face n_face
+ *        |    } --> Block of n_unkn values for (n_dof)th dof of face n_face
  *
  * @ingroup CellManagers
  *

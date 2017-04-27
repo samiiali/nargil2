@@ -84,11 +84,11 @@ struct react_int_problem1_data
   {
     double x1 = p[0];
     double y1 = p[1];
-    cos(x1) + sin(x1) +
-      exp(sin(x1 - y1)) *
-        (cos(x1 - y1) * (cos(x1) + cos(2 * x1 - y1) + cos(y1) +
-                         (-1 + 2 * cos(x1 - y1)) * sin(x1)) -
-         2 * (cos(x1) + sin(x1)) * sin(x1 - y1));
+    return cos(x1) + sin(x1) +
+           exp(sin(x1 - y1)) *
+             (cos(x1 - y1) * (cos(x1) + cos(2 * x1 - y1) + cos(y1) +
+                              (-1 + 2 * cos(x1 - y1)) * sin(x1)) -
+              2 * (cos(x1) + sin(x1)) * sin(x1 - y1));
   }
 
   /**
@@ -211,7 +211,7 @@ struct react_int_problem1_data
   virtual double lambda_inv2_S(
     const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 1.0;
+    return 0.04;
   }
 
   /**
@@ -335,6 +335,16 @@ struct react_int_problem1_data
   }
 
   /**
+   *
+   */
+  virtual dealii::Tensor<1, dim>
+  exact_q_n(const dealii::Point<spacedim> &p) final
+  {
+    dealii::Tensor<1, dim> result({-cos(p[0]) + sin(p[0]), 0.0});
+    return result;
+  }
+
+  /**
    * @brief Electric field.
    */
   virtual dealii::Tensor<1, dim>
@@ -350,7 +360,7 @@ struct react_int_problem1_data
   /**
    * @brief the stabilization parameter.
    */
-  virtual double tau(const dealii::Point<spacedim> &) final { return 1.0; }
+  virtual double tau(const dealii::Point<spacedim> &) final { return 10.0; }
 };
 
 /**
@@ -371,7 +381,7 @@ template <int dim, int spacedim = dim> struct Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {20, 10};
+    std::vector<unsigned> refine_repeats = {80, 40};
     dealii::Point<dim> corner_1(-M_PI, -M_PI / 2.);
     dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
@@ -482,11 +492,12 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        //        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-        //                                                          dof_counter1,
-        //                                                          comm);
-        //        model_manager1.apply_on_owned_cells(
-        //          &model1, CellManagerType::assemble_globals, &solver1);
+        /*
+        nargil::solvers::petsc_direct_solver<dim> solver1(
+          solver_keys, dof_counter1, comm);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::assemble_globals, &solver1);
+        */
         //
         //        Vec sol_vec2;
         //        solver1.finish_assemble(update_keys);
@@ -518,27 +529,29 @@ template <int dim, int spacedim = dim> struct Problem1
 
         CellManagerType::visualize_results(model_manager1.local_dof_handler,
                                            global_sol_vec, i_cycle);
-        //        model_manager1.apply_on_owned_cells(
-        //          &model1, CellManagerType::interpolate_to_interior);
-        //        std::vector<double> sum_of_L2_errors(2, 0);
-        //        model_manager1.apply_on_owned_cells(
-        //          &model1, CellManagerType::compute_errors,
-        //          &sum_of_L2_errors);
+        //
+        // Now we want to compute the errors.
+        //
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::interpolate_to_interior);
+        std::vector<double> sum_of_L2_errors(2, 0);
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
 
-        //        double u_error_global, q_error_global;
-        //        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1,
-        //        MPI_DOUBLE,
-        //                   MPI_SUM, 0, comm);
-        //        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1,
-        //        MPI_DOUBLE,
-        //                   MPI_SUM, 0, comm);
+        double u_error_global, q_error_global;
+        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
+        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
 
-        //        if (comm_rank == 0)
-        //        {
-        //          std::cout << sqrt(u_error_global) << " " <<
-        //          sqrt(q_error_global)
-        //                    << std::endl;
-        //        }
+        if (comm_rank == 0)
+        {
+          char accuracy_output[100];
+          snprintf(accuracy_output, 100,
+                   "The u_error is: %10.4E, and q_error is %10.4E",
+                   sqrt(u_error_global), sqrt(q_error_global));
+          std::cout << accuracy_output << std::endl;
+        }
 
         //        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
         //                          global_refn_vec);

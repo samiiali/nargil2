@@ -238,6 +238,12 @@ struct reactive_interface : public cell<dim, spacedim>
     virtual double exact_rho_o(const dealii::Point<spacedim> &p) = 0;
 
     /**
+     * @brief rhs_func of \f$\rho_n\f$ equation.
+     */
+    virtual dealii::Tensor<1, dim>
+    exact_q_n(const dealii::Point<spacedim> &) = 0;
+
+    /**
      * @brief Electric field.
      */
     virtual dealii::Tensor<1, dim>
@@ -480,14 +486,14 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief Number of total trace unknowns in the cell.
      *
      */
-    unsigned n_trace_unkns_per_cell() const;
+    unsigned n_trace_unkns_per_cell_dof() const;
 
     /**
      *
      * @brief Number of trace unknowns on the face.
      *
      */
-    unsigned n_trace_unkns_per_face() const;
+    unsigned n_trace_unkns_per_face_dof() const;
 
     /**
      *
@@ -610,8 +616,9 @@ struct reactive_interface : public cell<dim, spacedim>
    *     + \nabla \cdot \mathbf q_n &= f_n.
    *   \end{aligned}
    * \f]
-   * We satisfy this equation in the weak sense, by testing it against proper
-   * test functions:
+   * Let us use the notation: \f$c_n = \mu_n \alpha_n \lambda^{-2}\f$.
+   * We satisfy the above equation in the weak sense, by testing it against
+   * proper test functions:
    * \f[
    *   \begin{aligned}
    *     (\mu_n^{-1} \mathbf q_n, \mathbf p)
@@ -619,7 +626,7 @@ struct reactive_interface : public cell<dim, spacedim>
    *       - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *     (\partial_t \rho_n, w)
    *       + \langle \boldsymbol H^*_n \cdot \mathbf n, w \rangle
-   *       - (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n, \nabla w)
+   *       - (c_n \mathbf E \rho_n, \nabla w)
    *       - (\mathbf q_n , \nabla w) &= f_n(w), \\
    *   \end{aligned} \tag{2}
    * \f]
@@ -631,7 +638,7 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    * \begin{aligned}
    *   {\boldsymbol H}^*_n \cdot \mathbf n &=
-   *     (\mu_n \alpha_n \lambda^{-2} {\mathbf E}^* \cdot \mathbf n)
+   *     (c_n {\mathbf E}^* \cdot \mathbf n)
    *     \hat \rho_n + \mathbf q_n \cdot \mathbf n +
    *     \tau_{n} (\rho_n - \hat \rho_n ).
    * \end{aligned}
@@ -640,15 +647,15 @@ struct reactive_interface : public cell<dim, spacedim>
    * form (we will add the time derivative term later):
    * \f[
    * \begin{aligned}
-   *   (\mu_n^{-1} \mathbf q_n, \mathbf p)
+   *   \mu_n^{-1} (\mathbf q_n, \mathbf p)
    *     + \langle \hat \rho_n, \mathbf p \cdot \mathbf n \rangle
    *     - (\rho_n, \nabla \cdot \mathbf p) &= 0, \\
    *   \langle
-   *     (\mu_n \alpha_n \lambda^{-2} {\mathbf E}^* \cdot \mathbf n)
+   *     c_n({\mathbf E}^* \cdot \mathbf n)
    *     \hat \rho_n +
    *     \mathbf q_n \cdot \mathbf n + \tau_n (\rho_n - \hat \rho_n),w
    *   \rangle
-   *   - (\mu_n \alpha_n \lambda^{-2} \mathbf E \rho_n, \nabla w)
+   *   - (c_n \mathbf E \rho_n, \nabla w)
    *   - (\mathbf q_n , \nabla w) &= f_n(w).
    * \end{aligned}
    * \f]
@@ -658,11 +665,10 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \mu_n^{-1} a_1(\mathbf q_n,\mathbf p) - b_1(\rho_n, \mathbf p)
    *     + c_1(\hat \rho_n, \mathbf p) &= 0, \\
    *   b_1^T(w, \mathbf q_n) + d_1(\rho_n, w)
-   *                         - \mu_n \alpha_n \lambda^{-2} d_2(\rho_n, w)
+   *                         - c_n d_2(\rho_n, w)
    *                         - e_1(\hat \rho_n, w)
-   *                         + \mu_n \alpha_n \lambda^{-2}e_2(\hat \rho_n, w)
-   *                         &= F_n(w),
-   * \\
+   *                         + c_n e_2(\hat \rho_n, w)
+   *                         &= F_n(w), \\
    * \end{aligned}
    * \f]
    * with:
@@ -683,6 +689,18 @@ struct reactive_interface : public cell<dim, spacedim>
    *     \left\langle
    *       \mathbf E^* \cdot \mathbf n \hat \rho_n , w
    *     \right \rangle.
+   * \end{gathered}
+   * \f]
+   * Thus, the descritized forms of \f$\rho_n, \mathbf q_n\f$ can be obtained
+   * using the following matrix relations:
+   * \f[
+   * \begin{gathered}
+   * \mathbf q_{nh} = (\mu_n^{-1} A_1)^{-1}
+   *                  \left(-C_1 \hat \rho_{nh} + B_1 \, \rho_{nh} \right), \\
+   * \rho_{nh} = \left(B_1^T(\mu_n^{-1}A_1)^{-1} B_1 + D_1 - c_n D_2\right)^{-1}
+   *             \left[ F_n +
+   *             \left(-B_1^T(\mu_n^{-1}A)^{-1} C_1 + E_1 - c_n E_2\right)
+   *             \hat \rho_{nh} \right]
    * \end{gathered}
    * \f]
    * Similar equations that we mentioned here for electron density
@@ -803,13 +821,6 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * Called from static interpolate_to_trace().
-     *
-     */
-    void interpolate_to_my_trace();
-
-    /**
-     *
      * Called from static interpolate_to_interior().
      *
      */
@@ -850,14 +861,6 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     static void assign_BCs(reactive_interface *in_cell, BC_Func f);
-
-    /**
-     *
-     * This function is used to interpolate the function f to the trace
-     * degrees of freedom of the element.
-     *
-     */
-    static void interpolate_to_trace(reactive_interface *in_cell);
 
     /**
      *
@@ -962,7 +965,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D1, D2, E1, E2, H;
+    Eigen::MatrixXd A1, B1, C1, D1, D2, E1, E2, H;
     ///@}
 
     /** @{
@@ -978,7 +981,23 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec;
+    Eigen::VectorXd exact_u, exact_q;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd rho_n_vec, rho_p_vec, rho_r_vec, rho_o_vec;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd q_n_vec, q_p_vec, q_r_vec, q_o_vec;
     ///@}
 
     /** @{

@@ -73,14 +73,12 @@ nargil::reactive_interface<dim, spacedim>::viz_data::viz_data(
   const MPI_Comm in_comm,
   const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
   const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
-  const std::string &in_filename, const std::string &in_u_name,
-  const std::string &in_q_name)
+  const std::string &in_filename, const std::vector<std::string> &in_var_names)
   : my_comm(in_comm),
     my_dof_handler(in_dof_handler),
     my_viz_sol(in_viz_sol),
     my_out_filename(in_filename),
-    my_u_name(in_u_name),
-    my_q_name(in_q_name)
+    my_var_names(in_var_names)
 {
 }
 
@@ -765,8 +763,14 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   const reactive_interface *own_cell =
     static_cast<const reactive_interface *>(this->my_cell);
   unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
-  exact_u.resize(n_scalar_unkns);
-  exact_q.resize(n_scalar_unkns * dim);
+  exact_rho_n.resize(n_scalar_unkns);
+  exact_q_n.resize(n_scalar_unkns * dim);
+  exact_rho_p.resize(n_scalar_unkns);
+  exact_q_p.resize(n_scalar_unkns * dim);
+  exact_rho_r.resize(n_scalar_unkns);
+  exact_q_r.resize(n_scalar_unkns * dim);
+  exact_rho_o.resize(n_scalar_unkns);
+  exact_q_o.resize(n_scalar_unkns * dim);
   //
   my_basis->local_fe_val_at_cell_supp->reinit(this->my_dealii_local_dofs_cell);
   //
@@ -774,12 +778,23 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   {
     dealii::Point<spacedim> q_point =
       my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
-    exact_u(i_unkn) = own_cell->my_data->exact_rho_n(q_point);
+    exact_rho_n(i_unkn) = own_cell->my_data->exact_rho_n(q_point);
+    exact_rho_p(i_unkn) = own_cell->my_data->exact_rho_p(q_point);
+    exact_rho_r(i_unkn) = own_cell->my_data->exact_rho_r(q_point);
+    exact_rho_o(i_unkn) = own_cell->my_data->exact_rho_o(q_point);
+    //
     dealii::Tensor<1, dim> q_val = own_cell->my_data->exact_q_n(q_point);
     for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
-    {
-      exact_q(i_dim * n_scalar_unkns + i_unkn) = q_val[i_dim];
-    }
+      exact_q_n(i_dim * n_scalar_unkns + i_unkn) = q_val[i_dim];
+    q_val = own_cell->my_data->exact_q_p(q_point);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+      exact_q_p(i_dim * n_scalar_unkns + i_unkn) = q_val[i_dim];
+    q_val = own_cell->my_data->exact_q_r(q_point);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+      exact_q_r(i_dim * n_scalar_unkns + i_unkn) = q_val[i_dim];
+    q_val = own_cell->my_data->exact_q_o(q_point);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+      exact_q_o(i_dim * n_scalar_unkns + i_unkn) = q_val[i_dim];
   }
 }
 
@@ -793,15 +808,67 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 {
   unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
   //
+  unsigned offset1 = 0;
   for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
   {
-    int idx1 = this->local_interior_unkn_idx[i_unkn];
+    int idx1 = this->local_interior_unkn_idx[offset1 + i_unkn];
     out_vec->assemble(idx1, rho_n_vec(i_unkn));
-    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+  }
+  for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+  {
+    unsigned offset2 = (i_dim + 1) * n_scalar_unkns + offset1;
+    for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
     {
-      int idx2 =
-        this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
+      int idx2 = this->local_interior_unkn_idx[offset2 + i_unkn];
       out_vec->assemble(idx2, q_n_vec(i_dim * n_scalar_unkns + i_unkn));
+    }
+  }
+  //
+  offset1 = (dim + 1) * n_scalar_unkns;
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->local_interior_unkn_idx[offset1 + i_unkn];
+    out_vec->assemble(idx1, rho_p_vec(i_unkn));
+  }
+  for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+  {
+    unsigned offset2 = (i_dim + 1) * n_scalar_unkns + offset1;
+    for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+    {
+      int idx2 = this->local_interior_unkn_idx[offset2 + i_unkn];
+      out_vec->assemble(idx2, q_p_vec(i_dim * n_scalar_unkns + i_unkn));
+    }
+  }
+  //
+  offset1 = 2 * (dim + 1) * n_scalar_unkns;
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->local_interior_unkn_idx[offset1 + i_unkn];
+    out_vec->assemble(idx1, rho_r_vec(i_unkn));
+  }
+  for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+  {
+    unsigned offset2 = (i_dim + 1) * n_scalar_unkns + offset1;
+    for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+    {
+      int idx2 = this->local_interior_unkn_idx[offset2 + i_unkn];
+      out_vec->assemble(idx2, q_r_vec(i_dim * n_scalar_unkns + i_unkn));
+    }
+  }
+  //
+  offset1 = 3 * (dim + 1) * n_scalar_unkns;
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->local_interior_unkn_idx[offset1 + i_unkn];
+    out_vec->assemble(idx1, rho_o_vec(i_unkn));
+  }
+  for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+  {
+    unsigned offset2 = (i_dim + 1) * n_scalar_unkns + offset1;
+    for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+    {
+      int idx2 = this->local_interior_unkn_idx[offset2 + i_unkn];
+      out_vec->assemble(idx2, q_o_vec(i_dim * n_scalar_unkns + i_unkn));
     }
   }
 }
@@ -932,23 +999,37 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   {
     double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
     //
-    double u_error_at_quad = 0;
-    dealii::Tensor<1, dim> q_error_at_quad;
+    double rho_n_error_at_quad = 0;
+    double rho_p_error_at_quad = 0;
+    double rho_r_error_at_quad = 0;
+    double rho_o_error_at_quad = 0;
+    dealii::Tensor<1, dim> q_n_error_at_quad, q_p_error_at_quad,
+      q_r_error_at_quad, q_o_error_at_quad;
     for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
     {
-      double u_error = exact_u(i1) - rho_n_vec(i1);
       double shape_val_u =
         my_basis->local_fe_val_in_cell->shape_value(i1, i_quad);
-      u_error_at_quad += u_error * shape_val_u;
+      rho_n_error_at_quad += (exact_rho_n(i1) - rho_n_vec(i1)) * shape_val_u;
+      rho_p_error_at_quad += (exact_rho_p(i1) - rho_p_vec(i1)) * shape_val_u;
+      rho_r_error_at_quad += (exact_rho_r(i1) - rho_r_vec(i1)) * shape_val_u;
+      rho_o_error_at_quad += (exact_rho_o(i1) - rho_o_vec(i1)) * shape_val_u;
       for (unsigned j1 = 0; j1 < dim; ++j1)
       {
         unsigned i2 = j1 * n_scalar_unkns + i1;
-        double q_error = exact_q(i2) - q_n_vec(i2);
-        q_error_at_quad[j1] += shape_val_u * q_error;
+        q_n_error_at_quad[j1] += shape_val_u * (exact_q_n(i2) - q_n_vec(i2));
+        q_p_error_at_quad[j1] += shape_val_u * (exact_q_p(i2) - q_p_vec(i2));
+        q_r_error_at_quad[j1] += shape_val_u * (exact_q_r(i2) - q_r_vec(i2));
+        q_o_error_at_quad[j1] += shape_val_u * (exact_q_o(i2) - q_o_vec(i2));
       }
     }
-    (*sum_of_L2_errors)[0] += JxW * u_error_at_quad * u_error_at_quad;
-    (*sum_of_L2_errors)[1] += JxW * q_error_at_quad * q_error_at_quad;
+    (*sum_of_L2_errors)[0] += JxW * rho_n_error_at_quad * rho_n_error_at_quad;
+    (*sum_of_L2_errors)[1] += JxW * q_n_error_at_quad * q_n_error_at_quad;
+    (*sum_of_L2_errors)[2] += JxW * rho_p_error_at_quad * rho_p_error_at_quad;
+    (*sum_of_L2_errors)[3] += JxW * q_p_error_at_quad * q_p_error_at_quad;
+    (*sum_of_L2_errors)[4] += JxW * rho_r_error_at_quad * rho_r_error_at_quad;
+    (*sum_of_L2_errors)[5] += JxW * q_r_error_at_quad * q_r_error_at_quad;
+    (*sum_of_L2_errors)[6] += JxW * rho_o_error_at_quad * rho_o_error_at_quad;
+    (*sum_of_L2_errors)[7] += JxW * q_o_error_at_quad * q_o_error_at_quad;
   }
 }
 
@@ -1061,56 +1142,68 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
-void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
-  visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                    const LA::MPI::Vector &visual_solu,
-                    const unsigned &time_level)
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::visualize_results(const viz_data &in_viz_data)
 {
-  const auto &tria = dof_handler.get_triangulation();
+  unsigned time_level = 0;
+  const auto &tria = in_viz_data.my_dof_handler->get_triangulation();
   unsigned n_active_cells = tria.n_active_cells();
+  //
   int comm_rank, comm_size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &comm_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-  unsigned refn_cycle = 0;
+  MPI_Comm_rank(in_viz_data.my_comm, &comm_rank);
+  MPI_Comm_size(in_viz_data.my_comm, &comm_size);
+  //
   dealii::DataOut<dim> data_out;
-  data_out.attach_dof_handler(dof_handler);
-  std::vector<std::string> solution_names(dim + 1);
-  solution_names[0] = "head";
-  for (unsigned i1 = 0; i1 < dim; ++i1)
-    solution_names[i1 + 1] = "flow";
+  data_out.attach_dof_handler(*in_viz_data.my_dof_handler);
+  //
+  std::vector<std::string> solution_names(4 * (dim + 1));
+  for (unsigned i1 = 0; i1 < 4; ++i1)
+    solution_names[(dim + 1) * i1] = in_viz_data.my_var_names[2 * i1];
+  for (unsigned j1 = 0; j1 < 4; ++j1)
+    for (unsigned i1 = 1; i1 < dim + 1; ++i1)
+      solution_names[(dim + 1) * j1 + i1] =
+        in_viz_data.my_var_names[2 * j1 + 1];
+  //
   std::vector<dealii::DataComponentInterpretation::DataComponentInterpretation>
-    data_component_interpretation(
-      1, dealii::DataComponentInterpretation::component_is_scalar);
-  for (unsigned i1 = 0; i1 < dim; ++i1)
+    data_component_interpretation;
+  data_component_interpretation.reserve(4 * (dim + 1));
+  for (unsigned j1 = 0; j1 < 4; ++j1)
+  {
     data_component_interpretation.push_back(
-      dealii::DataComponentInterpretation::component_is_part_of_vector);
-  data_out.add_data_vector(visual_solu,
+      dealii::DataComponentInterpretation::component_is_scalar);
+    for (unsigned i1 = 0; i1 < dim; ++i1)
+      data_component_interpretation.push_back(
+        dealii::DataComponentInterpretation::component_is_part_of_vector);
+  }
+  //
+  data_out.add_data_vector(*in_viz_data.my_viz_sol,
                            solution_names,
                            dealii::DataOut<dim>::type_dof_data,
                            data_component_interpretation);
-
+  //
   dealii::Vector<float> subdomain(n_active_cells);
   for (unsigned int i = 0; i < subdomain.size(); ++i)
     subdomain(i) = comm_rank;
   data_out.add_data_vector(subdomain, "subdomain");
-
+  //
   data_out.build_patches();
-
+  //
   const std::string filename =
-    ("solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
+    (in_viz_data.my_out_filename + "-" +
      dealii::Utilities::int_to_string(comm_rank, 4) + "-" +
      dealii::Utilities::int_to_string(time_level, 4));
+  //
   std::ofstream output((filename + ".vtu").c_str());
   data_out.write_vtu(output);
-
+  //
   if (comm_rank == 0)
   {
     std::vector<std::string> filenames;
     for (unsigned int i = 0; i < comm_size; ++i)
-      filenames.push_back(
-        "solution-" + dealii::Utilities::int_to_string(refn_cycle, 2) + "-" +
-        dealii::Utilities::int_to_string(i, 4) + "-" +
-        dealii::Utilities::int_to_string(time_level, 4) + ".vtu");
+      filenames.push_back(in_viz_data.my_out_filename + "-" +
+                          dealii::Utilities::int_to_string(i, 4) + "-" +
+                          dealii::Utilities::int_to_string(time_level, 4) +
+                          ".vtu");
     std::ofstream master_output((filename + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }

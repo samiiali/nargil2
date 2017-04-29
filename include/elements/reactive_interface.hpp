@@ -218,22 +218,22 @@ struct reactive_interface : public cell<dim, spacedim>
     alpha_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact \f$\rho_n\f$
      */
     virtual double exact_rho_n(const dealii::Point<spacedim> &p) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact \f$\rho_p\f$
      */
     virtual double exact_rho_p(const dealii::Point<spacedim> &p) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact \f$\rho_r\f$
      */
     virtual double exact_rho_r(const dealii::Point<spacedim> &p) = 0;
 
     /**
-     * @brief exact_u
+     * @brief exact \f$\rho_o\f$
      */
     virtual double exact_rho_o(const dealii::Point<spacedim> &p) = 0;
 
@@ -242,6 +242,24 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     virtual dealii::Tensor<1, dim>
     exact_q_n(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_n\f$ equation.
+     */
+    virtual dealii::Tensor<1, dim>
+    exact_q_p(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_n\f$ equation.
+     */
+    virtual dealii::Tensor<1, dim>
+    exact_q_r(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_n\f$ equation.
+     */
+    virtual dealii::Tensor<1, dim>
+    exact_q_o(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief Electric field.
@@ -270,8 +288,8 @@ struct reactive_interface : public cell<dim, spacedim>
     viz_data(const MPI_Comm in_comm,
              const dealii::DoFHandler<dim, spacedim> *in_dof_handler,
              const dealii::LinearAlgebraPETSc::MPI::Vector *in_viz_sol,
-             const std::string &in_filename, const std::string &in_u_name,
-             const std::string &in_q_name);
+             const std::string &in_filename,
+             const std::vector<std::string> &in_var_names);
 
     /**
      * @brief MPI Communicator.
@@ -297,13 +315,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * A string containing the name of the \f$u\f$ variable in the formulation.
      * This will be displayed in Paraview (like Head or Temperature).
      */
-    const std::string my_u_name;
-
-    /**
-     * A string containing the name of the \f$u\f$ variable in the formulation.
-     * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
-     */
-    const std::string my_q_name;
+    const std::vector<std::string> my_var_names;
   };
 
   /**
@@ -926,10 +938,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * This function writes the vtk output.
      *
      */
-    static void
-    visualize_results(const dealii::DoFHandler<dim, spacedim> &dof_handler,
-                      const LA::MPI::Vector &visual_solu,
-                      unsigned const &time_level);
+    static void visualize_results(const viz_data &in_viz_data);
 
     /**
      *
@@ -981,7 +990,15 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    Eigen::VectorXd exact_u, exact_q;
+    Eigen::VectorXd exact_rho_n, exact_rho_p, exact_rho_r, exact_rho_o;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd exact_q_n, exact_q_p, exact_q_r, exact_q_o;
     ///@}
 
     /** @{

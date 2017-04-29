@@ -345,6 +345,38 @@ struct react_int_problem1_data
   }
 
   /**
+   *
+   */
+  virtual dealii::Tensor<1, dim>
+  exact_q_p(const dealii::Point<spacedim> &p) final
+  {
+    dealii::Tensor<1, dim> result(
+      {2 * sin(p[0] - p[1]), -2 * sin(p[0] - p[1])});
+    return result;
+  }
+
+  /**
+   *
+   */
+  virtual dealii::Tensor<1, dim>
+  exact_q_r(const dealii::Point<spacedim> &p) final
+  {
+    dealii::Tensor<1, dim> result(
+      {-3 * cos(p[0] + p[1]), -3 * cos(p[0] + p[1])});
+    return result;
+  }
+
+  /**
+   *
+   */
+  virtual dealii::Tensor<1, dim>
+  exact_q_o(const dealii::Point<spacedim> &p) final
+  {
+    dealii::Tensor<1, dim> result({4 * sin(p[0]), 4 * cos(p[1])});
+    return result;
+  }
+
+  /**
    * @brief Electric field.
    */
   virtual dealii::Tensor<1, dim>
@@ -511,7 +543,7 @@ template <int dim, int spacedim = dim> struct Problem1
           &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
         //
         nargil::distributed_vector<dim> dist_sol_vec(
-          model_manager1.local_dof_handler, PETSC_COMM_WORLD);
+          model_manager1.viz_dof_handler, PETSC_COMM_WORLD);
         //        nargil::distributed_vector<dim> dist_refn_vec(
         //          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
         //        //
@@ -526,30 +558,50 @@ template <int dim, int spacedim = dim> struct Problem1
 
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
         //        dist_refn_vec.copy_to_global_vec(global_refn_vec);
-
-        CellManagerType::visualize_results(model_manager1.local_dof_handler,
-                                           global_sol_vec, i_cycle);
+        //
+        // Now we visualize the results
+        //
+        std::vector<std::string> var_names({"rho_n", "rho_n_flow", "rho_p",
+                                            "rho_p_flow", "rho_r", "rho_r_flow",
+                                            "rho_o", "rho_o_flow"});
+        std::string cycle_string = std::to_string(i_cycle);
+        cycle_string =
+          std::string(2 - cycle_string.length(), '0') + cycle_string;
+        typename ModelEq::viz_data viz_data1(
+          comm, &model_manager1.viz_dof_handler, &global_sol_vec,
+          "solution-" + cycle_string, var_names);
+        CellManagerType::visualize_results(viz_data1);
         //
         // Now we want to compute the errors.
         //
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::interpolate_to_interior);
-        std::vector<double> sum_of_L2_errors(2, 0);
+        std::vector<double> sum_of_L2_errors(8, 0);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
 
-        double u_error_global, q_error_global;
-        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
-        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
+        std::vector<double> global_errors(8, 0);
+        for (unsigned i1 = 0; i1 < 8; ++i1)
+          MPI_Reduce(&sum_of_L2_errors[i1], &global_errors[i1], 1, MPI_DOUBLE,
+                     MPI_SUM, 0, comm);
 
         if (comm_rank == 0)
         {
-          char accuracy_output[100];
-          snprintf(accuracy_output, 100,
-                   "The u_error is: %10.4E, and q_error is %10.4E",
-                   sqrt(u_error_global), sqrt(q_error_global));
+          char accuracy_output[400];
+          snprintf(accuracy_output, 400,
+                   "The errors are: \n"
+                   "rho_n error: \033[3;33m %10.4E \033[0m\n"
+                   "q_n error: \033[3;33m  %10.4E \033[0m\n"
+                   "rho_p error: \033[3;33m %10.4E \033[0m\n"
+                   "q_p error: \033[3;33m  %10.4E \033[0m\n"
+                   "rho_r error: \033[3;33m %10.4E \033[0m\n"
+                   "q_r error: \033[3;33m  %10.4E \033[0m\n"
+                   "rho_o error: \033[3;33m %10.4E \033[0m\n"
+                   "q_o error: \033[3;33m  %10.4E \033[0m\n",
+                   sqrt(global_errors[0]), sqrt(global_errors[1]),
+                   sqrt(global_errors[2]), sqrt(global_errors[3]),
+                   sqrt(global_errors[4]), sqrt(global_errors[5]),
+                   sqrt(global_errors[6]), sqrt(global_errors[7]));
           std::cout << accuracy_output << std::endl;
         }
 

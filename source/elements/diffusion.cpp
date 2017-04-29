@@ -925,7 +925,6 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   int comm_rank, comm_size;
   MPI_Comm_rank(in_viz_data.my_comm, &comm_rank);
   MPI_Comm_size(in_viz_data.my_comm, &comm_size);
-  unsigned refn_cycle = 0;
   dealii::DataOut<dim> data_out;
   data_out.attach_dof_handler(*in_viz_data.my_dof_handler);
   std::vector<std::string> solution_names(dim + 1);

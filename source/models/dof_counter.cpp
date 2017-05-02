@@ -556,7 +556,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           in_model->template get_owned_cell_basis<BasisType>(cell_unique_id);
         std::vector<unsigned> n_unkns_per_dofs =
           i_basis->get_n_unkns_per_dofs();
-        assert(i_manager->dof_status_on_faces[face_num].count() != 0);
+        /**
+         * \warning I am removing an assertion here which is useful for 99%
+         * of cases, but not always !
+         */
+        // assert(i_manager->dof_status_on_faces[face_num].count() != 0);
         assert(i_manager->unkns_id_in_all_ranks[face_num].size() == 0);
         //
         // The DOF data received from other CPU is the ID of the first
@@ -657,7 +661,11 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           in_model->template get_owned_cell_basis<BasisType>(cell_unique_id);
         std::vector<unsigned> n_unkns_per_dofs =
           i_basis->get_n_unkns_per_dofs();
-        assert(i_manager->dof_status_on_faces[face_num].count() != 0);
+        /**
+         * \warning I am removing an assertion here which is useful for 99%
+         * of cases, but not always !
+         */
+        // assert(i_manager->dof_status_on_faces[face_num].count() != 0);
         assert(i_manager->unkns_id_in_all_ranks[face_num].size() == 0);
         //
         // The DOF data received from other CPU is the ID of the first

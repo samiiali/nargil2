@@ -149,7 +149,12 @@ void nargil::hybridized_cell_manager<dim, spacedim>::set_nonlocal_unkn_ids(
   const int global_num_,
   const std::vector<unsigned> &n_unkns_per_dofs)
 {
-  assert(global_num_ >= 0);
+  /**
+   * \warning There had been some reasons to believe that an assertion of
+   * global_num_ >= 0 is required in this function. I do not see any reason for
+   * this, though.
+   */
+  // assert(global_num_ >= 0);
   unsigned n_unkns = 0;
   for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].size(); ++i_dof)
   {

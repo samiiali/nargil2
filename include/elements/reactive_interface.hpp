@@ -67,15 +67,20 @@ struct reactive_interface : public cell<dim, spacedim>
 
   /**
    *
-   * The boundary condition for diffusion problem
+   * The boundary condition for semi-conductor and electrolyte interaction
+   * problem. Since two different BCs can be applied to the same boundary,
+   * we use bitwise numbering for different types of BCs.
    *
    */
-  enum class boundary_condition
+  enum boundary_condition
   {
     not_set = 0,
-    essential = 1,
-    natural = 2,
-    periodic = 3
+    essential_rho_n = 1 << 0,
+    essential_rho_p = 1 << 1,
+    essential_rho_r = 1 << 2,
+    essential_rho_o = 1 << 3,
+    natural = 1 << 4,
+    periodic = 1 << 5
   };
 
   /**
@@ -689,7 +694,8 @@ struct reactive_interface : public cell<dim, spacedim>
    *   a_1(\mathbf q_n , \mathbf p) = (\mathbf q_n, \mathbf p), \quad
    *   b_1(\rho_n , \mathbf p) = (\rho_n, \nabla \cdot \mathbf p), \quad
    *   c_1(\hat \rho_n , \mathbf p) = \langle\hat \rho_n, \mathbf p \cdot
-   *                                  \mathbf n\rangle,
+   *                                  \mathbf n\rangle, \quad
+   *   r_n(\mathbf p) = \langle g_{Dn} , \mathbf p \cdot \mathbf n \rangle,
    *   \\
    *   d_1(\rho_n,w) =
    *     \left\langle \tau_n \rho_n , w \right\rangle, \quad
@@ -711,11 +717,30 @@ struct reactive_interface : public cell<dim, spacedim>
    *                  \left(-C_1 \hat \rho_{nh} + B_1 \, \rho_{nh} \right), \\
    * \rho_{nh} = \left(B_1^T(\mu_n^{-1}A_1)^{-1} B_1 + D_1 - c_n D_2\right)^{-1}
    *             \left[ F_n +
-   *             \left(-B_1^T(\mu_n^{-1}A)^{-1} C_1 + E_1 - c_n E_2\right)
+   *             \left(B_1^T(\mu_n^{-1}A)^{-1} C_1 + E_1 - c_n E_2\right)
    *             \hat \rho_{nh} \right]
    * \end{gathered}
    * \f]
-   * Similar equations that we mentioned here for electron density
+   * We also satisfy the conservation of the numerical flux:
+   * \f[
+   * \sum_{K\in \mathcal T_h}
+   * \langle \boldsymbol H^*_h\cdot \mathbf n ,\mu \rangle_{\partial_K}
+   * = \sum_{K\in \mathcal T_h}
+   * \langle g_{Nn} ,\mu \rangle_{\partial_K}
+   * \f]
+   * Which results in:
+   * \f[
+   * \sum_{K \in \mathcal T_h}
+   * c_1^T(q,\mu) + e_1^T(\rho_n, \mu) - h_1(\hat \rho_n, \mu)
+   * + c_n h_2(\hat \rho_n, \mu) = l_n(\mu)
+   * \f]
+   * with
+   * \f[
+   * h_1(\hat \rho_n, \mu) = \langle \tau \hat \rho_n, \mu \rangle, \quad
+   * h_2(\hat \rho_n, \mu) =
+   * \langle \mathbf E^*\cdot \mathbf n \hat \rho_n, \mu \rangle.
+   * \f]
+   * Similar equation that we mentioned here for electron density
    * \f$(\rho_n)\f$ holds for holes \f$(\rho_p)\f$:
    * \f[
    *   \partial_t \rho_p - \nabla \cdot \mu_p
@@ -974,7 +999,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A1, B1, C1, D1, D2, E1, E2, H;
+    Eigen::MatrixXd A1, B1, C1, D1, D2, E1, E2, H1, H2;
     ///@}
 
     /** @{
@@ -982,7 +1007,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief All of the element local vectors.
      *
      */
-    Eigen::VectorXd R, Fn, Fp, Fr, Fo, L;
+    Eigen::VectorXd Rn, Fn, Fp, Fr, Fo, Ln;
     ///@}
 
     /** @{

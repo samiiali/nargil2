@@ -220,7 +220,7 @@ struct react_int_problem1_data
   virtual double
   lambda_inv2_E(const dealii::Point<spacedim> & = dealii::Point<spacedim>())
   {
-    return 1.0;
+    return 0.04;
   }
 
   /**
@@ -461,19 +461,38 @@ template <int dim, int spacedim = dim> struct Problem1
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
+      in_manager->BCs[i_face] = ModelEq::boundary_condition::not_set;
       if (face->center()[0] <= 1.E-4) // We are in semi-conductor
       {
-        in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
+        in_manager->BCs[i_face] =
+          static_cast<typename ModelEq::boundary_condition>(
+            in_manager->BCs[i_face] |
+            ModelEq::boundary_condition::essential_rho_p);
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-        in_manager->dof_status_on_faces[i_face][0] =
-          in_manager->dof_status_on_faces[i_face][1] = 0;
+        in_manager->dof_status_on_faces[i_face][0] = 1;
       }
       if (face->center()[0] >= -1.E-4) // We are in electrolyte
       {
-        in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
+        in_manager->BCs[i_face] =
+          static_cast<typename ModelEq::boundary_condition>(
+            in_manager->BCs[i_face] |
+            ModelEq::boundary_condition::essential_rho_r |
+            ModelEq::boundary_condition::essential_rho_o);
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-        in_manager->dof_status_on_faces[i_face][2] =
-          in_manager->dof_status_on_faces[i_face][3] = 0;
+      }
+      //
+      // Applying BC on rho_n
+      //
+      if (std::abs(face->center()[0]) < 1E-4 ||
+          std::abs(face->center()[0] + M_PI) < 1E-4 ||
+          std::abs(face->center()[1] - M_PI / 2.0) < 1E-4 ||
+          std::abs(face->center()[1] + M_PI / 2.0) < 1E-4)
+      {
+        in_manager->BCs[i_face] =
+          static_cast<typename ModelEq::boundary_condition>(
+            in_manager->BCs[i_face] |
+            ModelEq::boundary_condition::essential_rho_n);
+        in_manager->dof_status_on_faces[i_face][0] = 0;
       }
     }
   }
@@ -524,21 +543,18 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        /*
-        nargil::solvers::petsc_direct_solver<dim> solver1(
-          solver_keys, dof_counter1, comm);
+        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                          dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
-        */
         //
-        //        Vec sol_vec2;
-        //        solver1.finish_assemble(update_keys);
-        //        solver1.form_factors();
-        //        solver1.solve_system(&sol_vec2);
-        //        std::vector<double> local_sol_vec(
-        //          solver1.get_local_part_of_global_vec(&sol_vec2));
+        Vec sol_vec2;
+        solver1.finish_assemble(update_keys);
+        solver1.form_factors();
+        solver1.solve_system(&sol_vec2);
+        std::vector<double> local_sol_vec(
+          solver1.get_local_part_of_global_vec(&sol_vec2));
         //
-        std::vector<double> local_sol_vec;
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
         //

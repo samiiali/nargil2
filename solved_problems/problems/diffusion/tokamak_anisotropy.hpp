@@ -41,7 +41,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    * @brief pi
    */
   const double pi = M_PI;
-  const double epsinv = 1.0e6;
+  const double epsinv = 1.0e8;
   const double r_i = 0.55;
   const double r_o = 0.63;
   /**
@@ -101,38 +101,40 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
-    double r = p[0];
-    double theta = p[1];
+    double x = p[0];
+    double y = p[1];
     double z = p[2];
 
     double R = 5.0;
     double a = 1.0;
     double B0 = 1.0;
-    double psitilde = 0.0; //0.0002*R;
-    double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
-    double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
-      2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
-    double psi32 = std::cos(3.0 * theta - 2.0 * z);
-    double psi43 = std::cos(4.0 * theta - 3.0 * z);
-    double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
-    double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
-    double psipert = psitilde * (psi32 + psi43);
-    double psipertp = psitilde * (psip32 + psip43);
-    double qsafety = 0.2 * std::exp(r / (a * 0.3));
+    
+    double qsafety = 0.2 * exp(x/(0.3*a));
+    double d_psi0dx = -x*B0/(R*qsafety);
+    double postpsi32 = std::cos(3.0*y/x - 2.0*z/R);
+    double postpsi43 = std::cos(4.0*y/x - 3.0*z/R);
+    double d_postpsi32dx = ( 3*y*std::sin(3.0*y/x - 2.0*z/R) ) / (x*x);
+    double d_postpsi43dx = ( 4*y*std::cos(4.0*y/x - 3.0*z/R) ) / (x*x);
+    double d_postpsi32dy = ( 3*std::sin(3.0*y/x - 2.0*z/R) ) / (x);
+    double d_postpsi43dy = ( 4*std::cos(4.0*y/x - 3.0*z/R) ) / (x);
+    double psitilde = 0.0002;
+    double psi32 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
+    double psi43 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
+    double d_psi32dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a); 
+    double d_psi43dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a);
 
-    double rprime=(psishape*psipertp)/(B0*r);
-    double thetaprime=-(psishapep*psipert)/r + 1.0/qsafety;
+    double dpsidx =  d_psi0dx + d_psi32dx*postpsi32+psi32*d_postpsi32dx + d_psi43dx*postpsi43+psi43*d_postpsi43dx;
+    double dpsidy = -psi32*d_postpsi32dy - psi43*d_postpsi43dy;
 
-
-    double br = rprime/R;
-    double btheta = r*thetaprime/R;
-    double bz =1.0;
+    double bx = dpsidy/B0;
+    double by = -dpsidx/B0;
+    double bz = 1.0;
 
     // double br = (psishape * psipertp) / (r * B0);
     // double btheta = -(psishapep * psipert) / B0 + 1 / (qsafety);
     // double bz = 1.0;
 
-    return dealii::Tensor<1, dim>({br, btheta, bz});
+    return dealii::Tensor<1, dim>({bx, by, bz});
     //    return dealii::Tensor<1, dim>(
     //      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
     //       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
@@ -177,32 +179,61 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     //     double z = p[2];
     //     double theta = std::atan2(p[1], p[0]);
 
-
-    double r = p[0];
-    double theta = p[1];
+    double x = p[0];
+    double y = p[1];
     double z = p[2];
 
     double R = 5.0;
     double a = 1.0;
     double B0 = 1.0;
-    double psitilde = 0.0; //0.0002*R;
-    double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
-    double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
-      2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
-    double psi32 = std::cos(3.0 * theta - 2.0 * z);
-    double psi43 = std::cos(4.0 * theta - 3.0 * z);
-    double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
-    double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
-    double psipert = psitilde * (psi32 + psi43);
-    double psipertp = psitilde * (psip32 + psip43);
-    double qsafety = 0.2 * std::exp(r / (a * 0.3));
+    
+    double qsafety = 0.2 * exp(x/(0.3*a));
+    double d_psi0dx = -x*B0/(R*qsafety);
+    double postpsi32 = std::cos(3.0*y/x - 2.0*z/R);
+    double postpsi43 = std::cos(4.0*y/x - 3.0*z/R);
+    double d_postpsi32dx = ( 3*y*std::sin(3.0*y/x - 2.0*z/R) ) / (x*x);
+    double d_postpsi43dx = ( 4*y*std::cos(4.0*y/x - 3.0*z/R) ) / (x*x);
+    double d_postpsi32dy = ( 3*std::sin(3.0*y/x - 2.0*z/R) ) / (x);
+    double d_postpsi43dy = ( 4*std::cos(4.0*y/x - 3.0*z/R) ) / (x);
+    double psitilde = 0.0002;
+    double psi32 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
+    double psi43 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
+    double d_psi32dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a); 
+    double d_psi43dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a);
 
-    double rprime=(psishape*psipertp)/(B0*r);
-    double thetaprime=-(psishapep*psipert)/r + 1.0/qsafety;
+    double dpsidx =  d_psi0dx + d_psi32dx*postpsi32+psi32*d_postpsi32dx + d_psi43dx*postpsi43+psi43*d_postpsi43dx;
+    double dpsidy = -psi32*d_postpsi32dy - psi43*d_postpsi43dy;
 
-    double br = rprime/R;
-    double btheta =r*thetaprime/R;
-    double bz =1.0;
+    double bx = dpsidy/B0;
+    double by = -dpsidx/B0;
+    double bz = 1.0;
+
+
+    // double r = p[0];
+    // double theta = p[1];
+    // double z = p[2];
+
+    // double R = 5.0;
+    // double a = 1.0;
+    // double B0 = 1.0;
+    // double psitilde = 0.0; //0.0002*R;
+    // double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
+    // double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
+    //   2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
+    // double psi32 = std::cos(3.0 * theta - 2.0 * z);
+    // double psi43 = std::cos(4.0 * theta - 3.0 * z);
+    // double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
+    // double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
+    // double psipert = psitilde * (psi32 + psi43);
+    // double psipertp = psitilde * (psip32 + psip43);
+    // double qsafety = 0.2 * std::exp(r / (a * 0.3));
+
+    // double rprime=(psishape*psipertp)/(B0*r);
+    // double thetaprime=-(psishapep*psipert)/r + 1.0/qsafety;
+
+    // double br = rprime/R;
+    // double btheta =r*thetaprime/R;
+    // double bz =1.0;
 
     // double r = p[0];
     // double theta = p[1];
@@ -249,12 +280,12 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     // double bz = 1.0;
 
     dealii::Tensor<2, dim> result;
-    result[0][0] = 1.0 + (epsinv - 1.) * br * br;
-    result[0][1] = (epsinv - 1.) * br * btheta;
-    result[0][2] = (epsinv - 1.) * br * bz;
+    result[0][0] = 1.0 + (epsinv - 1.) * bx * bx;
+    result[0][1] = (epsinv - 1.) * bx * by;
+    result[0][2] = (epsinv - 1.) * bx * bz;
     result[1][0] = result[0][1];
-    result[1][1] = 1.0 / (r * r) + (epsinv - 1.) * btheta * btheta;
-    result[1][2] = (epsinv - 1) * btheta * bz;
+    result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * by * by;
+    result[1][2] = (epsinv - 1) * by * bz;
     result[2][0] = result[0][2];
     result[2][1] = result[1][2];
     result[2][2] = 1. + (epsinv - 1.) * bz * bz;

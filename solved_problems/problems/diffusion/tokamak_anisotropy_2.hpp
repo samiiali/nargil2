@@ -57,7 +57,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //
     // ***
     //
-    //    return 0.0;
+    // return 0.0;
     //
     // ***
     //
@@ -168,16 +168,20 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double y2 = p[1];
     // double y2 = p[1] / p[0];
     //
+    // ***
+    //
     double y3 = p[2] / R;
+    // double y3 = p[2];
+    //
 
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
          (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
-         200.,
+         1000.,
        ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
          ((-1 + y1) * y1 * (-1 + 2 * y1) *
           (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
-           100.,
+           500.,
        1.});
 
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
@@ -281,7 +285,7 @@ template <int dim, int spacedim = dim> struct Problem2
     //
     dealii::Point<dim> corner_1(r_i, 0., 0.);
     // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
-    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 5. * 2. * M_PI);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -347,7 +351,7 @@ template <int dim, int spacedim = dim> struct Problem2
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 5. - 1.e-6 ||
+        if (face->center()[2] > 2. * 5.0 * M_PI - 1.e-6 ||
             face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
         // face->center()[1] > 2. * M_PI - 1.e-6)

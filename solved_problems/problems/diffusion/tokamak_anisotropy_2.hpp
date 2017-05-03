@@ -40,7 +40,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e-9;
+  const static double epsinv = 1.0e9;
   const static double r_i = 0.55;
   const static double r_o = 0.63;
   /**
@@ -57,13 +57,13 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //
     // ***
     //
-    // return 0.0;
+    return 0.0;
     //
     // ***
     //
-    return (56.0 * pow(r, 6.0) * pow((1 - r), 16.0) +
-            256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
-            240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
+    // return (56.0 * pow(r, 6.0) * pow((1 - r), 16.0) +
+    //         256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
+    //         240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
   }
 
   /**
@@ -177,11 +177,11 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
          (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
-         1000.,
+         5000.,
        ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
          ((-1 + y1) * y1 * (-1 + 2 * y1) *
           (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
-           500.,
+           2500.,
        1.});
 
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
@@ -196,7 +196,6 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     // result[1][1] += 1.;
     //
     result[2][2] += 1.;
-    result = dealii::invert(result);
 
     return dealii::invert(result);
   }

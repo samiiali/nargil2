@@ -79,8 +79,11 @@ struct reactive_interface : public cell<dim, spacedim>
     essential_rho_p = 1 << 1,
     essential_rho_r = 1 << 2,
     essential_rho_o = 1 << 3,
-    natural = 1 << 4,
-    periodic = 1 << 5
+    natural_rho_n = 1 << 4,
+    natural_rho_p = 1 << 5,
+    natural_rho_r = 1 << 6,
+    natural_rho_o = 1 << 7,
+    periodic = 1 << 8
   };
 
   /**
@@ -740,6 +743,11 @@ struct reactive_interface : public cell<dim, spacedim>
    * h_2(\hat \rho_n, \mu) =
    * \langle \mathbf E^*\cdot \mathbf n \hat \rho_n, \mu \rangle.
    * \f]
+   * Meanwhile, \f$l_n\f$ is the functional corresponding to the flux boundary
+   * values that we apply on
+   * \f$-\mu_n \alpha_n \rho_n \nabla \phi \cdot \mathbf n
+   * - \mu_n \nabla \rho_n \cdot \mathbf n =
+   * c_n (\mathbf E^* \cdot \mathbf n) \rho_n + \mathbf q \cdot \mathbf n\f$.
    * Similar equation that we mentioned here for electron density
    * \f$(\rho_n)\f$ holds for holes \f$(\rho_p)\f$:
    * \f[
@@ -1007,7 +1015,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief All of the element local vectors.
      *
      */
-    Eigen::VectorXd Rn, Rp, Rr, Ro, Fn, Fp, Fr, Fo, Ln;
+    Eigen::VectorXd Rn, Rp, Rr, Ro, Fn, Fp, Fr, Fo, Ln, Lp, Lr, Lo;
     ///@}
 
     /** @{

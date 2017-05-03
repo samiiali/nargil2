@@ -1,2 +1,23 @@
--25*exp(sin(x1 - y1))*cos(x1 - y1),
-   25*exp(sin(x1 - y1))*cos(x1 - y1)
+-cos(x1) + sin(x1) + 
+    exp(sin(x1 - y1))*cos(x1 - y1)*
+     (cos(x1) + sin(x1)),
+   -(exp(sin(x1 - y1))*cos(x1 - y1)*
+      (cos(x1) + sin(x1)))
+
+
+2*(-(exp(sin(x1 - y1))*
+         pow(cos(x1 - y1),2)) + sin(x1 - y1))
+    ,2*exp(sin(x1 - y1))*
+     pow(cos(x1 - y1),2) - 2*sin(x1 - y1)
+
+-3*cos(x1 + y1) + 
+    (3*exp(sin(x1 - y1))*
+       (sin(2*x1) + sin(2*y1)))/2.,
+   -3*(cos(x1 + y1) + 
+      exp(sin(x1 - y1))*cos(x1 - y1)*
+       sin(x1 + y1))
+
+4*(sin(x1) + exp(sin(x1 - y1))*
+       cos(x1 - y1)*(cos(x1) - sin(y1))),
+   4*(cos(y1) - exp(sin(x1 - y1))*
+       cos(x1 - y1)*(cos(x1) - sin(y1)))

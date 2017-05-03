@@ -1,2 +1,23 @@
--25*Power(E,Sin(x1 - y1))*Cos(x1 - y1),
-   25*Power(E,Sin(x1 - y1))*Cos(x1 - y1)
+-Cos(x1) + Sin(x1) + 
+    Power(E,Sin(x1 - y1))*Cos(x1 - y1)*
+     (Cos(x1) + Sin(x1)),
+   -(Power(E,Sin(x1 - y1))*Cos(x1 - y1)*
+      (Cos(x1) + Sin(x1)))
+
+
+2*(-(Power(E,Sin(x1 - y1))*
+         Power(Cos(x1 - y1),2)) + Sin(x1 - y1))
+    ,2*Power(E,Sin(x1 - y1))*
+     Power(Cos(x1 - y1),2) - 2*Sin(x1 - y1)
+
+-3*Cos(x1 + y1) + 
+    (3*Power(E,Sin(x1 - y1))*
+       (Sin(2*x1) + Sin(2*y1)))/2.,
+   -3*(Cos(x1 + y1) + 
+      Power(E,Sin(x1 - y1))*Cos(x1 - y1)*
+       Sin(x1 + y1))
+
+4*(Sin(x1) + Power(E,Sin(x1 - y1))*
+       Cos(x1 - y1)*(Cos(x1) - Sin(y1))),
+   4*(Cos(y1) - Power(E,Sin(x1 - y1))*
+       Cos(x1 - y1)*(Cos(x1) - Sin(y1)))

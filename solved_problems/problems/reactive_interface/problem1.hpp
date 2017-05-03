@@ -98,11 +98,8 @@ struct react_int_problem1_data
   {
     double x1 = p[0];
     double y1 = p[1];
-    2 * (cos(x1) - sin(y1) -
-         ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
-           sin(2 * x1 - 3 * y1) - 4 * sin(2 * x1 - y1) - sin(y1)) *
-          (cosh(sin(x1 - y1)) + sinh(sin(x1 - y1)))) /
-           2.);
+    return 4 * cos(x1 - y1) *
+           (1 + exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + 2 * sin(x1 - y1)));
   }
 
   /**
@@ -112,8 +109,8 @@ struct react_int_problem1_data
   {
     double x1 = p[0];
     double y1 = p[1];
-    6 * (1 + exp(sin(x1 - y1)) * (pow(cos(x1 - y1), 2) - sin(x1 - y1))) *
-      sin(x1 + y1);
+    return 6 * (1 + exp(sin(x1 - y1)) * (pow(cos(x1 - y1), 2) - sin(x1 - y1))) *
+           sin(x1 + y1);
   }
 
   /**
@@ -123,11 +120,11 @@ struct react_int_problem1_data
   {
     double x1 = p[0];
     double y1 = p[1];
-    4 * (4 * cos(x1) - 4 * sin(y1) -
-         ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
-           sin(2 * x1 - 3 * y1) - 4 * sin(2 * x1 - y1) - sin(y1)) *
-          (cosh(sin(x1 - y1)) + sinh(sin(x1 - y1)))) /
-           2.);
+    return 4 * (cos(x1) - sin(y1) -
+                ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
+                  sin(2 * x1 - 3 * y1) - 4 * sin(2 * x1 - y1) - sin(y1)) *
+                 (cosh(sin(x1 - y1)) + sinh(sin(x1 - y1)))) /
+                  2.);
   }
 
   /**
@@ -173,35 +170,57 @@ struct react_int_problem1_data
   /**
    * @brief Dirichlet BC for \f$\rho_n\f$
    */
-  virtual dealii::Tensor<1, dim> gN_rho_n(const dealii::Point<spacedim> &) final
+  virtual dealii::Tensor<1, dim>
+  gN_rho_n(const dealii::Point<spacedim> &p) final
   {
-    dealii::Tensor<1, dim> result;
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-cos(x1) + sin(x1) +
+         exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)),
+       -(exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)))});
     return result;
   }
 
   /**
    * @brief Dirichlet BC for \f$\rho_p\f$
    */
-  virtual dealii::Tensor<1, dim> gN_rho_p(const dealii::Point<spacedim> &) final
+  virtual dealii::Tensor<1, dim>
+  gN_rho_p(const dealii::Point<spacedim> &p) final
   {
-    dealii::Tensor<1, dim> result;
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {2 * (-(exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2)) + sin(x1 - y1)),
+       2 * exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2) - 2 * sin(x1 - y1)});
     return result;
   }
 
   /**
    * @brief Dirichlet BC for \f$\rho_r\f$
    */
-  virtual dealii::Tensor<1, dim> gN_rho_r(const dealii::Point<spacedim> &) final
+  virtual dealii::Tensor<1, dim>
+  gN_rho_r(const dealii::Point<spacedim> &p) final
   {
-    dealii::Tensor<1, dim> result;
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-3 * cos(x1 + y1) +
+         (3 * exp(sin(x1 - y1)) * (sin(2 * x1) + sin(2 * y1))) / 2.,
+       -3 * (cos(x1 + y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * sin(x1 + y1))});
     return result;
   }
   /**
    * @brief Dirichlet BC for \f$\rho_o\f$
    */
-  virtual dealii::Tensor<1, dim> gN_rho_o(const dealii::Point<spacedim> &) final
+  virtual dealii::Tensor<1, dim>
+  gN_rho_o(const dealii::Point<spacedim> &p) final
   {
-    dealii::Tensor<1, dim> result;
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {4 * (sin(x1) - exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1))),
+       4 * (cos(y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1)))});
     return result;
   }
 
@@ -472,9 +491,7 @@ template <int dim, int spacedim = dim> struct Problem1
         // Applying BC on rho_n and rho_p
         //
         if (std::abs(face_center[0]) < 1E-4 ||
-            std::abs(face_center[0] + M_PI) < 1E-4 ||
-            std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
-            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+            std::abs(face_center[0] + M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename ModelEq::boundary_condition>(
@@ -483,6 +500,17 @@ template <int dim, int spacedim = dim> struct Problem1
               ModelEq::boundary_condition::essential_rho_p);
           in_manager->dof_status_on_faces[i_face][0] = 0;
           in_manager->dof_status_on_faces[i_face][1] = 0;
+        }
+        if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
+            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename ModelEq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              ModelEq::boundary_condition::natural_rho_n |
+              ModelEq::boundary_condition::natural_rho_p);
+          in_manager->dof_status_on_faces[i_face][0] = 1;
+          in_manager->dof_status_on_faces[i_face][1] = 1;
         }
       }
       if (face_center[0] >= -1.E-4) // We are in electrolyte
@@ -494,9 +522,7 @@ template <int dim, int spacedim = dim> struct Problem1
         // Applying BC on rho_r and rho_o
         //
         if (std::abs(face_center[0]) < 1E-4 ||
-            std::abs(face_center[0] - M_PI) < 1E-4 ||
-            std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
-            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+            std::abs(face_center[0] - M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename ModelEq::boundary_condition>(
@@ -505,6 +531,17 @@ template <int dim, int spacedim = dim> struct Problem1
               ModelEq::boundary_condition::essential_rho_o);
           in_manager->dof_status_on_faces[i_face][2] = 0;
           in_manager->dof_status_on_faces[i_face][3] = 0;
+        }
+        if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
+            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename ModelEq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              ModelEq::boundary_condition::natural_rho_r |
+              ModelEq::boundary_condition::natural_rho_o);
+          in_manager->dof_status_on_faces[i_face][2] = 1;
+          in_manager->dof_status_on_faces[i_face][3] = 1;
         }
       }
     }

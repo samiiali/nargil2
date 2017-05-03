@@ -407,18 +407,20 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
   double mu_n = own_cell->my_data->mu_n();
   double c_n =
     own_cell->my_data->alpha_n() * mu_n * own_cell->my_data->lambda_inv2_S();
-  double mu_p = own_cell->my_data->mu_n();
+  double mu_p = own_cell->my_data->mu_p();
   double c_p =
     own_cell->my_data->alpha_p() * mu_p * own_cell->my_data->lambda_inv2_S();
-  double mu_r = own_cell->my_data->mu_n();
+  double mu_r = own_cell->my_data->mu_r();
   double c_r =
     own_cell->my_data->alpha_r() * mu_r * own_cell->my_data->lambda_inv2_E();
-  double mu_o = own_cell->my_data->mu_n();
+  double mu_o = own_cell->my_data->mu_o();
   double c_o =
     own_cell->my_data->alpha_o() * mu_o * own_cell->my_data->lambda_inv2_E();
   //
   Eigen::MatrixXd A_inv = A1.inverse();
   Eigen::FullPivLU<Eigen::MatrixXd> lu_of_Mat1;
+  //
+  // Assembeling equations rho_n
   //
   if (this->local_equation_is_active[0])
   {
@@ -455,6 +457,126 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
     Eigen::MatrixXd jth_col = Ln - C1.transpose() * q_n_vec -
                               E1.transpose() * rho_n_vec + H1 * gD_rho_n -
                               c_n * H2 * gD_rho_n;
+    in_solver->push_to_rhs_vec(dof_indices.data(), jth_col, ADD_VALUES);
+  }
+  //
+  // Assembeling equations rho_p
+  //
+  if (this->local_equation_is_active[1])
+  {
+    lu_of_Mat1.compute(B1.transpose() * (mu_p * A_inv) * B1 + D1 - c_p * D2);
+    Eigen::MatrixXd Mat2 =
+      (B1.transpose() * (mu_p * A_inv) * C1 + E1 - c_p * E2);
+    std::vector<int> dof_indices(my_basis->n_trace_unkns_per_cell_dof());
+    //
+    for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
+    {
+      for (unsigned i_unkn = 0; i_unkn < n_trace_unkns; ++i_unkn)
+      {
+        unsigned j_unkn = 1 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+        unsigned idx1 = i_face * n_trace_unkns + i_unkn;
+        dof_indices[idx1] = this->unkns_id_in_all_ranks[i_face][j_unkn];
+      }
+    }
+    //
+    for (unsigned i_dof = 0; i_dof < dof_indices.size(); ++i_dof)
+    {
+      rho_p_vec = lu_of_Mat1.solve(Mat2.col(i_dof));
+      q_p_vec = mu_p * A_inv * (B1 * rho_p_vec - C1.col(i_dof));
+      Eigen::VectorXd jth_col = C1.transpose() * q_p_vec +
+                                E1.transpose() * rho_p_vec - H1.col(i_dof) +
+                                c_p * H2.col(i_dof);
+      int i_col = dof_indices[i_dof];
+      in_solver->push_to_global_mat(dof_indices.data(), &i_col, jth_col,
+                                    ADD_VALUES);
+    }
+    //
+    rho_p_vec = lu_of_Mat1.solve(Fp + B1.transpose() * A_inv * Rp +
+                                 E1 * gD_rho_p - c_p * E2 * gD_rho_p);
+    q_p_vec = mu_p * A_inv * (-Rp + B1 * rho_p_vec);
+    Eigen::MatrixXd jth_col = Ln - C1.transpose() * q_p_vec -
+                              E1.transpose() * rho_p_vec + H1 * gD_rho_p -
+                              c_p * H2 * gD_rho_p;
+    in_solver->push_to_rhs_vec(dof_indices.data(), jth_col, ADD_VALUES);
+  }
+  //
+  // Assembeling equations rho_r
+  //
+  if (this->local_equation_is_active[2])
+  {
+    lu_of_Mat1.compute(B1.transpose() * (mu_r * A_inv) * B1 + D1 - c_r * D2);
+    Eigen::MatrixXd Mat2 =
+      (B1.transpose() * (mu_r * A_inv) * C1 + E1 - c_r * E2);
+    std::vector<int> dof_indices(my_basis->n_trace_unkns_per_cell_dof());
+    //
+    for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
+    {
+      for (unsigned i_unkn = 0; i_unkn < n_trace_unkns; ++i_unkn)
+      {
+        unsigned j_unkn = 2 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+        unsigned idx1 = i_face * n_trace_unkns + i_unkn;
+        dof_indices[idx1] = this->unkns_id_in_all_ranks[i_face][j_unkn];
+      }
+    }
+    //
+    for (unsigned i_dof = 0; i_dof < dof_indices.size(); ++i_dof)
+    {
+      rho_r_vec = lu_of_Mat1.solve(Mat2.col(i_dof));
+      q_r_vec = mu_r * A_inv * (B1 * rho_r_vec - C1.col(i_dof));
+      Eigen::VectorXd jth_col = C1.transpose() * q_r_vec +
+                                E1.transpose() * rho_r_vec - H1.col(i_dof) +
+                                c_r * H2.col(i_dof);
+      int i_col = dof_indices[i_dof];
+      in_solver->push_to_global_mat(dof_indices.data(), &i_col, jth_col,
+                                    ADD_VALUES);
+    }
+    //
+    rho_r_vec = lu_of_Mat1.solve(Fn + B1.transpose() * A_inv * Rn +
+                                 E1 * gD_rho_r - c_r * E2 * gD_rho_r);
+    q_r_vec = mu_r * A_inv * (-Rn + B1 * rho_r_vec);
+    Eigen::MatrixXd jth_col = Ln - C1.transpose() * q_r_vec -
+                              E1.transpose() * rho_r_vec + H1 * gD_rho_r -
+                              c_r * H2 * gD_rho_r;
+    in_solver->push_to_rhs_vec(dof_indices.data(), jth_col, ADD_VALUES);
+  }
+  //
+  // Assembeling equations rho_o
+  //
+  if (this->local_equation_is_active[3])
+  {
+    lu_of_Mat1.compute(B1.transpose() * (mu_o * A_inv) * B1 + D1 - c_o * D2);
+    Eigen::MatrixXd Mat2 =
+      (B1.transpose() * (mu_o * A_inv) * C1 + E1 - c_o * E2);
+    std::vector<int> dof_indices(my_basis->n_trace_unkns_per_cell_dof());
+    //
+    for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
+    {
+      for (unsigned i_unkn = 0; i_unkn < n_trace_unkns; ++i_unkn)
+      {
+        unsigned j_unkn = 3 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+        unsigned idx1 = i_face * n_trace_unkns + i_unkn;
+        dof_indices[idx1] = this->unkns_id_in_all_ranks[i_face][j_unkn];
+      }
+    }
+    //
+    for (unsigned i_dof = 0; i_dof < dof_indices.size(); ++i_dof)
+    {
+      rho_o_vec = lu_of_Mat1.solve(Mat2.col(i_dof));
+      q_o_vec = mu_o * A_inv * (B1 * rho_o_vec - C1.col(i_dof));
+      Eigen::VectorXd jth_col = C1.transpose() * q_o_vec +
+                                E1.transpose() * rho_o_vec - H1.col(i_dof) +
+                                c_o * H2.col(i_dof);
+      int i_col = dof_indices[i_dof];
+      in_solver->push_to_global_mat(dof_indices.data(), &i_col, jth_col,
+                                    ADD_VALUES);
+    }
+    //
+    rho_o_vec = lu_of_Mat1.solve(Fn + B1.transpose() * A_inv * Rn +
+                                 E1 * gD_rho_o - c_o * E2 * gD_rho_o);
+    q_o_vec = mu_o * A_inv * (-Rn + B1 * rho_o_vec);
+    Eigen::MatrixXd jth_col = Ln - C1.transpose() * q_o_vec -
+                              E1.transpose() * rho_o_vec + H1 * gD_rho_o -
+                              c_o * H2 * gD_rho_o;
     in_solver->push_to_rhs_vec(dof_indices.data(), jth_col, ADD_VALUES);
   }
 }
@@ -611,7 +733,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   H1 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
   H2 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
   Ln = Eigen::VectorXd::Zero(n_trace_unkns);
-  Rn = Eigen::VectorXd::Zero(n_trace_unkns);
+  //
+  // Rn, Rp, Rr, Ro are defined at the end of this function.
+  //
   //
   for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
   {
@@ -758,6 +882,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     // Loop 1
   }
   Rn = C1 * gD_rho_n;
+  Rp = C1 * gD_rho_p;
+  Rr = C1 * gD_rho_r;
+  Ro = C1 * gD_rho_o;
 }
 
 //

@@ -462,37 +462,50 @@ template <int dim, int spacedim = dim> struct Problem1
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       in_manager->BCs[i_face] = ModelEq::boundary_condition::not_set;
-      if (face->center()[0] <= 1.E-4) // We are in semi-conductor
+      dealii::Point<dim> face_center = face->center();
+      if (face_center[0] <= 1.E-4) // We are in semi-conductor
       {
-        in_manager->BCs[i_face] =
-          static_cast<typename ModelEq::boundary_condition>(
-            in_manager->BCs[i_face] |
-            ModelEq::boundary_condition::essential_rho_p);
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         in_manager->dof_status_on_faces[i_face][0] = 1;
+        in_manager->dof_status_on_faces[i_face][1] = 1;
+        //
+        // Applying BC on rho_n and rho_p
+        //
+        if (std::abs(face_center[0]) < 1E-4 ||
+            std::abs(face_center[0] + M_PI) < 1E-4 ||
+            std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
+            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename ModelEq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              ModelEq::boundary_condition::essential_rho_n |
+              ModelEq::boundary_condition::essential_rho_p);
+          in_manager->dof_status_on_faces[i_face][0] = 0;
+          in_manager->dof_status_on_faces[i_face][1] = 0;
+        }
       }
-      if (face->center()[0] >= -1.E-4) // We are in electrolyte
+      if (face_center[0] >= -1.E-4) // We are in electrolyte
       {
-        in_manager->BCs[i_face] =
-          static_cast<typename ModelEq::boundary_condition>(
-            in_manager->BCs[i_face] |
-            ModelEq::boundary_condition::essential_rho_r |
-            ModelEq::boundary_condition::essential_rho_o);
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-      }
-      //
-      // Applying BC on rho_n
-      //
-      if (std::abs(face->center()[0]) < 1E-4 ||
-          std::abs(face->center()[0] + M_PI) < 1E-4 ||
-          std::abs(face->center()[1] - M_PI / 2.0) < 1E-4 ||
-          std::abs(face->center()[1] + M_PI / 2.0) < 1E-4)
-      {
-        in_manager->BCs[i_face] =
-          static_cast<typename ModelEq::boundary_condition>(
-            in_manager->BCs[i_face] |
-            ModelEq::boundary_condition::essential_rho_n);
-        in_manager->dof_status_on_faces[i_face][0] = 0;
+        in_manager->dof_status_on_faces[i_face][2] = 1;
+        in_manager->dof_status_on_faces[i_face][3] = 1;
+        //
+        // Applying BC on rho_r and rho_o
+        //
+        if (std::abs(face_center[0]) < 1E-4 ||
+            std::abs(face_center[0] - M_PI) < 1E-4 ||
+            std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
+            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename ModelEq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              ModelEq::boundary_condition::essential_rho_r |
+              ModelEq::boundary_condition::essential_rho_o);
+          in_manager->dof_status_on_faces[i_face][2] = 0;
+          in_manager->dof_status_on_faces[i_face][3] = 0;
+        }
       }
     }
   }

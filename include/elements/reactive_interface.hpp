@@ -1007,7 +1007,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief All of the element local vectors.
      *
      */
-    Eigen::VectorXd Rn, Fn, Fp, Fr, Fo, Ln;
+    Eigen::VectorXd Rn, Rp, Rr, Ro, Fn, Fp, Fr, Fo, Ln;
     ///@}
 
     /** @{

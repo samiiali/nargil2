@@ -35,19 +35,18 @@
  *
  */
 template <int dim, int spacedim = dim>
-struct problem_data : public nargil::diffusion<dim, spacedim>::data
+struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
 {
   /**
    * @brief pi
    */
-  const double pi = M_PI;
-  const double epsinv = 1.0e8;
-  const double r_i = 0.55;
-  const double r_o = 0.63;
+  const static double epsinv = 1.0e9;
+  const static double r_i = 0.55;
+  const static double r_o = 0.63;
   /**
    * @brief Constructor.
    */
-  problem_data() : nargil::diffusion<dim, spacedim>::data() {}
+  problem_data_2() : nargil::diffusion<dim, spacedim>::data() {}
 
   /**
    * @brief rhs_func.
@@ -55,13 +54,16 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
     double r = p[0];
+    //
+    // ***
+    //
     return 0.0;
-    //return (56.0*pow(r,6.0) * pow((1-r),16.0) + 256.0 * pow(r,7.0) * pow((1-r),15.0) + 240.0*pow(r,8.0) * pow((1-r),14.0));
-
-      //-std::pow(r,8) * (16.0*std::pow(r*r - 1,7) + 224.*r*r*std::pow(r*r - 1,6));
-
-    //-0.25 * cos(2 * p[1]) * sin(p[0]) *
-    //   (3 * sin(p[2]) - 74 * sin(3 * p[2]) + 15 * sin(5 * p[2]));
+    //
+    // ***
+    //
+    // return (56.0 * pow(r, 6.0) * pow((1 - r), 16.0) +
+    //         256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
+    //         240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
   }
 
   /**
@@ -69,9 +71,9 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    double temperature = 4.7e-4;
-    if (p[0] > 0.63 - 1.e-6)
-      temperature = 4.1e-4;
+    double temperature = 4.7e-6;
+    if (p[0] > r_o - 1.e-6)
+      temperature = 4.6e-6;
     return temperature;
   }
 
@@ -81,65 +83,42 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
   {
     return dealii::Tensor<1, dim>({0, 0, 0});
-
-    //     ({-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-    //        2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-    //        -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-    //          (1 + sin(p[2]) * sin(p[2]))});
   }
 
   /**
    * @brief exact_u
    */
-  virtual double exact_u(const dealii::Point<spacedim> &p)
-  {
-    return sin(p[0]) * cos(2. * p[1]) * sin(3. * p[2]);
-  }
+  virtual double exact_u(const dealii::Point<spacedim> &p) { return 0.; }
 
   /**
    * @brief exact_q
    */
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
-    double x = p[0];
-    double y = p[1];
-    double z = p[2];
+    double R = 5.;
+    double r_m = (r_i + r_o) / 2.;
 
-    double R = 5.0;
-    double a = 1.0;
-    double B0 = 1.0;
-    
-    double qsafety = 0.2 * exp(x/(0.3*a));
-    double d_psi0dx = -x*B0/(R*qsafety);
-    double postpsi32 = std::cos(3.0*y/x - 2.0*z/R);
-    double postpsi43 = std::cos(4.0*y/x - 3.0*z/R);
-    double d_postpsi32dx = ( 3*y*std::sin(3.0*y/x - 2.0*z/R) ) / (x*x);
-    double d_postpsi43dx = ( 4*y*std::cos(4.0*y/x - 3.0*z/R) ) / (x*x);
-    double d_postpsi32dy = ( 3*std::sin(3.0*y/x - 2.0*z/R) ) / (x);
-    double d_postpsi43dy = ( 4*std::cos(4.0*y/x - 3.0*z/R) ) / (x);
-    double psitilde = 0.0002;
-    double psi32 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
-    double psi43 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
-    double d_psi32dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a); 
-    double d_psi43dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a);
+    double y1 = p[0];
+    //
+    // ***
+    //
+    // double y2 = p[1] / p[0];
+    double y2 = p[1];
+    //
+    double y3 = p[2] / R;
 
-    double dpsidx =  d_psi0dx + d_psi32dx*postpsi32+psi32*d_postpsi32dx + d_psi43dx*postpsi43+psi43*d_postpsi43dx;
-    double dpsidy = -psi32*d_postpsi32dy - psi43*d_postpsi43dy;
+    dealii::Tensor<1, dim> B1(
+      {-(pow(-1 + y1, 2) * y1 *
+         (4 * sin(4 * y2 - 3 * y3) + 3 * sin(3 * y2 - 2 * y3))) /
+         200.,
+       ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
+         ((-1 + y1) * y1 * (-1 + 2 * y1) *
+          (cos(4 * y2 - 3 * y3) + cos(3 * y2 - 2 * y3))) /
+           100.,
+       1.});
 
-    double bx = dpsidy/B0;
-    double by = -dpsidx/B0;
-    double bz = 1.0;
-
-    // double br = (psishape * psipertp) / (r * B0);
-    // double btheta = -(psishapep * psipert) / B0 + 1 / (qsafety);
-    // double bz = 1.0;
-
-    return dealii::Tensor<1, dim>({bx, by, bz});
-    //    return dealii::Tensor<1, dim>(
-    //      {-cos(p[0]) * cos(2 * p[1]) * sin(3 * p[2]),
-    //       2 * sin(p[0]) * sin(2 * p[1]) * sin(3 * p[2]),
-    //       -3 * cos(2 * p[1]) * cos(3 * p[2]) * sin(p[0]) *
-    //         (1 + sin(p[2]) * sin(p[2]))});
+    dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
+    return b1;
   }
 
   /**
@@ -179,130 +158,45 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     //     double z = p[2];
     //     double theta = std::atan2(p[1], p[0]);
 
-    // double x = p[0];
-    // double y = p[1];
-    // double z = p[2];
+    double R = 5.;
+    double r_m = (r_i + r_o) / 2.;
 
-    // double R = 5.0;
-    // double a = 1.0;
-    // double B0 = 1.0;
-    
-    // double qsafety = 0.2 * exp(x/(0.3*a));
-    // double d_psi0dx = -x*B0/(R*qsafety);
-    // double postpsi32 = std::cos(3.0*y/x - 2.0*z/R);
-    // double postpsi43 = std::cos(4.0*y/x - 3.0*z/R);
-    // double d_postpsi32dx = ( 3*y*std::sin(3.0*y/x - 2.0*z/R) ) / (x*x);
-    // double d_postpsi43dx = ( 4*y*std::cos(4.0*y/x - 3.0*z/R) ) / (x*x);
-    // double d_postpsi32dy = ( 3*std::sin(3.0*y/x - 2.0*z/R) ) / (x);
-    // double d_postpsi43dy = ( 4*std::cos(4.0*y/x - 3.0*z/R) ) / (x);
-    // double psitilde = 0.0002;
-    // double psi32 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
-    // double psi43 = psitilde*a*B0*(x/a)*(x/a)*(1-x/a)*(1-x/a);
-    // double d_psi32dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a); 
-    // double d_psi43dx =  (2*B0*psitilde*x*(a*a - 3.*a*x + 2.0*x*x))/(a*a*a);
+    double y1 = p[0];
+    //
+    // ***
+    //
+    double y2 = p[1];
+    // double y2 = p[1] / p[0];
+    //
+    // ***
+    //
+    double y3 = p[2] / R;
+    // double y3 = p[2];
+    //
 
-    // double dpsidx =  d_psi0dx + d_psi32dx*postpsi32+psi32*d_postpsi32dx + d_psi43dx*postpsi43+psi43*d_postpsi43dx;
-    // double dpsidy = -psi32*d_postpsi32dy - psi43*d_postpsi43dy;
+    dealii::Tensor<1, dim> B1(
+      {-(pow(-1 + y1, 2) * y1 *
+         (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
+         5000.,
+       ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
+         ((-1 + y1) * y1 * (-1 + 2 * y1) *
+          (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
+           2500.,
+       1.});
 
-    // double bx = dpsidy/B0;
-    // double by = -dpsidx/B0;
-    // double bz = 1.0;
+    dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
 
+    dealii::Tensor<2, dim> result((epsinv - 1.) *
+                                  dealii::outer_product(b1, b1));
+    result[0][0] += 1.;
+    //
+    // ***
+    //
+    result[1][1] += 1. / y1 / y1;
+    // result[1][1] += 1.;
+    //
+    result[2][2] += 1.;
 
-    // double r = p[0];
-    // double theta = p[1];
-    // double z = p[2];
-
-    // double R = 5.0;
-    // double a = 1.0;
-    // double B0 = 1.0;
-    // double psitilde = 0.0; //0.0002*R;
-    // double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
-    // double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
-    //   2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
-    // double psi32 = std::cos(3.0 * theta - 2.0 * z);
-    // double psi43 = std::cos(4.0 * theta - 3.0 * z);
-    // double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
-    // double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
-    // double psipert = psitilde * (psi32 + psi43);
-    // double psipertp = psitilde * (psip32 + psip43);
-    // double qsafety = 0.2 * std::exp(r / (a * 0.3));
-
-    // double rprime=(psishape*psipertp)/(B0*r);
-    // double thetaprime=-(psishapep*psipert)/r + 1.0/qsafety;
-
-    // double br = rprime/R;
-    // double btheta =r*thetaprime/R;
-    // double bz =1.0;
-
-    double r = p[0]; double x = r;
-    double theta = p[1];
-    double z = p[2];
-
-    double R = 5.0;
-    double a = 1.0;
-    double B0 = 1.0;
-    double psitilde = 0.0002*R;
-    double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
-    double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
-      2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
-    double psi32 = std::cos(3.0 * theta - 2.0 * z);
-    double psi43 = std::cos(4.0 * theta - 3.0 * z);
-    double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
-    double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
-    double psipert = psitilde * (psi32 + psi43);
-    double psipertp = psitilde * (psip32 + psip43);
-    double qsafety = 0.2 * std::exp(r / (a * 0.3));
-    double br = (psishape * psipertp) / (R* r * B0);
-    double btheta = (-(psishapep * psipert) / B0 + 1 / (qsafety))*(r/R);
-    double bz = 1.0;
-
-    double bx = br; double by = btheta;
-    //    double r = p[0];
-    //double theta = p[1];
-    //double z = p[2];
-
-    // double R = 5.0;
-    // double a = 1.0;
-    // double B0 = 1.0;
-    // double psitilde = 0.0002;
-    // double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
-    // double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
-    //                    2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
-    // double psi32 = std::cos(3.0 * theta - 2.0 * z);
-    // double psi43 = std::cos(4.0 * theta - 3.0 * z);
-    // double psip32 = -3.0 * std::sin(3.0 * theta - 2.0 * z);
-    // double psip43 = -4.0 * std::sin(4.0 * theta - 3.0 * z);
-    // double psipert = psitilde * (psi32 + psi43);
-    // double psipertp = psitilde * (psip32 + psip43);
-    // double qsafety = 0.2 * std::exp(r / (a * 0.3));
-    // double br = (psishape * psipertp) / (r * B0);
-    // double btheta = -(psishapep * psipert) / B0 + r / (R * qsafety);
-    // double bz = 1.0;
-
-    dealii::Tensor<2, dim> result;
-    result[0][0] = 1.0 + (epsinv - 1.) * bx * bx;
-    result[0][1] = (epsinv - 1.) * bx * by;
-    result[0][2] = (epsinv - 1.) * bx * bz;
-    result[1][0] = result[0][1];
-    result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * by * by;
-    result[1][2] = (epsinv - 1) * by * bz;
-    result[2][0] = result[0][2];
-    result[2][1] = result[1][2];
-    result[2][2] = 1. + (epsinv - 1.) * bz * bz;
-    // result[2][2] = 1. / (1. + sin(p[2]) * sin(p[2]));
-    // result[0][0] = 1.0;
-    // result[1][1] = 1.0;
-    // result[2][2] = 1.0;
-
-    for  (int i = 0; i < 3 ; ++i){
-      for  (int j = 0; j < 3 ; ++j){
-	if (std::isnan(result[i][j])){
-	  assert(false);
-	}
-      }
-    }
-    
     return dealii::invert(result);
   }
 
@@ -312,7 +206,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0e6;
+    return 1.0e3;
     //
   }
 };
@@ -320,7 +214,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
 /**
  * Just a sample problem
  */
-template <int dim, int spacedim = dim> struct Problem1
+template <int dim, int spacedim = dim> struct Problem2
 {
   typedef nargil::diffusion<dim> ModelEq;
   typedef nargil::model<ModelEq, dim> ModelType;
@@ -328,15 +222,17 @@ template <int dim, int spacedim = dim> struct Problem1
   typedef typename nargil::diffusion<dim>::template hdg_manager<BasisType>
     CellManagerType;
 
+  const static double epsinv = problem_data_2<dim, spacedim>::epsinv;
+  const static double r_i = problem_data_2<dim, spacedim>::r_i;
+  const static double r_o = problem_data_2<dim, spacedim>::r_o;
+
   /**
    * @brief adaptive_mesh_gen
    */
+  /*
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    // r_o , r_i are redefined here.
-    double r_i = 0.55;
-    double r_o = 0.63;
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
                                           15, 1);
@@ -371,6 +267,7 @@ template <int dim, int spacedim = dim> struct Problem1
     the_mesh.refine_global(5);
     the_mesh.set_manifold(0);
   }
+  */
 
   /**
    * @brief adaptive_mesh_gen
@@ -378,15 +275,16 @@ template <int dim, int spacedim = dim> struct Problem1
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    // r_o , r_i are redefined here.
-    double r_i = 0.55;
-    double r_o = 0.63;
-
-    double circ = 1.0; //(r_i+r_o)/2.0;
-
-    std::vector<unsigned> refine_repeats = {50, 50, 50};
-    dealii::Point<dim> corner_1(r_i, 0.,0.);
-    dealii::Point<dim> corner_2(r_o, circ*2.*M_PI, 2. *1.0*M_PI);
+    std::vector<unsigned> refine_repeats = {80, 80, 4};
+    //
+    // ***
+    //
+    // double r_m = (r_i + r_o) / 2.;
+    double r_m = 1;
+    //
+    dealii::Point<dim> corner_1(r_i, 0., 0.);
+    // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -395,10 +293,10 @@ template <int dim, int spacedim = dim> struct Problem1
       periodic_faces;
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 2, 3, 1, periodic_faces,
-      dealii::Tensor<1, dim>({0.0, circ*2.*M_PI, 0.}));
+      dealii::Tensor<1, dim>({0.0, 2.0 * M_PI * r_m, 0.}));
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 4, 5, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0.0, 2.0 * 1.0 * M_PI }));
+      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
     // the_mesh.refine_global(4);
   }
@@ -406,6 +304,7 @@ template <int dim, int spacedim = dim> struct Problem1
   /**
    * @brief dofs_on_nodes
    */
+  /*
   static void assign_BCs(CellManagerType *in_manager)
   {
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -414,7 +313,7 @@ template <int dim, int spacedim = dim> struct Problem1
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI - 1.e-6 ||
+        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
             face->center()[2] < 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
@@ -432,21 +331,29 @@ template <int dim, int spacedim = dim> struct Problem1
       }
     }
   }
+  */
 
   /**
    * @brief dofs_on_nodes
    */
   static void assign_rect_mesh_BCs(CellManagerType *in_manager)
   {
+    //
+    // ***
+    //
+    double r_m = 1.;
+    // double r_m = (r_i + r_o) / 2.;
+    //
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 1. - 1.e-6 ||
+        if (face->center()[2] > 2. * 5.0 * M_PI - 1.e-6 ||
             face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
-            face->center()[1] > (.59/.59) *2. * M_PI - 1.e-6)
+            face->center()[1] > r_m * 2. * M_PI - 1.e-6)
+        // face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -469,6 +376,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
   static void run(int argc, char **argv)
   {
+
     static_assert(dim == 3, "dim should be equal to 3.");
 
     PetscInitialize(&argc, &argv, NULL, NULL);
@@ -482,7 +390,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
       nargil::mesh<dim> mesh1(comm, 1, true);
 
-      problem_data<dim> data1;
+      problem_data_2<dim> data1;
 
       mesh1.generate_mesh(generate_rect_mesh);
       BasisType basis1(1, 2);
@@ -511,10 +419,10 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-	nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-							       solver_keys, dof_counter1, comm);
-        //nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-        //                                                  dof_counter1, comm);
+        //         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+        //           solver_keys, dof_counter1, comm);
+        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                          dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 
@@ -554,7 +462,7 @@ template <int dim, int spacedim = dim> struct Problem1
           std::string(2 - cycle_string.length(), '0') + cycle_string;
         typename ModelEq::viz_data viz_data1(
           comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "solution" + cycle_string, "Temperature", "Heat flow");
+          "solution" + cycle_string, "Temperature", "Heat_flow");
 
         // Now we visualize the results
         CellManagerType::visualize_results(viz_data1);
@@ -568,7 +476,7 @@ template <int dim, int spacedim = dim> struct Problem1
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
         typename ModelEq::viz_data viz_data2(
           comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "kappa_comps" + cycle_string, "Temperature", "b components");
+          "kappa_comps" + cycle_string, "Temperature", "b_components");
         CellManagerType::visualize_results(viz_data2);
 
         std::vector<double> sum_of_L2_errors(2, 0);

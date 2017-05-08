@@ -40,7 +40,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e9;
+  const static double epsinv = 1.0e8;
   const static double r_i = 0.55;
   const static double r_o = 0.63;
   /**
@@ -72,7 +72,10 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
     double temperature = 4.7e-6;
-    if (p[0] > r_o - 1.e-6)
+
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
+
+    if (y1 > r_o - 1.e-6)
       temperature = 4.6e-6;
     return temperature;
   }
@@ -96,28 +99,29 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
     double R = 5.;
-    double r_m = (r_i + r_o) / 2.;
+    // double r_m = (r_i + r_o) / 2.;
 
-    double y1 = p[0];
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
     //
-    // ***
-    //
-    // double y2 = p[1] / p[0];
-    double y2 = p[1];
+    // double y2 = p[1];
+    double y2 = atan2(p[1], p[0]);
     //
     double y3 = p[2] / R;
+    // double y3 = p[2];
+    //
 
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
-         (4 * sin(4 * y2 - 3 * y3) + 3 * sin(3 * y2 - 2 * y3))) /
-         200.,
+         (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
+         5000.,
        ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
          ((-1 + y1) * y1 * (-1 + 2 * y1) *
-          (cos(4 * y2 - 3 * y3) + cos(3 * y2 - 2 * y3))) /
-           100.,
+          (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
+           2500.,
        1.});
 
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
+
     return b1;
   }
 
@@ -159,14 +163,15 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //     double theta = std::atan2(p[1], p[0]);
 
     double R = 5.;
-    double r_m = (r_i + r_o) / 2.;
+    // double r_m = (r_i + r_o) / 2.;
 
-    double y1 = p[0];
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
     //
     // ***
     //
-    double y2 = p[1];
+    // double y2 = p[1];
     // double y2 = p[1] / p[0];
+    double y2 = atan2(p[1], p[0]);
     //
     // ***
     //
@@ -190,10 +195,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
                                   dealii::outer_product(b1, b1));
     result[0][0] += 1.;
     //
-    // ***
-    //
     result[1][1] += 1. / y1 / y1;
-    // result[1][1] += 1.;
     //
     result[2][2] += 1.;
 
@@ -229,13 +231,12 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief adaptive_mesh_gen
    */
-  /*
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
-                                          15, 1);
+                                          7, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -267,11 +268,11 @@ template <int dim, int spacedim = dim> struct Problem2
     the_mesh.refine_global(5);
     the_mesh.set_manifold(0);
   }
-  */
 
   /**
    * @brief adaptive_mesh_gen
    */
+  /*
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
@@ -300,11 +301,11 @@ template <int dim, int spacedim = dim> struct Problem2
     the_mesh.add_periodicity(periodic_faces);
     // the_mesh.refine_global(4);
   }
+  */
 
   /**
    * @brief dofs_on_nodes
    */
-  /*
   static void assign_BCs(CellManagerType *in_manager)
   {
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -331,11 +332,11 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
-  */
 
   /**
    * @brief dofs_on_nodes
    */
+  /*
   static void assign_rect_mesh_BCs(CellManagerType *in_manager)
   {
     //
@@ -370,6 +371,7 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
+  */
 
   //
   //
@@ -392,7 +394,7 @@ template <int dim, int spacedim = dim> struct Problem2
 
       problem_data_2<dim> data1;
 
-      mesh1.generate_mesh(generate_rect_mesh);
+      mesh1.generate_mesh(mesh_gen);
       BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
@@ -405,9 +407,9 @@ template <int dim, int spacedim = dim> struct Problem2
         model_manager1.form_dof_handlers(&model1, &basis1);
 
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
+          &model1, CellManagerType::assign_BCs, assign_BCs);
         model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
+          &model1, CellManagerType::assign_BCs, assign_BCs);
         dof_counter1.template count_globals<BasisType>(&model1);
         //
         model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,

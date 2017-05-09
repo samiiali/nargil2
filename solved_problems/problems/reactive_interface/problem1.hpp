@@ -417,7 +417,7 @@ struct react_int_problem1_data
 /**
  * Just a sample problem
  */
-template <int dim, int spacedim = dim> struct Problem1
+template <int dim, int spacedim = dim> struct RI_Problem1
 {
   typedef nargil::reactive_interface<dim> ModelEq;
   typedef nargil::model<ModelEq, dim> ModelType;

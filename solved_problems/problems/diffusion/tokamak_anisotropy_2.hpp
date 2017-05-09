@@ -40,8 +40,8 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e8;
-  const static double r_i = 0.55;
+  const static double epsinv = 1.0e-9;
+  const static double r_i = 0.53;
   const static double r_o = 0.63;
   /**
    * @brief Constructor.
@@ -53,7 +53,6 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
-    double r = p[0];
     //
     // ***
     //
@@ -61,6 +60,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //
     // ***
     //
+    // double r = sqrt(p[0] * p[0] + p[1] * p[1]);
     // return (56.0 * pow(r, 6.0) * pow((1 - r), 16.0) +
     //         256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
     //         240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
@@ -121,6 +121,18 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
        1.});
 
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
+    //
+    //           [ cos(x,r)  cos(x,t)  cos(x,z) ]
+    // beta_ij = [ cos(y,r)  cos(y,t)  cos(y,z) ]
+    //           [ cos(z,r)  cos(z,t)  cos(z,z) ]
+    //
+    dealii::Tensor<2, dim> beta_ik;
+    beta_ik[0][0] = cos(y2);
+    beta_ik[0][1] = -sin(y2);
+    beta_ik[1][0] = sin(y2);
+    beta_ik[1][1] = cos(y2);
+    beta_ik[2][2] = 1.;
+    // b1 = beta_ik * b1;
 
     return b1;
   }
@@ -163,22 +175,11 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //     double theta = std::atan2(p[1], p[0]);
 
     double R = 5.;
-    // double r_m = (r_i + r_o) / 2.;
-
+    //
     double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
-    //
-    // ***
-    //
-    // double y2 = p[1];
-    // double y2 = p[1] / p[0];
     double y2 = atan2(p[1], p[0]);
-    //
-    // ***
-    //
     double y3 = p[2] / R;
-    // double y3 = p[2];
     //
-
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
          (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
@@ -188,16 +189,29 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
           (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
            2500.,
        1.});
-
+    //
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
-
+    //
     dealii::Tensor<2, dim> result((epsinv - 1.) *
                                   dealii::outer_product(b1, b1));
+    //
     result[0][0] += 1.;
-    //
     result[1][1] += 1. / y1 / y1;
-    //
     result[2][2] += 1.;
+    //
+    // We know do a coordinate transform kappa_ij = beta_ik kappa_kl beta_lj
+    //
+    //           [ cos(x,r)  cos(x,t)  cos(x,z) ]
+    // beta_ij = [ cos(y,r)  cos(y,t)  cos(y,z) ]
+    //           [ cos(z,r)  cos(z,t)  cos(z,z) ]
+    //
+    dealii::Tensor<2, dim> beta_ik;
+    beta_ik[0][0] = cos(y2);
+    beta_ik[0][1] = -sin(y2);
+    beta_ik[1][0] = sin(y2);
+    beta_ik[1][1] = cos(y2);
+    beta_ik[2][2] = 1.;
+    result = beta_ik * result * dealii::transpose(beta_ik);
 
     return dealii::invert(result);
   }
@@ -236,7 +250,7 @@ template <int dim, int spacedim = dim> struct Problem2
   {
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
-                                          7, 1);
+                                          3, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -247,9 +261,9 @@ template <int dim, int spacedim = dim> struct Problem2
         if (i_cell->face(i_face)->at_boundary())
         {
           dealii::Point<dim> face_center = i_cell->face(i_face)->center();
-          if (face_center[2] < 1.e-6)
+          if (face_center[2] < 1.e-4)
             i_cell->face(i_face)->set_boundary_id(10);
-          if (face_center[2] > 2. * M_PI * 5.0 - 1.e-6)
+          if (face_center[2] > 2. * M_PI * 5.0 - 1.e-4)
             i_cell->face(i_face)->set_boundary_id(11);
         }
       }
@@ -265,7 +279,7 @@ template <int dim, int spacedim = dim> struct Problem2
 
     the_mesh.set_all_manifold_ids(0);
     the_mesh.set_manifold(0, manifold1);
-    the_mesh.refine_global(5);
+    the_mesh.refine_global(6);
     the_mesh.set_manifold(0);
   }
 
@@ -421,10 +435,11 @@ template <int dim, int spacedim = dim> struct Problem2
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        //         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-        //           solver_keys, dof_counter1, comm);
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-                                                          dof_counter1, comm);
+        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          solver_keys, dof_counter1, comm);
+        //        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        //                                                          dof_counter1,
+        //                                                          comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 

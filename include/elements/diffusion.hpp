@@ -676,6 +676,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * This function gives the computed fluxes in the element and on the
+     * boundary of the element.
+     *
+     */
+    void set_flux_vector(double **out_q, double **out_q_flux);
+
+    /**
+     *
      * This function is used to interpolate the function f to the trace
      * degrees of freedom of the element.
      *
@@ -785,7 +793,7 @@ struct diffusion : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D, E, H;
+    Eigen::MatrixXd A, B, C, D, E, H, H0;
     ///@}
 
     /** @{
@@ -801,7 +809,8 @@ struct diffusion : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec;
+    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec,
+      q_star_dot_n_vec;
     ///@}
 
     /** @{

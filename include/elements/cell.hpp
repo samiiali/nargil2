@@ -238,6 +238,21 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 
   /**
    *
+   * This is a helper function to the variadic template funciton.
+   *
+   */
+  void remove_from_memory();
+
+  /**
+   *
+   * This variadic function, removes all of its argument from memory.
+   *
+   */
+  template <typename T, typename... Pack>
+  void remove_from_memory(T arg0, Pack... args);
+
+  /**
+   *
    * The local integer ID of the unknowns in this rank.
    *
    */

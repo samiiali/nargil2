@@ -232,6 +232,26 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
 
 //
 //
+
+template <int dim, int spacedim>
+void nargil::hybridized_cell_manager<dim, spacedim>::remove_from_memory()
+{
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename T, typename... Pack>
+void nargil::hybridized_cell_manager<dim, spacedim>::remove_from_memory(
+  T arg0, Pack... other_args)
+{
+  nargil::reck_it_Ralph(arg0);
+  remove_from_memory(other_args...);
+}
+
+//
+//
 //
 //
 //

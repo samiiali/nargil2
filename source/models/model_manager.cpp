@@ -78,3 +78,24 @@ void nargil::hybridized_model_manager<dim, spacedim>::apply_on_ghost_cells(
     f(casted_cell, args...);
   }
 }
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename ModelEq, typename OtherModelEq>
+void nargil::hybridized_model_manager<dim, spacedim>::connect_to_other_model(
+  model<ModelEq, dim, spacedim> *in_model,
+  model<OtherModelEq, dim, spacedim> *in_other_model)
+{
+  auto other_cell = in_other_model->all_owned_cells.begin();
+  for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
+       in_model->all_owned_cells)
+  {
+    OtherModelEq *casted_other_cell =
+      static_cast<OtherModelEq *>(other_cell->get());
+    ModelEq *casted_cell = static_cast<ModelEq *>(i_cell.get());
+    casted_cell->connect_to_other_cell(casted_other_cell);
+    ++other_cell;
+  }
+}

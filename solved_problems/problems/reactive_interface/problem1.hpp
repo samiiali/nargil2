@@ -16,12 +16,111 @@
 #include <deal.II/base/multithread_info.h>
 #include <deal.II/lac/parallel_vector.h>
 
+#include "include/elements/diffusion.hpp"
 #include "include/elements/reactive_interface.hpp"
 #include "include/mesh/mesh_handler.hpp"
 #include "include/misc/utils.hpp"
 #include "include/models/model.hpp"
 #include "include/models/model_manager.hpp"
 #include "include/solvers/solvers.hpp"
+
+//
+//
+//
+//
+//
+
+/**
+ *
+ * The data for diffusion problem:
+ * \f[
+ *   \Phi = \exp(\sin(x-y))
+ * \f]
+ * Hence, for \f$\mathbf E = -\lambda^2 \nabla \Phi \f$, we have:
+ * \f[
+ *   \mathbf E = 25(-\exp(\sin(x-y))\cos(x-y),\exp(sin(x-y))\cos(x-y)).
+ * \f]
+ *
+ */
+template <int dim, int spacedim = dim>
+struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
+{
+  /**
+   * @brief Constructor.
+   */
+  diff_data_2() : nargil::diffusion<dim, spacedim>::data() {}
+
+  /**
+   * @brief rhs_func.
+   */
+  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    return 25 *
+           (2 * exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + sin(x1 - y1)));
+  }
+
+  /**
+   * @brief gD_func.
+   */
+  virtual double gD_func(const dealii::Point<spacedim> &p)
+  {
+    return exp(sin(p[0] - p[1]));
+  }
+
+  /**
+   * @brief gN_func.
+   */
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-exp(sin(x1 - y1)) * cos(x1 - y1), exp(sin(x1 - y1)) * cos(x1 - y1)});
+    return 25 * result;
+  }
+
+  /**
+   * @brief exact_u
+   */
+  virtual double exact_u(const dealii::Point<spacedim> &p)
+  {
+    return exp(sin(p[0] - p[1]));
+  }
+
+  /**
+   * @brief exact_q
+   */
+  virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-exp(sin(x1 - y1)) * cos(x1 - y1), exp(sin(x1 - y1)) * cos(x1 - y1)});
+    return 25 * result;
+  }
+
+  /**
+   *
+   */
+  virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &)
+  {
+    dealii::Tensor<2, dim> result;
+    result[0][0] = result[1][1] = 1.;
+    return result / 25.;
+  }
+
+  /**
+   *
+   */
+  virtual double tau(const dealii::Point<spacedim> &)
+  {
+    //
+    return 1.;
+    //
+  }
+};
 
 //
 //
@@ -419,12 +518,18 @@ struct react_int_problem1_data
  */
 template <int dim, int spacedim = dim> struct RI_Problem1
 {
-  typedef nargil::reactive_interface<dim> ModelEq;
-  typedef nargil::model<ModelEq, dim> ModelType;
-  typedef typename ModelEq::hdg_polybasis BasisType;
-  typedef
-    typename nargil::reactive_interface<dim>::template hdg_manager<BasisType>
-      CellManagerType;
+  typedef nargil::reactive_interface<dim> R_I_Eq;
+  typedef nargil::model<R_I_Eq, dim> R_I_Model;
+  typedef typename R_I_Eq::hdg_polybasis R_I_BasisType;
+  typedef typename nargil::reactive_interface<dim>::template hdg_manager<
+    R_I_BasisType>
+    R_I_ManagerType;
+
+  typedef nargil::diffusion<dim> DiffEq;
+  typedef nargil::model<DiffEq, dim> DiffModel;
+  typedef typename DiffEq::hdg_polybasis DiffBasis;
+  typedef typename nargil::diffusion<dim>::template hdg_manager<DiffBasis>
+    DiffManagerType;
 
   /**
    * @brief adaptive_mesh_gen
@@ -437,20 +542,57 @@ template <int dim, int spacedim = dim> struct RI_Problem1
     dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
-    /*
+    // Adding periodicity.
     std::vector<dealii::GridTools::PeriodicFacePair<
       typename dealii::parallel::distributed::Triangulation<
         dim>::cell_iterator> >
       periodic_faces;
     dealii::GridTools::collect_periodic_faces(
-      the_mesh, 2, 3, 1, periodic_faces,
-      dealii::Tensor<1, dim>({0.0, 2.0 * M_PI, 0.}));
+      the_mesh, 0, 1, 0, periodic_faces,
+      dealii::Tensor<1, dim>({2. * M_PI, 0.}));
     dealii::GridTools::collect_periodic_faces(
-      the_mesh, 4, 5, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
+      the_mesh, 2, 3, 0, periodic_faces, dealii::Tensor<1, dim>({0., M_PI}));
     the_mesh.add_periodicity(periodic_faces);
-    */
   }
+
+  //
+  //
+
+  /**
+   *
+   * @brief dofs_on_nodes
+   *
+   */
+  static void assign_diff_BCs(DiffManagerType *in_manager)
+  {
+    unsigned n_dof_per_face = DiffBasis::get_n_dofs_per_face();
+    for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+    {
+      auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
+      if (face->at_boundary())
+      {
+        if (fabs(face->center()[0]) > M_PI - 1.E-4)
+        {
+          in_manager->BCs[i_face] =
+            nargil::diffusion<dim>::boundary_condition::natural;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        }
+        else
+        {
+          in_manager->BCs[i_face] =
+            nargil::diffusion<dim>::boundary_condition::essential;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+        }
+      }
+      else
+      {
+        in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+      }
+    }
+  }
+
+  //
+  //
 
   /**
    *
@@ -462,9 +604,9 @@ template <int dim, int spacedim = dim> struct RI_Problem1
    * \f$\rho_r, \rho_o\f$.
    *
    */
-  static void assign_BCs(CellManagerType *in_manager)
+  static void assign_R_I_BCs(R_I_ManagerType *in_manager)
   {
-    unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
+    unsigned n_dof_per_face = R_I_BasisType::get_n_dofs_per_face();
     in_manager->local_equation_is_active.resize(4, 0);
     if (in_manager->my_cell->my_dealii_cell->center()[0] < 1.E-4)
     {
@@ -480,7 +622,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
-      in_manager->BCs[i_face] = ModelEq::boundary_condition::not_set;
+      in_manager->BCs[i_face] = R_I_Eq::boundary_condition::not_set;
       dealii::Point<dim> face_center = face->center();
       if (face_center[0] <= 1.E-4) // We are in semi-conductor
       {
@@ -494,10 +636,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
             std::abs(face_center[0] + M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
-            static_cast<typename ModelEq::boundary_condition>(
+            static_cast<typename R_I_Eq::boundary_condition>(
               in_manager->BCs[i_face] |
-              ModelEq::boundary_condition::essential_rho_n |
-              ModelEq::boundary_condition::essential_rho_p);
+              R_I_Eq::boundary_condition::essential_rho_n |
+              R_I_Eq::boundary_condition::essential_rho_p);
           in_manager->dof_status_on_faces[i_face][0] = 0;
           in_manager->dof_status_on_faces[i_face][1] = 0;
         }
@@ -505,10 +647,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
             std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
         {
           in_manager->BCs[i_face] =
-            static_cast<typename ModelEq::boundary_condition>(
+            static_cast<typename R_I_Eq::boundary_condition>(
               in_manager->BCs[i_face] |
-              ModelEq::boundary_condition::natural_rho_n |
-              ModelEq::boundary_condition::natural_rho_p);
+              R_I_Eq::boundary_condition::natural_rho_n |
+              R_I_Eq::boundary_condition::natural_rho_p);
           in_manager->dof_status_on_faces[i_face][0] = 1;
           in_manager->dof_status_on_faces[i_face][1] = 1;
         }
@@ -525,10 +667,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
             std::abs(face_center[0] - M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
-            static_cast<typename ModelEq::boundary_condition>(
+            static_cast<typename R_I_Eq::boundary_condition>(
               in_manager->BCs[i_face] |
-              ModelEq::boundary_condition::essential_rho_r |
-              ModelEq::boundary_condition::essential_rho_o);
+              R_I_Eq::boundary_condition::essential_rho_r |
+              R_I_Eq::boundary_condition::essential_rho_o);
           in_manager->dof_status_on_faces[i_face][2] = 0;
           in_manager->dof_status_on_faces[i_face][3] = 0;
         }
@@ -536,10 +678,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
             std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
         {
           in_manager->BCs[i_face] =
-            static_cast<typename ModelEq::boundary_condition>(
+            static_cast<typename R_I_Eq::boundary_condition>(
               in_manager->BCs[i_face] |
-              ModelEq::boundary_condition::natural_rho_r |
-              ModelEq::boundary_condition::natural_rho_o);
+              R_I_Eq::boundary_condition::natural_rho_r |
+              R_I_Eq::boundary_condition::natural_rho_o);
           in_manager->dof_status_on_faces[i_face][2] = 1;
           in_manager->dof_status_on_faces[i_face][3] = 1;
         }
@@ -561,52 +703,156 @@ template <int dim, int spacedim = dim> struct RI_Problem1
       int comm_rank, comm_size;
       MPI_Comm_rank(comm, &comm_rank);
       MPI_Comm_size(comm, &comm_size);
-
+      //
       nargil::mesh<dim> mesh1(comm, 1, true);
-
-      react_int_problem1_data<dim> data1;
-
       mesh1.generate_mesh(mesh_gen);
-      BasisType basis1(1, 2);
+      //
+      diff_data_2<dim> data0;
+      react_int_problem1_data<dim> data1;
+      //
+      DiffBasis basis0(1, 2);
+      nargil::implicit_hybridized_numbering<dim> dof_counter0;
+      nargil::hybridized_model_manager<dim> model_manager0;
+      //
+      R_I_BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
-
+      //
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
-        ModelType model1(mesh1);
+        //
+        DiffModel model0(mesh1);
+        //
+        model0.init_model_elements(&basis0);
+        model_manager0.form_dof_handlers(&model0, &basis0);
+        //
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::assign_BCs, assign_diff_BCs);
+        model_manager0.apply_on_ghost_cells(
+          &model0, DiffManagerType::assign_BCs, assign_diff_BCs);
+        //
+        dof_counter0.template count_globals<DiffBasis>(&model0);
+        //
+        model_manager0.apply_on_owned_cells(&model0, DiffEq::assign_data,
+                                            &data0);
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::set_source_and_BCs);
+        //
+        int solver_keys0 = nargil::solvers::solver_props::spd_matrix;
+        int update_keys0 = nargil::solvers::solver_update_opts::update_mat |
+                           nargil::solvers::solver_update_opts::update_rhs;
+        //
+        nargil::solvers::petsc_direct_solver<dim> solver0(solver_keys0,
+                                                          dof_counter0, comm);
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::assemble_globals, &solver0);
+        //
+        Vec sol_vec0;
+        solver0.finish_assemble(update_keys0);
+        solver0.form_factors();
+        solver0.solve_system(&sol_vec0);
+        //
+        std::vector<double> local_sol_vec0(
+          solver0.get_local_part_of_global_vec(&sol_vec0));
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::compute_local_unkns, local_sol_vec0.data());
+        //
+        nargil::distributed_vector<dim> dist_sol_vec0(
+          model_manager0.local_dof_handler, PETSC_COMM_WORLD);
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::fill_viz_vector, &dist_sol_vec0);
+        //
+        LA::MPI::Vector global_sol_vec0;
+        dist_sol_vec0.copy_to_global_vec(global_sol_vec0);
+        //
+        // We prepare the visulization data
+        //
+        std::string cycle_string = std::to_string(i_cycle);
+        cycle_string =
+          std::string(2 - cycle_string.length(), '0') + cycle_string;
+        typename DiffEq::viz_data viz_data0(
+          comm, &model_manager0.local_dof_handler, &global_sol_vec0,
+          "diff_sol-" + cycle_string, "Head", "Flow");
+        //
+        // Now we visualize the results
+        //
+        DiffManagerType::visualize_results(viz_data0);
+        //
+        // We interpolated exact u and q to u_exact and q_exact
+        //
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::interpolate_to_interior);
+        //
+        std::vector<double> sum_of_diff_L2_errors(2, 0);
+        model_manager0.apply_on_owned_cells(
+          &model0, DiffManagerType::compute_errors, &sum_of_diff_L2_errors);
+        double u_error_global, q_error_global;
+        MPI_Reduce(&sum_of_diff_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
+        MPI_Reduce(&sum_of_diff_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
+                   MPI_SUM, 0, comm);
+        //
+        if (comm_rank == 0)
+        {
+          char accuracy_output[200];
+          snprintf(accuracy_output, 400,
+                   "The errors are: \n"
+                   "diffusion u error: \033[3;33m %10.4E \033[0m\n"
+                   "diffusion q error: \033[3;33m  %10.4E \033[0m\n",
+                   sqrt(u_error_global), sqrt(q_error_global));
+          std::cout << accuracy_output << std::endl;
+        }
+
+        //
+        //
+        //
+        //
+        //
+
+        //
+        R_I_Model model1(mesh1);
+        //
         model1.init_model_elements(&basis1);
         model_manager1.form_dof_handlers(&model1, &basis1);
-
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
-        model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
-        dof_counter1.template count_globals<BasisType>(&model1);
         //
-        model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
+        model_manager1.apply_on_owned_cells(
+          &model1, R_I_ManagerType::assign_BCs, assign_R_I_BCs);
+        model_manager1.apply_on_ghost_cells(
+          &model1, R_I_ManagerType::assign_BCs, assign_R_I_BCs);
+        //
+        // Now, we get the solution from the diffusion element.
+        //
+        model_manager1.connect_to_other_model(&model1, &model0);
+        model_manager1.apply_on_owned_cells(
+          &model1,
+          R_I_ManagerType::template get_E_from_relevant_cell<DiffManagerType>);
+        //
+        dof_counter1.template count_globals<R_I_BasisType>(&model1);
+        //
+        model_manager1.apply_on_owned_cells(&model1, R_I_Eq::assign_data,
                                             &data1);
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::set_source_and_BCs);
+          &model1, R_I_ManagerType::set_source_and_BCs);
         //
-        int solver_keys = nargil::solvers::solver_props::default_option;
-        int update_keys = nargil::solvers::solver_update_opts::update_mat |
-                          nargil::solvers::solver_update_opts::update_rhs;
+        int solver_keys1 = nargil::solvers::solver_props::default_option;
+        int update_keys1 = nargil::solvers::solver_update_opts::update_mat |
+                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
                                                           dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assemble_globals, &solver1);
+          &model1, R_I_ManagerType::assemble_globals, &solver1);
         //
-        Vec sol_vec2;
-        solver1.finish_assemble(update_keys);
+        Vec sol_vec1;
+        solver1.finish_assemble(update_keys1);
         solver1.form_factors();
-        solver1.solve_system(&sol_vec2);
-        std::vector<double> local_sol_vec(
-          solver1.get_local_part_of_global_vec(&sol_vec2));
+        solver1.solve_system(&sol_vec1);
         //
+        std::vector<double> local_sol_vec1(
+          solver1.get_local_part_of_global_vec(&sol_vec1));
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
+          &model1, R_I_ManagerType::compute_local_unkns, local_sol_vec1.data());
         //
         nargil::distributed_vector<dim> dist_sol_vec(
           model_manager1.viz_dof_handler, PETSC_COMM_WORLD);
@@ -614,7 +860,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
         //        //
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
+          &model1, R_I_ManagerType::fill_viz_vector, &dist_sol_vec);
 
         //        model_manager1.apply_on_owned_cells(
         //          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
@@ -627,24 +873,24 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //
         // Now we visualize the results
         //
+        // std::string cycle_string = std::to_string(i_cycle);
         std::vector<std::string> var_names({"rho_n", "rho_n_flow", "rho_p",
                                             "rho_p_flow", "rho_r", "rho_r_flow",
                                             "rho_o", "rho_o_flow"});
-        std::string cycle_string = std::to_string(i_cycle);
         cycle_string =
           std::string(2 - cycle_string.length(), '0') + cycle_string;
-        typename ModelEq::viz_data viz_data1(
+        typename R_I_Eq::viz_data viz_data1(
           comm, &model_manager1.viz_dof_handler, &global_sol_vec,
-          "solution-" + cycle_string, var_names);
-        CellManagerType::visualize_results(viz_data1);
+          "R_I_sol-" + cycle_string, var_names);
+        R_I_ManagerType::visualize_results(viz_data1);
         //
         // Now we want to compute the errors.
         //
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::interpolate_to_interior);
+          &model1, R_I_ManagerType::interpolate_to_interior);
         std::vector<double> sum_of_L2_errors(8, 0);
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
+          &model1, R_I_ManagerType::compute_errors, &sum_of_L2_errors);
 
         std::vector<double> global_errors(8, 0);
         for (unsigned i1 = 0; i1 < 8; ++i1)

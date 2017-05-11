@@ -28,6 +28,11 @@
 
 namespace nargil
 {
+//
+// A pre-decleration of the diffusion element.
+//
+template <int dim, int spacedim> struct diffusion;
+
 /**
  *
  *
@@ -361,6 +366,14 @@ struct reactive_interface : public cell<dim, spacedim>
 
   /**
    *
+   * This function gets the electric field from the diffusion equation.
+   *
+   */
+  template <typename OtherCellEq>
+  void connect_to_other_cell(OtherCellEq *in_relevant_diff_cell);
+
+  /**
+   *
    * Contains the basis of the current cell.
    *
    */
@@ -382,6 +395,13 @@ struct reactive_interface : public cell<dim, spacedim>
    *
    */
   data *my_data;
+
+  /**
+   *
+   * The diffusion cell corresponding to the current cell.
+   *
+   */
+  nargil::diffusion<dim, spacedim> *my_relevant_diff_cell;
 
   /**
    *
@@ -727,7 +747,7 @@ struct reactive_interface : public cell<dim, spacedim>
    * We also satisfy the conservation of the numerical flux:
    * \f[
    * \sum_{K\in \mathcal T_h}
-   * \langle \boldsymbol H^*_h\cdot \mathbf n ,\mu \rangle_{\partial_K}
+   * \langle \boldsymbol H^*_n\cdot \mathbf n ,\mu \rangle_{\partial_K}
    * = \sum_{K\in \mathcal T_h}
    * \langle g_{Nn} ,\mu \rangle_{\partial_K}
    * \f]
@@ -901,6 +921,14 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     *
+     *
+     */
+    template <typename RelevantCellManagerType>
+    void get_my_E_from_relevant_cell();
+
+    /**
+     *
      * This function is used to interpolate the function f to the trace
      * degrees of freedom of the element.
      *
@@ -965,6 +993,14 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     static void compute_errors(reactive_interface *in_cell,
                                std::vector<double> *sum_of_L2_errors);
+
+    /**
+     *
+     * Gets electric field from the relevant diffusion cell.
+     *
+     */
+    template <typename RelevantCellManagerType>
+    static void get_E_from_relevant_cell(reactive_interface *in_cell);
 
     /**
      *
@@ -1059,10 +1095,10 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * @brief The boundary conditions.
+     *
      *
      */
-    std::vector<dealii::Tensor<1, dim> > E_vec, E_star_vec;
+    double *E_field, *E_star_dot_n;
 
     /**
      *

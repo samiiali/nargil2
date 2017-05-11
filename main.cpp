@@ -1,4 +1,4 @@
-#include "solved_problems/problems/diffusion/test_problem1.hpp"
+#include "solved_problems/problems/reactive_interface/problem1.hpp"
 
 //
 //
@@ -12,6 +12,6 @@
 int main(int argc, char **argv)
 {
   //
-  TestProblem1<2>::run(argc, argv);
+  RI_Problem1<2>::run(argc, argv);
   //
 }

@@ -64,6 +64,35 @@ const BasisType *nargil::reactive_interface<dim, spacedim>::get_basis() const
 
 //
 //
+
+template <int dim, int spacedim>
+template <typename OtherCellEq>
+void nargil::reactive_interface<dim, spacedim>::connect_to_other_cell(
+  OtherCellEq *)
+{
+  assert(false);
+}
+
+//
+//
+
+/**
+ *
+ * This is specialized template of the above class. In C++ there is little
+ * chance to specialize a function template without specializing the class
+ * template.
+ *
+ */
+template <>
+template <>
+void nargil::reactive_interface<2, 2>::connect_to_other_cell(
+  diffusion<2, 2> *in_relevant_cell)
+{
+  my_relevant_diff_cell = in_relevant_cell;
+}
+
+//
+//
 //
 //
 //
@@ -766,7 +795,8 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
     {
       double u_j1 = (*my_basis->local_fe_val_in_cell)[scalar].value(j1, i_quad);
-      E_at_quad += u_j1 * E_vec[j1];
+      for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+        E_at_quad[i_dim] += u_j1 * E_field[i_dim * n_scalar_unkns + j1];
       f_n_val_at_quad += u_j1 * f_n_vec[j1];
       f_p_val_at_quad += u_j1 * f_p_vec[j1];
       f_r_val_at_quad += u_j1 * f_r_vec[j1];
@@ -818,11 +848,12 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       //
       // We obtain gN.n and E*.n at face quad point.
       //
-      dealii::Tensor<1, dim> E_star_at_face_quad;
       dealii::Tensor<1, dim> gN_n_at_face_quad;
       dealii::Tensor<1, dim> gN_p_at_face_quad;
       dealii::Tensor<1, dim> gN_r_at_face_quad;
       dealii::Tensor<1, dim> gN_o_at_face_quad;
+      double E_star_dot_n_at_face_quad = 0.;
+      //
       for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns; ++j_face_unkn)
       {
         double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
@@ -830,15 +861,14 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         gN_p_at_face_quad += gN_rho_p[j_face_unkn] * lambda_j1;
         gN_r_at_face_quad += gN_rho_r[j_face_unkn] * lambda_j1;
         gN_o_at_face_quad += gN_rho_o[j_face_unkn] * lambda_j1;
-        E_star_at_face_quad += E_star_vec[j_face_unkn] * lambda_j1;
+        E_star_dot_n_at_face_quad += E_star_dot_n[j_face_unkn] * lambda_j1;
       }
       double gN_n_dot_n_at_face_quad = gN_n_at_face_quad * n_vec;
       double gN_p_dot_n_at_face_quad = gN_p_at_face_quad * n_vec;
       double gN_r_dot_n_at_face_quad = gN_r_at_face_quad * n_vec;
       double gN_o_dot_n_at_face_quad = gN_o_at_face_quad * n_vec;
-      double E_star_dot_n_at_face_quad = E_star_at_face_quad * n_vec;
       //
-      // Then tau is obtained according to E*.
+      // *** Then tau may be obtained according to E*.
       //
       const double tau_at_quad =
         own_cell->my_data->tau(face_quad_locs[i_face_quad]);
@@ -1065,10 +1095,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     static_cast<const reactive_interface *>(this->my_cell);
   unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
   //
-  // ***** To be checked later *****
-  //
-  E_vec.resize(n_scalar_unkns);
-  //
   f_n_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   f_p_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   f_r_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
@@ -1080,7 +1106,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   {
     dealii::Point<spacedim> q_point =
       my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
-    E_vec[i_unkn] = own_cell->my_data->electric_field(q_point);
+    //
     if (this->local_equation_is_active[0])
       f_n_vec[i_unkn] = own_cell->my_data->rho_n_rhs_func(q_point);
     if (this->local_equation_is_active[1])
@@ -1090,10 +1116,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     if (this->local_equation_is_active[3])
       f_o_vec[i_unkn] = own_cell->my_data->rho_o_rhs_func(q_point);
   }
-  //
-  // ***** To be checked later *****
-  //
-  E_star_vec.resize(my_basis->n_trace_unkns_per_cell_dof());
   //
   gD_rho_n = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
   gD_rho_p = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
@@ -1113,9 +1135,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     unsigned idx1 = i_face * n_dofs_per_face;
     for (unsigned i1 = 0; i1 < n_dofs_per_face; ++i1)
     {
-      E_star_vec[idx1 + i1] =
-        own_cell->my_data->electric_field(face_supp_locs[i1]);
-      //
       dealii::Tensor<1, dim> gN_at_face_supp =
         own_cell->my_data->gN_rho_n(face_supp_locs[i1]);
       if (this->BCs[i_face] & boundary_condition::essential_rho_n)
@@ -1225,6 +1244,24 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
+template <typename RelevantCellManagerType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::get_my_E_from_relevant_cell()
+{
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  diffusion<dim, spacedim> *other_cell =
+    static_cast<diffusion<dim, spacedim> *>(own_cell->my_relevant_diff_cell);
+  RelevantCellManagerType *other_manager =
+    other_cell->template get_manager<RelevantCellManagerType>();
+  other_manager->set_flux_vector(&E_field, &E_star_dot_n);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::assign_BCs(reactive_interface *in_cell, BC_Func func)
 {
@@ -1322,6 +1359,20 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
   own_manager->compute_my_errors(sum_of_L2_errors);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+template <typename RelevantCellManagerType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::get_E_from_relevant_cell(reactive_interface *in_cell)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->template get_my_E_from_relevant_cell<RelevantCellManagerType>();
 }
 
 //

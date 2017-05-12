@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/grid/tria.h>
@@ -250,6 +251,13 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    */
   template <typename T, typename... Pack>
   void remove_from_memory(T arg0, Pack... args);
+
+  /**
+   *
+   * This variadic function, removes all of its argument from memory.
+   *
+   */
+  template <typename... Pack> void free_up_memory(Pack... args);
 
   /**
    *

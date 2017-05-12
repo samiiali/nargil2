@@ -425,11 +425,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   //
   // Now, we clean memory from the above matrices.
   //
-  this->remove_from_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
-  //
-  // ***
-  //
-  std::cout << A.size() << std::endl;
+  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //
@@ -461,6 +457,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   Eigen::LDLT<Eigen::MatrixXd> ldlt_of_H0(H0);
   q_star_dot_n_vec = ldlt_of_H0.solve(C.transpose() * q_vec +
                                       E.transpose() * u_vec - H * uhat_vec);
+  //
+  // Now we free the memory.
+  //
+  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //

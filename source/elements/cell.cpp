@@ -246,8 +246,23 @@ template <typename T, typename... Pack>
 void nargil::hybridized_cell_manager<dim, spacedim>::remove_from_memory(
   T arg0, Pack... other_args)
 {
-  nargil::reck_it_Ralph(arg0);
+  reck_it_Ralph(arg0);
   remove_from_memory(other_args...);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename... PackType>
+void nargil::hybridized_cell_manager<dim, spacedim>::free_up_memory(
+  PackType... pack_args)
+{
+  //
+  // Read more on this syntax by searching for variadic-template-pack-expansion.
+  //
+  int dummy[] = {(reck_it_Ralph(std::forward<PackType>(pack_args)))...};
+  (void)dummy;
 }
 
 //

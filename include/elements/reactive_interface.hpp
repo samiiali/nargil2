@@ -88,7 +88,9 @@ struct reactive_interface : public cell<dim, spacedim>
     natural_rho_p = 1 << 5,
     natural_rho_r = 1 << 6,
     natural_rho_o = 1 << 7,
-    periodic = 1 << 8
+    semiconductor_R_I = 1 << 8,
+    electrolyte_R_I = 1 << 9,
+    periodic = 1 << 10
   };
 
   /**
@@ -169,6 +171,30 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     virtual dealii::Tensor<1, dim>
     gN_rho_o(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Right hand side of interface condition for \f$\rho_n\f$.
+     */
+    virtual dealii::Tensor<1, dim>
+    rhs_of_semiconductor_RI_n(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief Right hand side of interface condition for \f$\rho_p\f$.
+     */
+    virtual dealii::Tensor<1, dim>
+    rhs_of_semiconductor_RI_p(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief Right hand side of interface condition for \f$\rho_r\f$.
+     */
+    virtual dealii::Tensor<1, dim>
+    rhs_of_electrolyte_RI_r(const dealii::Point<spacedim> &p) = 0;
+
+    /**
+     * @brief Right hand side of interface condition for \f$\rho_o\f$.
+     */
+    virtual dealii::Tensor<1, dim>
+    rhs_of_electrolyte_RI_o(const dealii::Point<spacedim> &p) = 0;
 
     /**
      *
@@ -1084,6 +1110,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     Eigen::VectorXd q_n_vec, q_p_vec, q_r_vec, q_o_vec;
+
+    /**
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    std::vector<double> R_I_rhs_n, R_I_rhs_p, R_I_rhs_r, R_I_rhs_o;
     ///@}
 
     /** @{

@@ -324,6 +324,63 @@ struct react_int_problem1_data
   }
 
   /**
+   * @brief Right hand side of interface condition for \f$\rho_n\f$.
+   */
+  virtual dealii::Tensor<1, dim>
+  rhs_of_semiconductor_RI_n(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-cos(x1) + sin(x1) +
+         exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)),
+       -(exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)))});
+    return result;
+  }
+
+  /**
+   * Right hand side of interface condition for \f$\rho_p\f$.
+   */
+  virtual dealii::Tensor<1, dim>
+  rhs_of_semiconductor_RI_p(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {2 * (-(exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2)) + sin(x1 - y1)),
+       2 * exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2) - 2 * sin(x1 - y1)});
+    return result;
+  }
+
+  /**
+   * Right hand side of interface condition for \f$\rho_r\f$.
+   */
+  virtual dealii::Tensor<1, dim>
+  rhs_of_electrolyte_RI_r(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {-3 * cos(x1 + y1) +
+         (3 * exp(sin(x1 - y1)) * (sin(2 * x1) + sin(2 * y1))) / 2.,
+       -3 * (cos(x1 + y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * sin(x1 + y1))});
+    return result;
+  }
+  /**
+   * Right hand side of interface condition for \f$\rho_o\f$.
+   */
+  virtual dealii::Tensor<1, dim>
+  rhs_of_electrolyte_RI_o(const dealii::Point<spacedim> &p) final
+  {
+    double x1 = p[0];
+    double y1 = p[1];
+    dealii::Tensor<1, dim> result(
+      {4 * (sin(x1) - exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1))),
+       4 * (cos(y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1)))});
+    return result;
+  }
+
+  /**
    *
    */
   virtual double lambda_inv2_S(
@@ -632,8 +689,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //
         // Applying BC on rho_n and rho_p
         //
-        if (std::abs(face_center[0]) < 1E-4 ||
-            std::abs(face_center[0] + M_PI) < 1E-4)
+        if (std::abs(face_center[0] + M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -642,6 +698,15 @@ template <int dim, int spacedim = dim> struct RI_Problem1
               R_I_Eq::boundary_condition::essential_rho_p);
           in_manager->dof_status_on_faces[i_face][0] = 0;
           in_manager->dof_status_on_faces[i_face][1] = 0;
+        }
+        if (std::abs(face_center[0]) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename R_I_Eq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              R_I_Eq::boundary_condition::semiconductor_R_I);
+          in_manager->dof_status_on_faces[i_face][0] = 1;
+          in_manager->dof_status_on_faces[i_face][1] = 1;
         }
         if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
             std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
@@ -663,8 +728,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //
         // Applying BC on rho_r and rho_o
         //
-        if (std::abs(face_center[0]) < 1E-4 ||
-            std::abs(face_center[0] - M_PI) < 1E-4)
+        if (std::abs(face_center[0] - M_PI) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -673,6 +737,15 @@ template <int dim, int spacedim = dim> struct RI_Problem1
               R_I_Eq::boundary_condition::essential_rho_o);
           in_manager->dof_status_on_faces[i_face][2] = 0;
           in_manager->dof_status_on_faces[i_face][3] = 0;
+        }
+        if (std::abs(face_center[0]) < 1E-4)
+        {
+          in_manager->BCs[i_face] =
+            static_cast<typename R_I_Eq::boundary_condition>(
+              in_manager->BCs[i_face] |
+              R_I_Eq::boundary_condition::electrolyte_R_I);
+          in_manager->dof_status_on_faces[i_face][2] = 1;
+          in_manager->dof_status_on_faces[i_face][3] = 1;
         }
         if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
             std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
@@ -795,8 +868,9 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //
         if (comm_rank == 0)
         {
-          char accuracy_output[200];
-          snprintf(accuracy_output, 400,
+          constexpr unsigned str_size = 200;
+          char accuracy_output[str_size];
+          snprintf(accuracy_output, str_size,
                    "The errors are: \n"
                    "diffusion u error: \033[3;33m %10.4E \033[0m\n"
                    "diffusion q error: \033[3;33m  %10.4E \033[0m\n",

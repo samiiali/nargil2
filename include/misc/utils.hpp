@@ -61,7 +61,7 @@ void Tokenize(const std::string &str_in,
  * @brief Wipes the object out of memory.
  *
  */
-template <typename T> void reck_it_Ralph(T *obj) { T().swap(*obj); }
+template <typename T> int reck_it_Ralph(T *obj);
 
 /**
  *

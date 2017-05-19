@@ -324,10 +324,30 @@ struct react_int_problem1_data
   }
 
   /**
+   * @brief Initial values for \f$\rho_n\f$
+   */
+  virtual double rho_n_0(const dealii::Point<spacedim> &p) final { return 1; }
+
+  /**
+   * @brief Initial values for \f$\rho_p\f$
+   */
+  virtual double rho_p_0(const dealii::Point<spacedim> &p) final { return 1; }
+
+  /**
+   * @brief Initial values for \f$\rho_r\f$
+   */
+  virtual double rho_r_0(const dealii::Point<spacedim> &p) final { return 1; }
+
+  /**
+   * @brief Initial values for \f$\rho_o\f$
+   */
+  virtual double rho_o_0(const dealii::Point<spacedim> &p) final { return 1; }
+
+  /**
    * @brief Right hand side of interface condition for \f$\rho_n\f$.
    */
   virtual dealii::Tensor<1, dim>
-  rhs_of_semiconductor_RI_n(const dealii::Point<spacedim> &p) final
+  Q_n(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -342,7 +362,7 @@ struct react_int_problem1_data
    * Right hand side of interface condition for \f$\rho_p\f$.
    */
   virtual dealii::Tensor<1, dim>
-  rhs_of_semiconductor_RI_p(const dealii::Point<spacedim> &p) final
+  Q_p(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -356,7 +376,7 @@ struct react_int_problem1_data
    * Right hand side of interface condition for \f$\rho_r\f$.
    */
   virtual dealii::Tensor<1, dim>
-  rhs_of_electrolyte_RI_r(const dealii::Point<spacedim> &p) final
+  Q_r(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -370,7 +390,7 @@ struct react_int_problem1_data
    * Right hand side of interface condition for \f$\rho_o\f$.
    */
   virtual dealii::Tensor<1, dim>
-  rhs_of_electrolyte_RI_o(const dealii::Point<spacedim> &p) final
+  Q_o(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -771,6 +791,9 @@ template <int dim, int spacedim = dim> struct RI_Problem1
 
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
+    //
+    // PETSc scope.
+    //
     {
       const MPI_Comm &comm = PETSC_COMM_WORLD;
       int comm_rank, comm_size;
@@ -790,6 +813,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
       R_I_BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
+      //
+      //
+      // Mesh refinement cycle.
+      //
       //
       for (unsigned i_cycle = 0; i_cycle < 1; ++i_cycle)
       {
@@ -884,7 +911,6 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         //
         //
 
-        //
         R_I_Model model1(mesh1);
         //
         model1.init_model_elements(&basis1);
@@ -908,31 +934,69 @@ template <int dim, int spacedim = dim> struct RI_Problem1
                                             &data1);
         model_manager1.apply_on_owned_cells(
           &model1, R_I_ManagerType::set_source_and_BCs);
+        model_manager1.apply_on_owned_cells(&model1,
+                                            R_I_ManagerType::set_init_vals);
         //
         int solver_keys1 = nargil::solvers::solver_props::default_option;
         int update_keys1 = nargil::solvers::solver_update_opts::update_mat |
                            nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
-                                                          dof_counter1, comm);
-        model_manager1.apply_on_owned_cells(
-          &model1, R_I_ManagerType::assemble_globals, &solver1);
+        // This is Newton-Raphson iteration loop
         //
-        Vec sol_vec1;
-        solver1.finish_assemble(update_keys1);
-        solver1.form_factors();
-        solver1.solve_system(&sol_vec1);
+        double NR_delta;
+        do
+        {
+          nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
+                                                            dof_counter1, comm);
+          model_manager1.apply_on_owned_cells(
+            &model1, R_I_ManagerType::assemble_globals, &solver1);
+          //
+          Vec sol_vec1;
+          solver1.finish_assemble(update_keys1);
+          solver1.form_factors();
+          solver1.solve_system(&sol_vec1);
+          //
+          std::vector<double> local_sol_vec1(
+            solver1.get_local_part_of_global_vec(&sol_vec1));
+          model_manager1.apply_on_owned_cells(
+            &model1, R_I_ManagerType::extract_NR_increment,
+            local_sol_vec1.data());
+          model_manager1.apply_on_owned_cells(
+            &model1, R_I_ManagerType::compute_NR_increments);
+          //
+          // Now, we check if the NR scheme is converged.
+          //
+          std::vector<double> sum_of_NR_delta(4, 0);
+          model_manager1.apply_on_owned_cells(
+            &model1, R_I_ManagerType::compute_NR_deltas, &sum_of_NR_delta);
+          //
+          std::vector<double> global_NR_delta(4, 0);
+          for (unsigned i1 = 0; i1 < 4; ++i1)
+            MPI_Reduce(&sum_of_NR_delta[i1], &global_NR_delta[i1], 1,
+                       MPI_DOUBLE, MPI_SUM, 0, comm);
+          //
+          NR_delta = std::accumulate(global_NR_delta.begin(),
+                                     global_NR_delta.end(), 0.0);
+          NR_delta = sqrt(NR_delta);
+          //
+          if (comm_rank == 0)
+          {
+            char accuracy_output[400];
+            snprintf(accuracy_output, 400,
+                     "The L2 norm of Newton-Raphson increment is: "
+                     "\033[3;33m %10.4E \033[0m",
+                     NR_delta);
+            std::cout << accuracy_output << std::endl;
+          }
+        } while (NR_delta > 1.e-8);
         //
-        std::vector<double> local_sol_vec1(
-          solver1.get_local_part_of_global_vec(&sol_vec1));
-        model_manager1.apply_on_owned_cells(
-          &model1, R_I_ManagerType::compute_local_unkns, local_sol_vec1.data());
+        //
         //
         nargil::distributed_vector<dim> dist_sol_vec(
           model_manager1.viz_dof_handler, PETSC_COMM_WORLD);
         //        nargil::distributed_vector<dim> dist_refn_vec(
         //          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
-        //        //
+        //
         model_manager1.apply_on_owned_cells(
           &model1, R_I_ManagerType::fill_viz_vector, &dist_sol_vec);
 
@@ -948,6 +1012,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         // Now we visualize the results
         //
         // std::string cycle_string = std::to_string(i_cycle);
+        //
         std::vector<std::string> var_names({"rho_n", "rho_n_flow", "rho_p",
                                             "rho_p_flow", "rho_r", "rho_r_flow",
                                             "rho_o", "rho_o_flow"});
@@ -990,15 +1055,18 @@ template <int dim, int spacedim = dim> struct RI_Problem1
                    sqrt(global_errors[6]), sqrt(global_errors[7]));
           std::cout << accuracy_output << std::endl;
         }
-
         //        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
         //                          global_refn_vec);
       }
       //
       //
+      // Mesh refinement cycle.
+      //
+      //
     }
     //
-
+    // PETSc scope.
+    //
     PetscFinalize();
   }
 };

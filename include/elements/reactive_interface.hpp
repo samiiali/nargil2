@@ -173,28 +173,44 @@ struct reactive_interface : public cell<dim, spacedim>
     gN_rho_o(const dealii::Point<spacedim> &) = 0;
 
     /**
+     * @brief Initial values for \f$\rho_n\f$
+     */
+    virtual double rho_n_0(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Initial value for \f$\rho_p\f$
+     */
+    virtual double rho_p_0(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Initial value for \f$\rho_r\f$
+     */
+    virtual double rho_r_0(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief Initial value for \f$\rho_o\f$
+     */
+    virtual double rho_o_0(const dealii::Point<spacedim> &) = 0;
+
+    /**
      * @brief Right hand side of interface condition for \f$\rho_n\f$.
      */
-    virtual dealii::Tensor<1, dim>
-    rhs_of_semiconductor_RI_n(const dealii::Point<spacedim> &p) = 0;
+    virtual dealii::Tensor<1, dim> Q_n(const dealii::Point<spacedim> &p) = 0;
 
     /**
      * @brief Right hand side of interface condition for \f$\rho_p\f$.
      */
-    virtual dealii::Tensor<1, dim>
-    rhs_of_semiconductor_RI_p(const dealii::Point<spacedim> &p) = 0;
+    virtual dealii::Tensor<1, dim> Q_p(const dealii::Point<spacedim> &p) = 0;
 
     /**
      * @brief Right hand side of interface condition for \f$\rho_r\f$.
      */
-    virtual dealii::Tensor<1, dim>
-    rhs_of_electrolyte_RI_r(const dealii::Point<spacedim> &p) = 0;
+    virtual dealii::Tensor<1, dim> Q_r(const dealii::Point<spacedim> &p) = 0;
 
     /**
      * @brief Right hand side of interface condition for \f$\rho_o\f$.
      */
-    virtual dealii::Tensor<1, dim>
-    rhs_of_electrolyte_RI_o(const dealii::Point<spacedim> &p) = 0;
+    virtual dealii::Tensor<1, dim> Q_o(const dealii::Point<spacedim> &p) = 0;
 
     /**
      *
@@ -806,6 +822,53 @@ struct reactive_interface : public cell<dim, spacedim>
    * \text{ V}/\text{cm}^2\f$, \f$\mu_p = 480 \text{ V}/\text{cm}^2\f$,
    * \f$\alpha_n = -1\f$, and \f$\alpha_p = 1\f$.
    *
+   * Since, we will later solve the above equation with nonlinear source term
+   * \f$(l_n)\f$, we want to also solve this equation using the Newton-Raphson
+   * iterations. For this purpose, we recall that the equation \f$f(x)=0\f$,
+   * can be solved by Newton-Raphson method, by: \f$f'(x) \delta x + f(x) =
+   * 0\f$. This results in:
+   * \f[
+   * \begin{gathered}
+   *   \mu_n^{-1} A_1 \delta \mathbf q_{nh} - B_1 \delta \rho_{nh}
+   *   + C_1 \delta \hat \rho_{nh} +
+   *   \mu_n^{-1} A_1 \mathbf q_{nh} - B_1 \rho_{nh} + C_1 \hat \rho_{nh} = 0,
+   *   \\
+   *   B_1^T \delta \mathbf q_{nh} + D_1 \delta \rho_{nh} - c_n D_2 \delta
+   *   \rho_{nh} - E_1 \delta \hat \rho_{nh} + c_n E_2 \delta \hat \rho_{nh} +
+   *   B_1^T \mathbf q_{nh} + D_1 \rho_{nh} - c_n D_2 \rho_{nh} -
+   *   E_1 \hat \rho_{nh} + c_n E_2 \hat \rho_{nh} - F_n = 0,
+   *   \\
+   *   C_1^T \delta \mathbf q_{nh} + E_1^T \delta \rho_{nh} -
+   *   H_1 \delta \hat \rho_{nh} + c_n H_2 \delta \hat \rho_{nh} +
+   *   C_1^T \mathbf q_{nh} + E_1^T \rho_{nh} - H_1 \hat \rho_{nh}
+   *   + c_n H_2 \hat \rho_{nh} - L_n = 0.
+   * \end{gathered}
+   * \f]
+   *
+   * Now, regarding the Dirichlet BC, we can follow two strategies here.
+   * The first one is assuming \f$\hat \rho_n = g_D\f$ at Dirichlet boundary
+   * and taking \f$\delta \hat \rho_n = 0\f$. This way, the first equation
+   * becomes:
+   * \f[
+   *   \mu_n^{-1} A_1 \delta \mathbf q_{nh} - B_1 \delta \rho_{nh}
+   *   + C_1 \delta \hat \rho_{nh} = -\bar R_n,
+   *   \quad \text { with } \quad
+   *   \bar R_n =
+   *   \mu_n^{-1} A_1 \mathbf q_{nh} - B_1 \rho_{nh} + C_1 g_{Dn}.
+   * \f]
+   * The second strategy is not to take \f$\hat \rho_n = g_D\f$, and instead
+   * set \f$\delta \hat \rho_n = g_{Dn} - \hat \rho_n\f$. Then, again, we get
+   * the same equation as above. Although, both of these approaches result in
+   * the same equation, we prefer the first approach. As a result, when we
+   * compute \f$\delta \rho\f$ from \f$\delta \hat \rho\f$, we could use:
+   \code{.cpp}
+     Rn = 1. / mu_n * A1 * q_n_vec - B1 * rho_n_vec + C1 * rho_n_hat;
+     d_rho_vec = lu_of_Mat1.solve(Fn + B1.transpose() * mu_n * A_inv * Rn +
+     (E1 - c_n * E2) * (gD_rho_n - rho_n_hat));
+   \endcode
+   * But, since `gD_rho_n` is equal to `rho_n_hat`, we remove
+   * `(E1 - c_n * E2) * (gD_rho_n - rho_n_hat)` in the code.
+   *
    * On the other hand in the electrolyte region, similar equations hold
    * for the densities of reductants \f$(\rho_r)\f$ and oxidants
    * \f$(\rho_o)\f$, i.e.:
@@ -827,16 +890,23 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    *   \begin{gather}
    *     {\mathbf n}_{\Sigma,S} \cdot \mu_n\left(-\alpha_n \rho_n \nabla \Phi
-   *       -\nabla \rho_n \right) = I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *       -\nabla \rho_n \right) = Q_n, \\
    *     {\mathbf n}_{\Sigma,S} \cdot \mu_p\left(-\alpha_p \rho_p \nabla \Phi
-   *       -\nabla \rho_p \right) = I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r}), \\
+   *       -\nabla \rho_p \right) = Q_p, \\
    *     {\mathbf n}_{\Sigma,E} \cdot \mu_r\left(-\alpha_r \rho_r \nabla \Phi
-   *       -\nabla \rho_r \right) = I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
-   *                              - I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *       -\nabla \rho_r \right) = Q_r, \\
    *     {\mathbf n}_{\Sigma,E} \cdot \mu_o\left(-\alpha_o \rho_o \nabla \Phi
-   *       -\nabla \rho_o \right) = - I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
-   *                                + I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}).
+   *       -\nabla \rho_o \right) = Q_o.
    *   \end{gather}
+   * \f]
+   * with
+   * \f[
+   *   Q_n := I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *   Q_p := I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r}), \\
+   *   Q_r := I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
+   *          - I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *   Q_o := - I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
+   *          + I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}).
    * \f]
    *
    * ### A note on implementation (For later developers)
@@ -901,14 +971,28 @@ struct reactive_interface : public cell<dim, spacedim>
      * compute_local_unkns().
      *
      */
-    void compute_my_local_unkns(const double *trace_sol);
+    void compute_my_NR_increments();
+
+    /**
+     *
+     * This is called from apply_NR_increment().
+     *
+     */
+    void extract_my_NR_increment(const double *trace_sol);
 
     /**
      *
      * Computes the local matrices.
      *
      */
-    void compute_my_matrices();
+    void compute_linear_matrices();
+
+    /**
+     *
+     * Computes the local matrices.
+     *
+     */
+    void compute_NR_rhs();
 
     /**
      *
@@ -940,6 +1024,20 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * Called from set_init_vals().
+     *
+     */
+    void set_my_init_vals();
+
+    /**
+     *
+     * Called from compute_errors().
+     *
+     */
+    void compute_my_NR_deltas(std::vector<double> *sum_of_NR_deltas);
+
+    /**
+     *
      * Called from compute_errors().
      *
      */
@@ -947,7 +1045,32 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * This function computes the rhs of the RI for electrons.
      *
+     */
+    double get_Qn(const double in_rho_n,
+                  const double in_rho_n_e,
+                  const double in_rho_o);
+
+    /**
+     *
+     * This function computes the partial of rhs of the RI for electrons,
+     * with repsect to rho_n.
+     *
+     */
+    double get_d_Qn_d_n(const double in_rho_n);
+
+    /**
+     *
+     * This function computes the partial of rhs of the RI for electrons,
+     * with repsect to rho_o.
+     *
+     */
+    double get_d_Qn_d_o(const double in_rho_n, const double in_rho_n_e);
+
+    /**
+     *
+     * We get the electric field from the relevant diffusion element.
      *
      */
     template <typename RelevantCellManagerType>
@@ -994,11 +1117,11 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * compute_my_local_unkns
+     * This function assigns the initial values of the unknowns
+     * (\f$\rho_{n,p,r,o}\f$).
      *
      */
-    static void compute_local_unkns(reactive_interface *in_cell,
-                                    const double *trace_sol);
+    static void set_init_vals(reactive_interface *in_cell);
 
     /**
      *
@@ -1009,6 +1132,31 @@ struct reactive_interface : public cell<dim, spacedim>
     static void
     assemble_globals(reactive_interface *in_cell,
                      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     * compute_my_local_unkns
+     *
+     */
+    static void compute_NR_increments(reactive_interface *in_cell);
+
+    /**
+     *
+     * This function adds the computed Newton Raphson increment.
+     *
+     */
+    static void extract_NR_increment(reactive_interface *in_cell,
+                                     const double *trace_sol);
+
+    /**
+     *
+     * Compute the error of u and q, based on the exact_u and exact_q.
+     * As a result the function static set_exact_local_dofs should be called
+     * before calling this function.
+     *
+     */
+    static void compute_NR_deltas(reactive_interface *in_cell,
+                                  std::vector<double> *sum_of_NR_deltas);
 
     /**
      *
@@ -1098,7 +1246,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /** @{
      *
-     * @brief The exact solutions on the corresponding nodes.
+     * @brief The Newton Raphson increments.
      *
      */
     Eigen::VectorXd rho_n_vec, rho_p_vec, rho_r_vec, rho_o_vec;
@@ -1109,14 +1257,45 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
+    Eigen::VectorXd d_rho_n, d_rho_p, d_rho_r, d_rho_o;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd rho_n_hat, rho_p_hat, rho_r_hat, rho_o_hat;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd d_rho_n_hat, d_rho_p_hat, d_rho_r_hat, d_rho_o_hat;
+    ///@}
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
     Eigen::VectorXd q_n_vec, q_p_vec, q_r_vec, q_o_vec;
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd d_q_n, d_q_p, d_q_r, d_q_o;
 
     /**
      *
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    std::vector<double> R_I_rhs_n, R_I_rhs_p, R_I_rhs_r, R_I_rhs_o;
+    std::vector<double> Qn, Qp, Qr, Qo;
     ///@}
 
     /** @{
@@ -1128,7 +1307,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     *
+     * The electric fields, which are taken from diffusion equation.
      *
      */
     double *E_field, *E_star_dot_n;
@@ -1155,6 +1334,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     std::vector<int> local_interior_unkn_idx;
+
+    /**
+     *
+     * The current NR iteration.
+     *
+     */
+    unsigned iter_num;
   };
 };
 }

@@ -919,14 +919,10 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       //
       // We obtain gN.n and E*.n at face quad point.
       //
-      dealii::Tensor<1, dim> gN_n_at_face_quad;
-      dealii::Tensor<1, dim> gN_p_at_face_quad;
-      dealii::Tensor<1, dim> gN_r_at_face_quad;
-      dealii::Tensor<1, dim> gN_o_at_face_quad;
-      double Qn_at_face_quad = 0;
-      double Qp_at_face_quad = 0;
-      double Qr_at_face_quad = 0;
-      double Qo_at_face_quad = 0;
+      double gN_n_at_face_quad = 0;
+      double gN_p_at_face_quad = 0;
+      double gN_r_at_face_quad = 0;
+      double gN_o_at_face_quad = 0;
       double E_star_dot_n_at_face_quad = 0.;
       //
       for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns; ++j_face_unkn)
@@ -934,30 +930,14 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
         E_star_dot_n_at_face_quad += E_star_dot_n[j_face_unkn] * lambda_j1;
         if (this->local_equation_is_active[0])
-        {
           gN_n_at_face_quad += gN_rho_n[j_face_unkn] * lambda_j1;
-          Qn_at_face_quad += Qn[j_face_unkn] * lambda_j1;
-        }
         if (this->local_equation_is_active[1])
-        {
           gN_p_at_face_quad += gN_rho_p[j_face_unkn] * lambda_j1;
-          Qp_at_face_quad += Qp[j_face_unkn] * lambda_j1;
-        }
         if (this->local_equation_is_active[2])
-        {
           gN_r_at_face_quad += gN_rho_r[j_face_unkn] * lambda_j1;
-          Qr_at_face_quad += Qr[j_face_unkn] * lambda_j1;
-        }
         if (this->local_equation_is_active[3])
-        {
           gN_o_at_face_quad += gN_rho_o[j_face_unkn] * lambda_j1;
-          Qo_at_face_quad += Qo[j_face_unkn] * lambda_j1;
-        }
       }
-      double gN_n_dot_n_at_face_quad = gN_n_at_face_quad * n_vec;
-      double gN_p_dot_n_at_face_quad = gN_p_at_face_quad * n_vec;
-      double gN_r_dot_n_at_face_quad = gN_r_at_face_quad * n_vec;
-      double gN_o_dot_n_at_face_quad = gN_o_at_face_quad * n_vec;
       //
       // *** Then tau may be obtained according to E*.
       //
@@ -1010,25 +990,13 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
             E_star_dot_n_at_face_quad * lambda_i1 * lambda_j1 * face_JxW;
         }
         if (this->local_equation_is_active[0])
-        {
-          Ln(i_face_unkn) += lambda_i1 * face_JxW * gN_n_dot_n_at_face_quad;
-          Ln(i_face_unkn) += lambda_i1 * face_JxW * Qn_at_face_quad;
-        }
+          Ln(i_face_unkn) += lambda_i1 * face_JxW * gN_n_at_face_quad;
         if (this->local_equation_is_active[1])
-        {
-          Lp(i_face_unkn) += lambda_i1 * face_JxW * gN_p_dot_n_at_face_quad;
-          Lp(i_face_unkn) += lambda_i1 * face_JxW * Qp_at_face_quad;
-        }
+          Lp(i_face_unkn) += lambda_i1 * face_JxW * gN_p_at_face_quad;
         if (this->local_equation_is_active[2])
-        {
-          Lr(i_face_unkn) += lambda_i1 * face_JxW * gN_r_dot_n_at_face_quad;
-          Lr(i_face_unkn) += lambda_i1 * face_JxW * Qr_at_face_quad;
-        }
+          Lr(i_face_unkn) += lambda_i1 * face_JxW * gN_r_at_face_quad;
         if (this->local_equation_is_active[3])
-        {
-          Lo(i_face_unkn) += lambda_i1 * face_JxW * gN_o_dot_n_at_face_quad;
-          Lo(i_face_unkn) += lambda_i1 * face_JxW * Qo_at_face_quad;
-        }
+          Lo(i_face_unkn) += lambda_i1 * face_JxW * gN_o_at_face_quad;
       }
       // Loop 2
     }
@@ -1291,28 +1259,24 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   {
     gD_rho_n = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
     gN_rho_n.resize(my_basis->n_trace_unkns_per_cell_dof());
-    Qn.resize(my_basis->n_trace_unkns_per_cell_dof());
     f_n_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   }
   if (this->local_equation_is_active[1])
   {
     gD_rho_p = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
     gN_rho_p.resize(my_basis->n_trace_unkns_per_cell_dof());
-    Qp.resize(my_basis->n_trace_unkns_per_cell_dof());
     f_p_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   }
   if (this->local_equation_is_active[2])
   {
     gD_rho_r = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
     gN_rho_r.resize(my_basis->n_trace_unkns_per_cell_dof());
-    Qr.resize(my_basis->n_trace_unkns_per_cell_dof());
     f_r_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   }
   if (this->local_equation_is_active[3])
   {
     gD_rho_o = Eigen::VectorXd::Zero(my_basis->n_trace_unkns_per_cell_dof());
     gN_rho_o.resize(my_basis->n_trace_unkns_per_cell_dof());
-    Qo.resize(my_basis->n_trace_unkns_per_cell_dof());
     f_o_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
   }
   //
@@ -1355,12 +1319,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
             own_cell->my_data->gD_rho_n(face_supp_locs[i1]);
           gD_rho_n(idx1 + i1) = gD_at_face_supp;
         }
-        if (this->BCs[i_face] & boundary_condition::natural_rho_n)
-          gN_rho_n[idx1 + i1] = gN_at_face_supp;
-        dealii::Tensor<1, dim> R_I_rhs_at_face_supp =
-          own_cell->my_data->Q_n(face_supp_locs[i1]);
-        if (this->BCs[i_face] & boundary_condition::semiconductor_R_I)
-          Qn[idx1 + i1] = R_I_rhs_at_face_supp * n_vecs[i1];
+        if (this->BCs[i_face] & boundary_condition::natural_rho_n ||
+            this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+          gN_rho_n[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
       }
       //
       if (this->local_equation_is_active[0])
@@ -1373,12 +1334,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
             own_cell->my_data->gD_rho_p(face_supp_locs[i1]);
           gD_rho_p(idx1 + i1) = gD_at_face_supp;
         }
-        if (this->BCs[i_face] & boundary_condition::natural_rho_p)
-          gN_rho_p[idx1 + i1] = gN_at_face_supp;
-        dealii::Tensor<1, dim> R_I_rhs_at_face_supp =
-          own_cell->my_data->Q_p(face_supp_locs[i1]);
-        if (this->BCs[i_face] & boundary_condition::semiconductor_R_I)
-          Qp[idx1 + i1] = R_I_rhs_at_face_supp * n_vecs[i1];
+        if (this->BCs[i_face] & boundary_condition::natural_rho_p ||
+            this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+          gN_rho_p[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
       }
       //
       if (this->local_equation_is_active[2])
@@ -1391,12 +1349,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
             own_cell->my_data->gD_rho_r(face_supp_locs[i1]);
           gD_rho_r(idx1 + i1) = gD_at_face_supp;
         }
-        if (this->BCs[i_face] & boundary_condition::natural_rho_r)
-          gN_rho_r[idx1 + i1] = gN_at_face_supp;
-        dealii::Tensor<1, dim> R_I_rhs_at_face_supp =
-          own_cell->my_data->Q_r(face_supp_locs[i1]);
-        if (this->BCs[i_face] & boundary_condition::electrolyte_R_I)
-          Qr[idx1 + i1] = R_I_rhs_at_face_supp * n_vecs[i1];
+        if (this->BCs[i_face] & boundary_condition::natural_rho_r ||
+            this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+          gN_rho_r[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
       }
       //
       if (this->local_equation_is_active[3])
@@ -1409,12 +1364,9 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
             own_cell->my_data->gD_rho_o(face_supp_locs[i1]);
           gD_rho_o(idx1 + i1) = gD_at_face_supp;
         }
-        if (this->BCs[i_face] & boundary_condition::natural_rho_o)
-          gN_rho_o[idx1 + i1] = gN_at_face_supp;
-        dealii::Tensor<1, dim> R_I_rhs_at_face_supp =
-          own_cell->my_data->Q_o(face_supp_locs[i1]);
-        if (this->BCs[i_face] & boundary_condition::electrolyte_R_I)
-          Qo[idx1 + i1] = R_I_rhs_at_face_supp * n_vecs[i1];
+        if (this->BCs[i_face] & boundary_condition::natural_rho_o ||
+            this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+          gN_rho_o[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
       }
     }
   }
@@ -1582,8 +1534,8 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 //
 //
 
-double
-get_Qn(const double in_rho_n, const double in_rho_n_e, const double in_rho_o)
+double get_Qn(const double in_rho_n, const double in_rho_n_e,
+              const double in_rho_o)
 {
   return (in_rho_n - in_rho_n_e) * in_rho_o;
 }

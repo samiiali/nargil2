@@ -213,13 +213,13 @@ struct reactive_interface : public cell<dim, spacedim>
     virtual dealii::Tensor<1, dim> Q_o(const dealii::Point<spacedim> &p) = 0;
 
     /**
-     *
+     * @brief The function \f$\lambda^{-2}_S\f$ at each point.
      */
     virtual double lambda_inv2_S(
       const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
 
     /**
-     *
+     * @brief The function \f$\lambda^{-2}_E\f$ at each point.
      */
     virtual double lambda_inv2_E(
       const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
@@ -816,7 +816,7 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \partial_t \rho_p - \nabla \cdot \mu_p
    *   \left(
    *     \alpha_p \rho_p \nabla \phi + \nabla \rho_p
-   *   \right) = L_p.
+   *   \right) = f_p.
    * \f]
    * According to the article we mentioned above, \f$\mu_n = 1350
    * \text{ V}/\text{cm}^2\f$, \f$\mu_p = 480 \text{ V}/\text{cm}^2\f$,
@@ -877,11 +877,11 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \partial_t \rho_r - \nabla \cdot \mu_r
    *   \left(
    *     \alpha_r \rho_r \nabla \phi + \nabla \rho_r
-   *   \right) = L_r, \\
+   *   \right) = f_r, \\
    *   \partial_t \rho_o - \nabla \cdot \mu_o
    *   \left(
    *     \alpha_o \rho_o \nabla \phi + \nabla \rho_o
-   *   \right) = L_o.
+   *   \right) = f_o.
    *   \end{gathered}
    * \f]
    * Despite the quite simple structure of the governing equations that
@@ -890,23 +890,123 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f[
    *   \begin{gather}
    *     {\mathbf n}_{\Sigma,S} \cdot \mu_n\left(-\alpha_n \rho_n \nabla \Phi
-   *       -\nabla \rho_n \right) = Q_n, \\
+   *       -\nabla \rho_n \right) = Q_1, \\
    *     {\mathbf n}_{\Sigma,S} \cdot \mu_p\left(-\alpha_p \rho_p \nabla \Phi
-   *       -\nabla \rho_p \right) = Q_p, \\
+   *       -\nabla \rho_p \right) = Q_2, \\
    *     {\mathbf n}_{\Sigma,E} \cdot \mu_r\left(-\alpha_r \rho_r \nabla \Phi
-   *       -\nabla \rho_r \right) = Q_r, \\
+   *       -\nabla \rho_r \right) = -Q_1 + Q_2, \\
    *     {\mathbf n}_{\Sigma,E} \cdot \mu_o\left(-\alpha_o \rho_o \nabla \Phi
-   *       -\nabla \rho_o \right) = Q_o.
+   *       -\nabla \rho_o \right) = Q_1 - Q_2.
    *   \end{gather}
    * \f]
    * with
    * \f[
-   *   Q_n := I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
-   *   Q_p := I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r}), \\
-   *   Q_r := I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
-   *          - I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
-   *   Q_o := - I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r})
-   *          + I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}).
+   *   Q_1 := I_{et}(\rho_{n}-\rho_{n}^{e},\rho_{o}), \\
+   *   Q_2 := I_{ht}(\rho_{p}-\rho_{p}^{e},\rho_{r}), \\
+   * \f]
+   * In the code, we use \f$l_n\f$ to denote the right hand side of flux
+   * conservation on Neumann BC and reactive interface. Although the rhs of
+   * the Neumann BC is zero in our problem, we keep \f$l_n\f$ to be able
+   * to compute convergence properties for manutactured solution.
+   *
+   * We are using Newton iterations on the interface conditions above. This
+   * condition can be written as:
+   * \f[
+   * \sum
+   * c_1^T(\delta \mathbf q_n,\mu)
+   * + e_1^T(\delta \rho_n, \mu)
+   * - h_1(\delta \hat \rho_n, \mu)
+   * + c_n h_2(\delta \hat \rho_n, \mu)
+   * - h_{11}(\delta \hat \rho_n, \mu)
+   * - h_{14}(\delta \hat \rho_o, \mu)
+   * - \bar l_n(\mu) = 0, \tag{RI-1}
+   * \f]
+   * where,
+   * \f[
+   * \bar l_n(\mu) := l_n(\mu) + Q_1(\mu)
+   *               - c_1^T(\mathbf q_n,\mu)
+   *               - e_1^T(\rho_n, \mu)
+   *               + h_1(\hat \rho_n,\mu)
+   *               - c_n h_2(\hat \rho_n, \mu), \\
+   * h_{11} (\delta \hat \rho_n, \mu) :=
+   * \left\langle
+   *   \frac{\partial Q_1}{\partial \hat \rho_n} \delta \hat \rho_n, \mu
+   * \right\rangle , \quad
+   * h_{14} (\delta \hat \rho_o, \mu) :=
+   * \left\langle
+   *   \frac{\partial Q_1}{\partial \hat \rho_o} \delta \hat \rho_o, \mu
+   * \right\rangle
+   * \f]
+   * Next, we also write the reactive interface equation (RI-1) in the matrix
+   * form:
+   * \f[
+   *   C_1^T \delta \mathbf q_n + E_1^T \delta \rho_n
+   *   - (H_1 - c_n H_2 + H_{11}) \delta \hat \rho_n
+   *   - H_{14} \hat \rho_o
+   *   - \bar l_n(\mu) = 0.
+   * \f]
+   *
+   * The corresponding equation for \f$\rho_p\f$ is:
+   * \f[
+   * \sum
+   * c_1^T(\delta \mathbf q_p,\mu)
+   * + e_1^T(\delta \rho_p, \mu)
+   * - h_1(\delta \hat \rho_p, \mu)
+   * + c_p h_2(\delta \hat \rho_p, \mu)
+   * - h_{22}(\delta \hat \rho_p, \mu)
+   * - h_{23}(\delta \hat \rho_r, \mu)
+   * - \bar l_p(\mu) = 0, \tag{RI-2},
+   * \f]
+   * with
+   * \f[
+   * \bar l_p(\mu) := l_p(\mu) + Q_2(\mu)
+   *               - c_1^T(\mathbf q_p,\mu)
+   *               - e_1^T(\rho_p, \mu)
+   *               + h_1(\hat \rho_p,\mu)
+   *               - c_p h_2(\hat \rho_p, \mu), \\
+   * h_{22} (\delta \hat \rho_p, \mu) :=
+   * \left\langle
+   *   \frac{\partial Q_2}{\partial \hat \rho_p} \delta \hat \rho_p, \mu
+   * \right\rangle , \quad
+   * h_{23} (\delta \hat \rho_r, \mu) :=
+   * \left\langle
+   *   \frac{\partial Q_2}{\partial \hat \rho_r} \delta \hat \rho_r, \mu
+   * \right\rangle.
+   * \f]
+   * The matrix form of (RI-2) is:
+   * \f[
+   *   C_1^T \delta \mathbf q_p + E_1^T \delta \rho_p
+   *   - (H_1 - c_p H_2 + H_{22}) \delta \hat \rho_p
+   *   - H_{23} \hat \rho_r
+   *   - \bar l_p(\mu) = 0.
+   * \f]
+   * We have similar equations for \f$\rho_r, \rho_o\f$:
+   * \f[
+   *   C_1^T \delta \mathbf q_r + E_1^T \delta \rho_r
+   *   - (H_1 - c_r H_2 + H_{23}) \delta \hat \rho_r
+   *   + H_{11} \delta \hat \rho_n
+   *   - H_{22} \delta \hat \rho_p
+   *   + H_{14} \delta \hat \rho_o
+   *   - \bar l_r(\mu) = 0, \\
+   *   C_1^T \delta \mathbf q_o + E_1^T \delta \rho_o
+   *   - (H_1 - c_o H_2 + H_{14}) \delta \hat \rho_o
+   *   - H_{11} \delta \hat \rho_n
+   *   + H_{22} \delta \hat \rho_p
+   *   + H_{23} \delta \hat \rho_r
+   *   - \bar l_o(\mu) = 0.
+   * \f]
+   * with
+   * \f[
+   * \bar l_r(\mu) := l_r(\mu) -Q_1(\mu) + Q_2(\mu)
+   *               - c_1^T(\mathbf q_r,\mu)
+   *               - e_1^T(\rho_r, \mu)
+   *               + h_1(\hat \rho_r,\mu)
+   *               - c_r h_2(\hat \rho_r, \mu), \\
+   * \bar l_o(\mu) := l_o(\mu) +Q_1(\mu) - Q_2(\mu)
+   *               - c_1^T(\mathbf q_o,\mu)
+   *               - e_1^T(\rho_o, \mu)
+   *               + h_1(\hat \rho_o,\mu)
+   *               - c_o h_2(\hat \rho_o, \mu).
    * \f]
    *
    * ### A note on implementation (For later developers)
@@ -1295,7 +1395,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    std::vector<double> Qn, Qp, Qr, Qo;
+    //    std::vector<double> Qn, Qp, Qr, Qo;
     ///@}
 
     /** @{
@@ -1324,7 +1424,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The std vector of gN's.
      *
      */
-    std::vector<dealii::Tensor<1, dim> > gN_rho_n, gN_rho_p, gN_rho_r, gN_rho_o;
+    std::vector<double> gN_rho_n, gN_rho_p, gN_rho_r, gN_rho_o;
     ///@}
 
     /**

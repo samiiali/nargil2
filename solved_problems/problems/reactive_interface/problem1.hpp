@@ -346,8 +346,7 @@ struct react_int_problem1_data
   /**
    * @brief Right hand side of interface condition for \f$\rho_n\f$.
    */
-  virtual dealii::Tensor<1, dim>
-  Q_n(const dealii::Point<spacedim> &p) final
+  virtual dealii::Tensor<1, dim> Q_n(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -361,8 +360,7 @@ struct react_int_problem1_data
   /**
    * Right hand side of interface condition for \f$\rho_p\f$.
    */
-  virtual dealii::Tensor<1, dim>
-  Q_p(const dealii::Point<spacedim> &p) final
+  virtual dealii::Tensor<1, dim> Q_p(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -375,8 +373,7 @@ struct react_int_problem1_data
   /**
    * Right hand side of interface condition for \f$\rho_r\f$.
    */
-  virtual dealii::Tensor<1, dim>
-  Q_r(const dealii::Point<spacedim> &p) final
+  virtual dealii::Tensor<1, dim> Q_r(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -389,8 +386,7 @@ struct react_int_problem1_data
   /**
    * Right hand side of interface condition for \f$\rho_o\f$.
    */
-  virtual dealii::Tensor<1, dim>
-  Q_o(const dealii::Point<spacedim> &p) final
+  virtual dealii::Tensor<1, dim> Q_o(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
     double y1 = p[1];
@@ -964,21 +960,23 @@ template <int dim, int spacedim = dim> struct RI_Problem1
           model_manager1.apply_on_owned_cells(
             &model1, R_I_ManagerType::compute_NR_increments);
           //
-          // Now, we check if the NR scheme is converged.
+          // Now, we check if the NR scheme is converged. Here, we should do an
+          // MPI_Allreduce, because we need all ranks to have the sum.
           //
           std::vector<double> sum_of_NR_delta(4, 0);
           model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::compute_NR_deltas, &sum_of_NR_delta);
+            &model1, R_I_ManagerType::get_L2_norm_of_NR_deltas,
+            &sum_of_NR_delta);
           //
-          std::vector<double> global_NR_delta(4, 0);
+          std::vector<double> global_NR_delta(4, 0.);
           for (unsigned i1 = 0; i1 < 4; ++i1)
-            MPI_Reduce(&sum_of_NR_delta[i1], &global_NR_delta[i1], 1,
-                       MPI_DOUBLE, MPI_SUM, 0, comm);
+            MPI_Allreduce(&sum_of_NR_delta[i1], &global_NR_delta[i1], 1,
+                          MPI_DOUBLE, MPI_SUM, comm);
+          //
           //
           NR_delta = std::accumulate(global_NR_delta.begin(),
                                      global_NR_delta.end(), 0.0);
           NR_delta = sqrt(NR_delta);
-          //
           if (comm_rank == 0)
           {
             char accuracy_output[400];

@@ -1092,7 +1092,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * Computes the local matrices.
      *
      */
-    void compute_NR_rhs();
+    void compute_nonlinear_matrices();
 
     /**
      *
@@ -1134,7 +1134,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * Called from compute_errors().
      *
      */
-    void compute_my_NR_deltas(std::vector<double> *sum_of_NR_deltas);
+    void get_my_L2_norm_of_NR_deltas(std::vector<double> *sum_of_NR_deltas);
 
     /**
      *
@@ -1255,8 +1255,8 @@ struct reactive_interface : public cell<dim, spacedim>
      * before calling this function.
      *
      */
-    static void compute_NR_deltas(reactive_interface *in_cell,
-                                  std::vector<double> *sum_of_NR_deltas);
+    static void get_L2_norm_of_NR_deltas(reactive_interface *in_cell,
+                                         std::vector<double> *sum_of_NR_deltas);
 
     /**
      *
@@ -1311,6 +1311,19 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     boost::dynamic_bitset<> local_equation_is_active;
+
+    /**
+     *
+     * This bitset is designed to enable trace unknowns on elements that have
+     * faces with specific open dofs. For example in reactive interface problem,
+     * when we are in semiconductor side, trace_unkns_is_active contains 0 for
+     * \f$\hat \rho_r, \hat \rho_o\f$. However, for elements touching the
+     * reactive_interface, we have coupling between trace unknowns and all of
+     * the trace unknonws are open. Hence, if an unkn is open in one face, it is
+     * considered to be open on all of the faces.
+     *
+     */
+    boost::dynamic_bitset<> trace_unkns_is_active;
 
     /** @{
      *
@@ -1395,7 +1408,14 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    //    std::vector<double> Qn, Qp, Qr, Qo;
+    Eigen::VectorXd Q1, Q2;
+
+    /**
+     *
+     *
+     *
+     */
+    Eigen::MatrixXd H11, H14, H22, H23;
     ///@}
 
     /** @{

@@ -127,6 +127,25 @@ struct reactive_interface : public cell<dim, spacedim>
      * @brief rhs_func of \f$\rho_o\f$ equation.
      */
     virtual double rho_o_rhs_func(const dealii::Point<spacedim> &) = 0;
+    /**
+     * @brief rhs_func of \f$\rho_n\f$ reactive interface.
+     */
+    virtual double rhs_of_RI_n(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_n\f$ reactive interface.
+     */
+    virtual double rhs_of_RI_p(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_r\f$  reactive interface.
+     */
+    virtual double rhs_of_RI_r(const dealii::Point<spacedim> &) = 0;
+
+    /**
+     * @brief rhs_func of \f$\rho_o\f$  reactive interface.
+     */
+    virtual double rhs_of_RI_o(const dealii::Point<spacedim> &) = 0;
 
     /**
      * @brief Dirichlet BC for \f$\rho_n\f$
@@ -193,24 +212,24 @@ struct reactive_interface : public cell<dim, spacedim>
     virtual double rho_o_0(const dealii::Point<spacedim> &) = 0;
 
     /**
-     * @brief Right hand side of interface condition for \f$\rho_n\f$.
+     * @brief Initial values for \f$\rho_n\f$
      */
-    virtual dealii::Tensor<1, dim> Q_n(const dealii::Point<spacedim> &p) = 0;
+    virtual double rho_n_e() = 0;
 
     /**
-     * @brief Right hand side of interface condition for \f$\rho_p\f$.
+     * @brief Initial value for \f$\rho_p\f$
      */
-    virtual dealii::Tensor<1, dim> Q_p(const dealii::Point<spacedim> &p) = 0;
+    virtual double rho_p_e() = 0;
 
     /**
-     * @brief Right hand side of interface condition for \f$\rho_r\f$.
+     * @brief Initial value for \f$\rho_r\f$
      */
-    virtual dealii::Tensor<1, dim> Q_r(const dealii::Point<spacedim> &p) = 0;
+    virtual double rho_r_inf() = 0;
 
     /**
-     * @brief Right hand side of interface condition for \f$\rho_o\f$.
+     * @brief Initial value for \f$\rho_o\f$
      */
-    virtual dealii::Tensor<1, dim> Q_o(const dealii::Point<spacedim> &p) = 0;
+    virtual double rho_o_inf() = 0;
 
     /**
      * @brief The function \f$\lambda^{-2}_S\f$ at each point.
@@ -247,6 +266,16 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     virtual double
     mu_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
+
+    /**
+     * @brief Value of \f$k_{et}\f$
+     */
+    virtual double k_et() = 0;
+
+    /**
+     * @brief Value of \f$k_{ht}\f$.
+     */
+    virtual double k_ht() = 0;
 
     /**
      * @brief Value of \f$\mu_n\f$.
@@ -1014,6 +1043,24 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f$\rho_n, \rho_p, \rho_r, \rho_o\f$. The order of degrees of freedom in
    * counting the unknowns is: \f$\rho_n, \rho_p, \rho_r, \rho_o\f$.
    *
+   * ### A note on testing the correctness of the Jacobian matrix
+   * Since, in this element, we are dealing with a nonlinear problem, which
+   * we are trying to solve with NR iterations, it is important to test the
+   * computation of the Jacobian matrix.
+   *
+   * Assume we want to solve the equation \f$\mathbf F (\mathbf x) = 0\f$.
+   * Then the NR iterations becomes:
+   * \f$\mathbf A \delta \mathbf x = -\mathbf F(\bar {\mathbf x})\f$. Here,
+   * \f$\mathbf A = \frac {\partial \mathbf F}
+   * {\partial \mathbf x}|_{\bar {\mathbf x}}\f$. In the code, we have:
+   * \f$\bar {\mathbf L} = -\mathbf F(\mathbf x)\f$. Now, let us use
+   * \f$\mathbf x_0\f$  to obtain \f$\mathbf A_0\f$ and
+   * \f$\mathbf F_0 = -\bar {\mathbf L}_0\f$. Then, let us obtain
+   * \f$\mathbf F_1 = -\bar {\mathbf L}_1\f$ at \f$\mathbf x_0 +
+   * \delta \mathbf x\f$. Then, we should have:
+   * \f$\mathbf A_0 \delta \mathbf x = \mathbf F_1 - \mathbf F_0 =
+   * \bar {\mathbf L}_0 - \bar {\mathbf L}_1\f$.
+   *
    */
   template <typename BasisType>
   struct hdg_manager : hybridized_cell_manager<dim, spacedim>
@@ -1131,6 +1178,13 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * Called from set_trace_init_vals().
+     *
+     */
+    void set_my_trace_init_vals(const double *in_vec);
+
+    /**
+     *
      * Called from compute_errors().
      *
      */
@@ -1148,9 +1202,14 @@ struct reactive_interface : public cell<dim, spacedim>
      * This function computes the rhs of the RI for electrons.
      *
      */
-    double get_Qn(const double in_rho_n,
-                  const double in_rho_n_e,
-                  const double in_rho_o);
+    double get_Q1(const double in_rho_n, const double in_rho_o);
+
+    /**
+     *
+     * This function computes the rhs of the RI for electrons.
+     *
+     */
+    double get_Q2(const double in_rho_p, const double in_rho_r);
 
     /**
      *
@@ -1158,7 +1217,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * with repsect to rho_n.
      *
      */
-    double get_d_Qn_d_n(const double in_rho_n);
+    double get_d_Q1_d_n(const double in_rho_o);
 
     /**
      *
@@ -1166,7 +1225,23 @@ struct reactive_interface : public cell<dim, spacedim>
      * with repsect to rho_o.
      *
      */
-    double get_d_Qn_d_o(const double in_rho_n, const double in_rho_n_e);
+    double get_d_Q1_d_o(const double in_rho_n);
+
+    /**
+     *
+     * This function computes the partial of rhs of the RI for electrons,
+     * with repsect to rho_n.
+     *
+     */
+    double get_d_Q2_d_p(const double in_rho_r);
+
+    /**
+     *
+     * This function computes the partial of rhs of the RI for electrons,
+     * with repsect to rho_o.
+     *
+     */
+    double get_d_Q2_d_r(const double in_rho_p);
 
     /**
      *
@@ -1222,6 +1297,16 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     static void set_init_vals(reactive_interface *in_cell);
+
+    /**
+     *
+     * This function sets the initial values of the trace unknowns
+     * (\f$\hat \rho_{n,p,r,o}\f$). It was exclusively written to
+     * evaluate the accuracy of the NL jacobian computation.
+     *
+     */
+    static void set_trace_init_vals(reactive_interface *in_cell,
+                                    const double *in_vec);
 
     /**
      *

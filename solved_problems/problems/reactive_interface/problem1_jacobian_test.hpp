@@ -234,6 +234,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 6. * (-12. + cos(x1) + sin(x1)) * (cos(x1) - sin(y1));
@@ -247,6 +248,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 8. * (-22. + cos(x1 - y1)) * sin(x1 + y1);
@@ -260,6 +262,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 8. * (-22. + cos(x1 - y1)) * sin(x1 + y1) -
@@ -274,6 +277,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 6. * (-12. + cos(x1) + sin(x1)) * (cos(x1) - sin(y1)) -
@@ -333,7 +337,8 @@ struct react_int_problem1_data
          exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)),
        -(exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -350,7 +355,8 @@ struct react_int_problem1_data
       {2 * (-(exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2)) + sin(x1 - y1)),
        2 * exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2) - 2 * sin(x1 - y1)});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -368,7 +374,8 @@ struct react_int_problem1_data
          (3 * exp(sin(x1 - y1)) * (sin(2 * x1) + sin(2 * y1))) / 2.,
        -3 * (cos(x1 + y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * sin(x1 + y1))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -385,7 +392,8 @@ struct react_int_problem1_data
       {4 * (sin(x1) - exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1))),
        4 * (cos(y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1)))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -393,22 +401,22 @@ struct react_int_problem1_data
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_0(const dealii::Point<spacedim> &p) final { return 1; }
+  virtual double rho_n_0(const dealii::Point<spacedim> &) final { return 1; }
 
   /**
    * @brief Initial values for \f$\rho_p\f$
    */
-  virtual double rho_p_0(const dealii::Point<spacedim> &p) final { return 1; }
+  virtual double rho_p_0(const dealii::Point<spacedim> &) final { return 1; }
 
   /**
    * @brief Initial values for \f$\rho_r\f$
    */
-  virtual double rho_r_0(const dealii::Point<spacedim> &p) final { return 1; }
+  virtual double rho_r_0(const dealii::Point<spacedim> &) final { return 1; }
 
   /**
    * @brief Initial values for \f$\rho_o\f$
    */
-  virtual double rho_o_0(const dealii::Point<spacedim> &p) final { return 1; }
+  virtual double rho_o_0(const dealii::Point<spacedim> &) final { return 1; }
 
   /**
    * @brief Initial values for \f$\rho_n\f$
@@ -633,7 +641,7 @@ struct react_int_problem1_data
 /**
  * Just a sample problem
  */
-template <int dim, int spacedim = dim> struct RI_Problem1
+template <int dim, int spacedim = dim> struct RI_Problem1_3
 {
   typedef nargil::reactive_interface<dim> R_I_Eq;
   typedef nargil::model<R_I_Eq, dim> R_I_Model;
@@ -654,7 +662,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {80, 40};
+    std::vector<unsigned> refine_repeats = {8, 4};
     dealii::Point<dim> corner_1(-M_PI, -M_PI / 2.);
     dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
@@ -831,14 +839,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
 
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
-    //
-    // PETSc scope.
-    //
+
     {
       const MPI_Comm &comm = PETSC_COMM_WORLD;
-      int comm_rank, comm_size;
-      MPI_Comm_rank(comm, &comm_rank);
-      MPI_Comm_size(comm, &comm_size);
+      int comm_rank = 0;
       //
       nargil::mesh<dim> mesh1(comm, 1, true);
       mesh1.generate_mesh(mesh_gen);
@@ -879,24 +883,17 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         model_manager0.apply_on_owned_cells(
           &model0, DiffManagerType::set_source_and_BCs);
         //
-        int solver_keys0 = nargil::solvers::solver_props::spd_matrix;
-        int update_keys0 = nargil::solvers::solver_update_opts::update_mat |
-                           nargil::solvers::solver_update_opts::update_rhs;
-        //
-        nargil::solvers::petsc_direct_solver<dim> solver0(solver_keys0,
-                                                          dof_counter0, comm);
+        nargil::solvers::simple_implicit_solver<dim> solver0(dof_counter0);
         model_manager0.apply_on_owned_cells(
           &model0, DiffManagerType::assemble_globals, &solver0);
         //
-        Vec sol_vec0;
-        solver0.finish_assemble(update_keys0);
+        Eigen::VectorXd sol_vec0;
+        solver0.finish_assemble();
         solver0.form_factors();
-        solver0.solve_system(&sol_vec0);
+        solver0.solve_system(sol_vec0);
         //
-        std::vector<double> local_sol_vec0(
-          solver0.get_local_part_of_global_vec(&sol_vec0));
         model_manager0.apply_on_owned_cells(
-          &model0, DiffManagerType::compute_local_unkns, local_sol_vec0.data());
+          &model0, DiffManagerType::compute_local_unkns, sol_vec0.data());
         //
         nargil::distributed_vector<dim> dist_sol_vec0(
           model_manager0.local_dof_handler, PETSC_COMM_WORLD);
@@ -976,129 +973,41 @@ template <int dim, int spacedim = dim> struct RI_Problem1
           &model1, R_I_ManagerType::set_source_and_BCs);
         model_manager1.apply_on_owned_cells(&model1,
                                             R_I_ManagerType::set_init_vals);
-        //
-        int solver_keys1 = nargil::solvers::solver_props::default_option;
-        int update_keys1 = nargil::solvers::solver_update_opts::update_mat |
-                           nargil::solvers::solver_update_opts::update_rhs;
+        Eigen::VectorXd rho_hat_0 =
+          Eigen::VectorXd::Random(dof_counter1.n_global_unkns_on_all_ranks);
+        model_manager1.apply_on_owned_cells(
+          &model1, R_I_ManagerType::set_trace_init_vals, rho_hat_0.data());
         //
         // This is Newton-Raphson iteration loop
         //
-        double NR_delta;
-        do
-        {
-          nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
-                                                            dof_counter1, comm);
-          model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::assemble_globals, &solver1);
-          //
-          Vec sol_vec1;
-          solver1.finish_assemble(update_keys1);
-          solver1.form_factors();
-          solver1.solve_system(&sol_vec1);
-          //
-          std::vector<double> local_sol_vec1(
-            solver1.get_local_part_of_global_vec(&sol_vec1));
-          model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::extract_NR_increment,
-            local_sol_vec1.data());
-          model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::compute_NR_increments);
-          //
-          // Now, we check if the NR scheme is converged. Here, we should do an
-          // MPI_Allreduce, because we need all ranks to have the sum.
-          //
-          std::vector<double> sum_of_NR_delta(4, 0);
-          model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::get_L2_norm_of_NR_deltas,
-            &sum_of_NR_delta);
-          //
-          std::vector<double> global_NR_delta(4, 0.);
-          for (unsigned i1 = 0; i1 < 4; ++i1)
-            MPI_Allreduce(&sum_of_NR_delta[i1], &global_NR_delta[i1], 1,
-                          MPI_DOUBLE, MPI_SUM, comm);
-          //
-          //
-          NR_delta = std::accumulate(global_NR_delta.begin(),
-                                     global_NR_delta.end(), 0.0);
-          NR_delta = sqrt(NR_delta);
-          if (comm_rank == 0)
-          {
-            char accuracy_output[400];
-            snprintf(accuracy_output, 400,
-                     "The L2 norm of Newton-Raphson increment is: "
-                     "\033[3;33m %10.4E \033[0m",
-                     NR_delta);
-            std::cout << accuracy_output << std::endl;
-          }
-        } while (NR_delta > 1.e-8);
-        //
-        //
-        //
-        nargil::distributed_vector<dim> dist_sol_vec(
-          model_manager1.viz_dof_handler, PETSC_COMM_WORLD);
-        //        nargil::distributed_vector<dim> dist_refn_vec(
-        //          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
-        //
+        nargil::solvers::simple_implicit_solver<dim> solver1(dof_counter1);
         model_manager1.apply_on_owned_cells(
-          &model1, R_I_ManagerType::fill_viz_vector, &dist_sol_vec);
-
-        //        model_manager1.apply_on_owned_cells(
-        //          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
-
-        LA::MPI::Vector global_sol_vec;
-        //        LA::MPI::Vector global_refn_vec;
-
-        dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        //        dist_refn_vec.copy_to_global_vec(global_refn_vec);
+          &model1, R_I_ManagerType::assemble_globals, &solver1);
+        Eigen::SparseMatrix<double> A_0 = solver1.A;
+        Eigen::VectorXd b_0 = solver1.b;
         //
-        // Now we visualize the results
-        //
-        // std::string cycle_string = std::to_string(i_cycle);
-        //
-        std::vector<std::string> var_names({"rho_n", "rho_n_flow", "rho_p",
-                                            "rho_p_flow", "rho_r", "rho_r_flow",
-                                            "rho_o", "rho_o_flow"});
-        cycle_string =
-          std::string(2 - cycle_string.length(), '0') + cycle_string;
-        typename R_I_Eq::viz_data viz_data1(
-          comm, &model_manager1.viz_dof_handler, &global_sol_vec,
-          "R_I_sol-" + cycle_string, var_names);
-        R_I_ManagerType::visualize_results(viz_data1);
-        //
-        // Now we want to compute the errors.
-        //
+        Eigen::VectorXd d_rho_hat =
+          Eigen::VectorXd::Random(dof_counter1.n_global_unkns_on_all_ranks);
+        Eigen::VectorXd d_rho_hat_scaled = 1.e-8 * d_rho_hat;
         model_manager1.apply_on_owned_cells(
-          &model1, R_I_ManagerType::interpolate_to_interior);
-        std::vector<double> sum_of_L2_errors(8, 0);
+          &model1, R_I_ManagerType::extract_NR_increment,
+          d_rho_hat_scaled.data());
         model_manager1.apply_on_owned_cells(
-          &model1, R_I_ManagerType::compute_errors, &sum_of_L2_errors);
-
-        std::vector<double> global_errors(8, 0);
-        for (unsigned i1 = 0; i1 < 8; ++i1)
-          MPI_Reduce(&sum_of_L2_errors[i1], &global_errors[i1], 1, MPI_DOUBLE,
-                     MPI_SUM, 0, comm);
-
-        if (comm_rank == 0)
-        {
-          char accuracy_output[400];
-          snprintf(accuracy_output, 400,
-                   "The errors are: \n"
-                   "rho_n error: \033[3;33m %10.4E \033[0m\n"
-                   "q_n error: \033[3;33m  %10.4E \033[0m\n"
-                   "rho_p error: \033[3;33m %10.4E \033[0m\n"
-                   "q_p error: \033[3;33m  %10.4E \033[0m\n"
-                   "rho_r error: \033[3;33m %10.4E \033[0m\n"
-                   "q_r error: \033[3;33m  %10.4E \033[0m\n"
-                   "rho_o error: \033[3;33m %10.4E \033[0m\n"
-                   "q_o error: \033[3;33m  %10.4E \033[0m\n",
-                   sqrt(global_errors[0]), sqrt(global_errors[1]),
-                   sqrt(global_errors[2]), sqrt(global_errors[3]),
-                   sqrt(global_errors[4]), sqrt(global_errors[5]),
-                   sqrt(global_errors[6]), sqrt(global_errors[7]));
-          std::cout << accuracy_output << std::endl;
-        }
-        //        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
-        //                          global_refn_vec);
+          &model1, R_I_ManagerType::compute_NR_increments);
+        //
+        // Now we compute NR rhs with \hat \rho = \rho_0 + \delta \hat \rho.
+        //
+        solver1.reinit_components();
+        model_manager1.apply_on_owned_cells(
+          &model1, R_I_ManagerType::assemble_globals, &solver1);
+        Eigen::VectorXd b_1 = solver1.b;
+        Eigen::VectorXd residual = A_0 * d_rho_hat - (b_0 - b_1) * 1.e8;
+        double res_error = residual.transpose() * residual;
+        std::cout << sqrt(res_error) << std::endl;
+        //
+        // Now, we check if the NR scheme is converged. Here, we should do an
+        // MPI_Allreduce, because we need all ranks to have the sum.
+        //
       }
       //
       //
@@ -1106,9 +1015,5 @@ template <int dim, int spacedim = dim> struct RI_Problem1
       //
       //
     }
-    //
-    // PETSc scope.
-    //
-    PetscFinalize();
   }
 };

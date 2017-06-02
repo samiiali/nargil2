@@ -198,7 +198,10 @@ struct simple_implicit_solver : public base_implicit_solver<dim, spacedim>
    * @brief reinitializes the matrix and rhs vec and exact_sol vec.
    *
    */
-  void reinit_components(const int update_opts);
+  void
+  reinit_components(const int update_opts = solver_update_opts::update_mat |
+                                            solver_update_opts::update_rhs |
+                                            solver_update_opts::update_sol);
 
   /**
    *

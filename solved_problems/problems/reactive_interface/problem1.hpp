@@ -654,7 +654,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {80, 40};
+    std::vector<unsigned> refine_repeats = {200, 100};
     dealii::Point<dim> corner_1(-M_PI, -M_PI / 2.);
     dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,

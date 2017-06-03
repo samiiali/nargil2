@@ -1078,67 +1078,73 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     bool i_am_on_sigma_s = BCs[i_face] & boundary_condition::semiconductor_R_I;
     bool i_am_on_sigma_e = BCs[i_face] & boundary_condition::electrolyte_R_I;
     bool i_am_on_sigma = i_am_on_sigma_e || i_am_on_sigma_s;
-    //
-    // Loop 1
-    for (unsigned i_face_quad = 0; i_face_quad < face_quad_size; ++i_face_quad)
+    if (i_am_on_sigma)
     {
-      double face_JxW = fe_face_val->JxW(i_face_quad);
-      dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
       //
-      // We obtain rho_hat_n, rho_hat_p, rho_hat_r, rho_hat_o at the
-      // quadrature point.
-      //
-      double rho_hat_n_at_quad = 0;
-      double rho_hat_p_at_quad = 0;
-      double rho_hat_r_at_quad = 0;
-      double rho_hat_o_at_quad = 0;
-      //
-      for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns; ++j_face_unkn)
+      // Loop 1
+      for (unsigned i_face_quad = 0; i_face_quad < face_quad_size;
+           ++i_face_quad)
       {
-        double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
-        if (trace_unkns_is_active[0] && i_am_on_sigma)
-          rho_hat_n_at_quad += rho_n_hat[j_face_unkn] * lambda_j1;
-        if (trace_unkns_is_active[1] && i_am_on_sigma)
-          rho_hat_p_at_quad += rho_p_hat[j_face_unkn] * lambda_j1;
-        if (trace_unkns_is_active[2] && i_am_on_sigma)
-          rho_hat_r_at_quad += rho_r_hat[j_face_unkn] * lambda_j1;
-        if (trace_unkns_is_active[3] && i_am_on_sigma)
-          rho_hat_o_at_quad += rho_o_hat[j_face_unkn] * lambda_j1;
-      }
-      //
-      double Q1_at_quad = get_Q1(rho_hat_n_at_quad, rho_hat_o_at_quad);
-      double Q2_at_quad = get_Q2(rho_hat_n_at_quad, rho_hat_o_at_quad);
-      double d_Q1_d_n_at_quad = get_d_Q1_d_n(rho_hat_o_at_quad);
-      double d_Q1_d_o_at_quad = get_d_Q1_d_o(rho_hat_n_at_quad);
-      double d_Q2_d_p_at_quad = get_d_Q2_d_p(rho_hat_r_at_quad);
-      double d_Q2_d_r_at_quad = get_d_Q2_d_r(rho_hat_p_at_quad);
-      // ***
-      if (trace_unkns_is_active[0] && trace_unkns_is_active[2] && false)
-      {
-        for (unsigned i_face_unkn = 0; i_face_unkn < n_trace_unkns;
-             ++i_face_unkn)
+        double face_JxW = fe_face_val->JxW(i_face_quad);
+        dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
+        //
+        // We obtain rho_hat_n, rho_hat_p, rho_hat_r, rho_hat_o at the
+        // quadrature point.
+        //
+        double rho_hat_n_at_quad = 0;
+        double rho_hat_p_at_quad = 0;
+        double rho_hat_r_at_quad = 0;
+        double rho_hat_o_at_quad = 0;
+        //
+        for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
+             ++j_face_unkn)
         {
-          double lambda_i1 = fe_face_val->shape_value(i_face_unkn, i_face_quad);
-          for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
-               ++j_face_unkn)
+          double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
+          if (trace_unkns_is_active[0])
+            rho_hat_n_at_quad += rho_n_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[1])
+            rho_hat_p_at_quad += rho_p_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[2])
+            rho_hat_r_at_quad += rho_r_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[3])
+            rho_hat_o_at_quad += rho_o_hat[j_face_unkn] * lambda_j1;
+        }
+        //
+        double Q1_at_quad = get_Q1(rho_hat_n_at_quad, rho_hat_o_at_quad);
+        double Q2_at_quad = get_Q2(rho_hat_p_at_quad, rho_hat_r_at_quad);
+        double d_Q1_d_n_at_quad = get_d_Q1_d_n(rho_hat_o_at_quad);
+        double d_Q1_d_o_at_quad = get_d_Q1_d_o(rho_hat_n_at_quad);
+        double d_Q2_d_p_at_quad = get_d_Q2_d_p(rho_hat_r_at_quad);
+        double d_Q2_d_r_at_quad = get_d_Q2_d_r(rho_hat_p_at_quad);
+        //
+        if (trace_unkns_is_active[0] && trace_unkns_is_active[2])
+        {
+          for (unsigned i_face_unkn = 0; i_face_unkn < n_trace_unkns;
+               ++i_face_unkn)
           {
-            double lambda_j1 =
-              fe_face_val->shape_value(j_face_unkn, i_face_quad);
-            H11(i_face_unkn, j_face_unkn) +=
-              lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_n_at_quad;
-            H14(i_face_unkn, j_face_unkn) +=
-              lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_o_at_quad;
-            H22(i_face_unkn, j_face_unkn) +=
-              lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_p_at_quad;
-            H23(i_face_unkn, j_face_unkn) +=
-              lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_r_at_quad;
+            double lambda_i1 =
+              fe_face_val->shape_value(i_face_unkn, i_face_quad);
+            for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
+                 ++j_face_unkn)
+            {
+              double lambda_j1 =
+                fe_face_val->shape_value(j_face_unkn, i_face_quad);
+              H11(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_n_at_quad;
+              H14(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_o_at_quad;
+              H22(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_p_at_quad;
+              H23(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_r_at_quad;
+            }
+            Q1(i_face_unkn) += lambda_i1 * face_JxW * Q1_at_quad;
+            Q2(i_face_unkn) += lambda_i1 * face_JxW * Q2_at_quad;
           }
-          Q1(i_face_unkn) += lambda_i1 * face_JxW * Q1_at_quad;
-          Q2(i_face_unkn) += lambda_i1 * face_JxW * Q2_at_quad;
         }
       }
+      // Loop 1
     }
-    // Loop 1
   }
   //
   if (this->local_equation_is_active[0])

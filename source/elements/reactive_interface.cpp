@@ -431,8 +431,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
   const reactive_interface *own_cell =
     static_cast<const reactive_interface *>(this->my_cell);
   unsigned n_trace_unkns = my_basis->n_trace_unkns_per_face_dof();
-  compute_linear_matrices();
-  compute_nonlinear_matrices();
   //
   double mu_n = own_cell->my_data->mu_n();
   double c_n =
@@ -626,9 +624,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 {
   const reactive_interface *own_cell =
     static_cast<const reactive_interface *>(this->my_cell);
-  // unsigned n_trace_unkns = my_basis->n_trace_unkns_per_face_dof();
-  compute_linear_matrices();
-  compute_nonlinear_matrices();
   //
   double mu_n = own_cell->my_data->mu_n();
   double c_n =
@@ -808,7 +803,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
-  BasisType>::compute_linear_matrices()
+  BasisType>::compute_my_linear_matrices()
 {
   unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
   unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell_dof();
@@ -1033,7 +1028,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
-  BasisType>::compute_nonlinear_matrices()
+  BasisType>::compute_my_nonlinear_matrices()
 {
   unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell_dof();
   unsigned face_quad_size = my_basis->get_face_quad_size();
@@ -1041,7 +1036,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   const reactive_interface *own_cell =
     static_cast<const reactive_interface *>(this->my_cell);
   //
-  // We assume that, compute_linear_matrices() has been called before.
+  // We assume that, compute_my_linear_matrices() has been called before.
   //
   double mu_n = own_cell->my_data->mu_n();
   double c_n =
@@ -1187,6 +1182,35 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   }
   if (this->trace_unkns_is_active[3])
     Lo += Q1 - Q2;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::set_my_dyna_terms(const time_integrator_type in_type)
+{
+  if (in_type == BDF1)
+  {
+    ode_solvers::BDF1_solver *own_time_integrator =
+      static_cast<ode_solvers::BDF1_solver *> time_integrator;
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
+  set_my_time_integrator(
+    ode_solvers::first_order_ode_solver *in_time_integrator,
+    time_integrator_type in_time_integrator_type)
+{
+  my_time_integrator = in_time_integrator;
+  my_time_integrator_type = in_time_integrator_type;
 }
 
 //
@@ -1872,6 +1896,38 @@ nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::get_d_Q2_d_r(
 
 template <int dim, int spacedim>
 template <typename BasisType>
+bool nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::get_semiconductor_densities(Eigen::VectorXd &out_rho_n,
+                                          Eigen::VectorXd &out_rho_p)
+{
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  out_rho_n = own_cell->my_data->alpha_n() * rho_n_vec;
+  out_rho_p = own_cell->my_data->alpha_p() * rho_p_vec;
+  return (local_equation_is_active[0] && local_equation_is_active[1]);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+bool nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::get_electrolyte_densities(Eigen::VectorXd &out_rho_r,
+                                        Eigen::VectorXd &out_rho_o)
+{
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  out_rho_r = own_cell->my_data->alpha_r() * rho_r_vec;
+  out_rho_o = own_cell->my_data->alpha_n() * rho_o_vec;
+  return (local_equation_is_active[2] && local_equation_is_active[3]);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 template <typename RelevantCellManagerType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::get_my_E_from_relevant_cell()
@@ -1991,6 +2047,62 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_linear_matrices(reactive_interface *in_cell)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->compute_my_linear_matrices();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_nonlinear_matrices(reactive_interface *in_cell)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->compute_my_nonlinear_matrices();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::set_dyna_terms(reactive_interface *in_cell,
+                             const time_integrator_type in_type)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->set_my_dyna_terms(in_type);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
+  set_time_integrator(reactive_interface *in_cell,
+                      ode_solvers::first_order_ode_solver *in_time_integrator,
+                      time_integrator_type in_time_integrator_type)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->set_my_time_integrator(in_time_integrator,
+                                      in_time_integrator_type);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::compute_NR_increments(reactive_interface *in_cell)
 {
   hdg_manager *own_manager =
@@ -2062,7 +2174,8 @@ template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::visualize_results(const viz_data &in_viz_data)
 {
-  unsigned time_level = 0;
+  unsigned time_level = in_viz_data.time_step;
+  unsigned cycle = in_viz_data.cycle;
   const auto &tria = in_viz_data.my_dof_handler->get_triangulation();
   unsigned n_active_cells = tria.n_active_cells();
   //
@@ -2108,7 +2221,8 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   const std::string filename =
     (in_viz_data.my_out_filename + "-" +
      dealii::Utilities::int_to_string(comm_rank, 4) + "-" +
-     dealii::Utilities::int_to_string(time_level, 4));
+     dealii::Utilities::int_to_string(time_level, 4) +
+     dealii::Utilities::int_to_string(cycle, 2));
   //
   std::ofstream output((filename + ".vtu").c_str());
   data_out.write_vtu(output);
@@ -2120,7 +2234,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       filenames.push_back(in_viz_data.my_out_filename + "-" +
                           dealii::Utilities::int_to_string(i, 4) + "-" +
                           dealii::Utilities::int_to_string(time_level, 4) +
-                          ".vtu");
+                          dealii::Utilities::int_to_string(cycle, 2) + ".vtu");
     std::ofstream master_output((filename + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }

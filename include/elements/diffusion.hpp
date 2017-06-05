@@ -22,6 +22,7 @@
 #include "../models/model_options.hpp"
 #include "../solvers/solvers.hpp"
 #include "cell.hpp"
+#include "reactive_interface.hpp"
 
 #ifndef DIFFUSION_HPP
 #define DIFFUSION_HPP
@@ -179,6 +180,11 @@ struct diffusion : public cell<dim, spacedim>
      * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
      */
     const std::string my_q_name;
+
+    /**
+     * @brief The time step and iteration cycle.
+     */
+    unsigned time_step, cycle;
   };
 
   /**
@@ -216,6 +222,14 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
+   * This connects the diffusion cell to the R_I cell.
+   *
+   */
+  template <typename OtherCellEq>
+  void connect_to_other_cell(OtherCellEq *in_relevant_R_I_cell);
+
+  /**
+   *
    * Contains the basis of the current cell.
    *
    */
@@ -237,6 +251,13 @@ struct diffusion : public cell<dim, spacedim>
    *
    */
   data *my_data;
+
+  /**
+   *
+   *
+   *
+   */
+  nargil::reactive_interface<dim, spacedim> *my_relvevant_R_I_cell;
 
   /**
    *
@@ -669,6 +690,13 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from apply_R_I_source.
+     *
+     */
+    template <typename RelevantCellManagerType> void apply_my_R_I_source();
+
+    /**
+     *
      * Called from compute_errors().
      *
      */
@@ -740,6 +768,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     *
+     *
+     */
+    template <typename RelevantCellManagerType>
+    static void apply_R_I_source(diffusion *in_cell);
+
+    /**
+     *
      * compute_my_local_unkns
      *
      */
@@ -755,6 +791,13 @@ struct diffusion : public cell<dim, spacedim>
     static void
     assemble_globals(diffusion *in_cell,
                      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     *
+     *
+     */
+    static void compute_matrices(diffusion *in_cell);
 
     /**
      *

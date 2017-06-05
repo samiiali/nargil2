@@ -63,6 +63,34 @@ const BasisType *nargil::diffusion<dim, spacedim>::get_basis() const
 
 //
 //
+
+template <int dim, int spacedim>
+template <typename OtherCellEq>
+void nargil::diffusion<dim, spacedim>::connect_to_other_cell(OtherCellEq *)
+{
+  assert(false);
+}
+
+//
+//
+
+/**
+ *
+ * This is specialized template of the above class. In C++ there is little
+ * chance to specialize a function template without specializing the class
+ * template.
+ *
+ */
+template <>
+template <>
+void nargil::diffusion<2, 2>::connect_to_other_cell(
+  reactive_interface<2, 2> *in_relevant_cell)
+{
+  my_relvevant_R_I_cell = in_relevant_cell;
+}
+
+//
+//
 //
 //
 //
@@ -391,7 +419,7 @@ template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   assemble_my_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
-  compute_my_matrices();
+  //  compute_my_matrices();
   //
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::LDLT<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
@@ -436,7 +464,8 @@ template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_local_unkns(const double *trace_sol)
 {
-  compute_my_matrices();
+  // compute_my_matrices();
+  //
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::LDLT<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
   // This line requires that boundary condition files are projected to gD_vec
@@ -787,6 +816,78 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
+template <typename RelevantCellManagerType>
+void nargil::diffusion<dim,
+                       spacedim>::hdg_manager<BasisType>::apply_my_R_I_source()
+{
+  Eigen::VectorXd alpha_rho_n, alpha_rho_p, alpha_rho_r, alpha_rho_o;
+  const diffusion<dim, spacedim> *own_cell =
+    static_cast<const diffusion *>(this->my_cell);
+  reactive_interface<dim, spacedim> *other_cell =
+    own_cell->my_relvevant_R_I_cell;
+  RelevantCellManagerType *other_manager =
+    other_cell->template get_manager<RelevantCellManagerType>();
+  bool in_semiconductor =
+    other_manager->get_semiconductor_densities(alpha_rho_n, alpha_rho_p);
+  bool in_electrolyte =
+    other_manager->get_electrolyte_densities(alpha_rho_r, alpha_rho_o);
+  //
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned cell_quad_size = my_basis->get_cell_quad_size();
+  my_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
+  dealii::FEValuesExtractors::Scalar scalar(0);
+  //
+  if (in_semiconductor)
+  {
+    for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
+    {
+      double alpha_rho_n_at_quad = 0;
+      double alpha_rho_p_at_quad = 0;
+      double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
+      for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+      {
+        double u_i1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(i1, i_quad);
+        alpha_rho_n_at_quad += alpha_rho_n[i1] * u_i1;
+        alpha_rho_p_at_quad += alpha_rho_p[i1] * u_i1;
+      }
+      for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+      {
+        double u_j1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(j1, i_quad);
+        F[j1] += (alpha_rho_n_at_quad + alpha_rho_p_at_quad) * JxW * u_j1;
+      }
+    }
+  }
+  if (in_electrolyte)
+  {
+    for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
+    {
+      double alpha_rho_r_at_quad = 0;
+      double alpha_rho_o_at_quad = 0;
+      double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
+      for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+      {
+        double u_i1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(i1, i_quad);
+        alpha_rho_r_at_quad += alpha_rho_r[i1] * u_i1;
+        alpha_rho_o_at_quad += alpha_rho_o[i1] * u_i1;
+      }
+      for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+      {
+        double u_j1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(j1, i_quad);
+        F[j1] += (alpha_rho_r_at_quad + alpha_rho_o_at_quad) * JxW * u_j1;
+      }
+    }
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_errors(std::vector<double> *sum_of_L2_errors)
 {
@@ -919,12 +1020,38 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 
 template <int dim, int spacedim>
 template <typename BasisType>
+template <typename RelevantCellManagerType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::apply_R_I_source(
+  diffusion *in_cell)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->template apply_my_R_I_source<RelevantCellManagerType>();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
   diffusion *in_cell, solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
   own_manager->assemble_my_globals(in_solver);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::compute_matrices(
+  diffusion *in_cell)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->compute_my_matrices();
 }
 
 //
@@ -961,7 +1088,8 @@ template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::visualize_results(const viz_data &in_viz_data)
 {
-  unsigned time_level = 0;
+  unsigned time_level = in_viz_data.time_step;
+  unsigned cycle = in_viz_data.cycle;
   const auto &tria = in_viz_data.my_dof_handler->get_triangulation();
   unsigned n_active_cells = tria.n_active_cells();
   int comm_rank, comm_size;
@@ -994,7 +1122,8 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   const std::string filename =
     (in_viz_data.my_out_filename + "-" +
      dealii::Utilities::int_to_string(comm_rank, 4) + "-" +
-     dealii::Utilities::int_to_string(time_level, 4));
+     dealii::Utilities::int_to_string(time_level, 4) +
+     dealii::Utilities::int_to_string(cycle, 2));
   std::ofstream output((filename + ".vtu").c_str());
   data_out.write_vtu(output);
 
@@ -1005,7 +1134,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
       filenames.push_back(in_viz_data.my_out_filename + "-" +
                           dealii::Utilities::int_to_string(i, 4) + "-" +
                           dealii::Utilities::int_to_string(time_level, 4) +
-                          ".vtu");
+                          dealii::Utilities::int_to_string(cycle, 2) + ".vtu");
     std::ofstream master_output((filename + ".pvtu").c_str());
     data_out.write_pvtu_record(master_output, filenames);
   }

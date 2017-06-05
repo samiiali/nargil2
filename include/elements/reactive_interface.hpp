@@ -20,6 +20,7 @@
 #include "../mesh/mesh_handler.hpp"
 #include "../misc/utils.hpp"
 #include "../models/model_options.hpp"
+#include "../ode_solvers/ode_solver.hpp"
 #include "../solvers/solvers.hpp"
 #include "cell.hpp"
 
@@ -268,6 +269,21 @@ struct reactive_interface : public cell<dim, spacedim>
     mu_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) = 0;
 
     /**
+     * @brief Value of intrinsic electron density.
+     */
+    virtual double intrinsic_rho() = 0;
+
+    /**
+     * @brief Value of rescaled electron lifetime.
+     */
+    virtual double tau_n() = 0;
+
+    /**
+     * @brief Value of rescaled hole lifetime.
+     */
+    virtual double tau_p() = 0;
+
+    /**
      * @brief Value of \f$k_{et}\f$
      */
     virtual double k_et() = 0;
@@ -400,6 +416,11 @@ struct reactive_interface : public cell<dim, spacedim>
      * This will be displayed in Paraview (like Head or Temperature).
      */
     const std::vector<std::string> my_var_names;
+
+    /**
+     * @brief The time step and cycle (either refinement cycle or Newton cycle).
+     */
+    unsigned time_step, cycle;
   };
 
   /**
@@ -1067,6 +1088,16 @@ struct reactive_interface : public cell<dim, spacedim>
   {
     /**
      *
+     *
+     *
+     */
+    enum class time_integrator_type
+    {
+      BDF1 = 1,
+    };
+
+    /**
+     *
      * The function type with an hdg_manager as input and void output.
      *
      */
@@ -1132,14 +1163,30 @@ struct reactive_interface : public cell<dim, spacedim>
      * Computes the local matrices.
      *
      */
-    void compute_linear_matrices();
+    void compute_my_linear_matrices();
 
     /**
      *
      * Computes the local matrices.
      *
      */
-    void compute_nonlinear_matrices();
+    void compute_my_nonlinear_matrices();
+
+    /**
+     *
+     * Called from static set_dyna_terms.
+     *
+     */
+    void set_my_dyna_terms(const time_integrator_type in_type);
+
+    /**
+     *
+     * Called from static set_dyna_terms.
+     *
+     */
+    void set_my_time_integrator(
+      ode_solvers::first_order_ode_solver *in_time_integrator,
+      time_integrator_type in_time_integrator_type);
 
     /**
      *
@@ -1245,6 +1292,22 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * This function exports the values of rho_n and rho_p.
+     *
+     */
+    bool get_semiconductor_densities(Eigen::VectorXd &out_rho_n,
+                                     Eigen::VectorXd &out_rho_p);
+
+    /**
+     *
+     * This function exports the values of rho_n and rho_p.
+     *
+     */
+    bool get_electrolyte_densities(Eigen::VectorXd &out_rho_r,
+                                   Eigen::VectorXd &out_rho_o);
+
+    /**
+     *
      * We get the electric field from the relevant diffusion element.
      *
      */
@@ -1317,6 +1380,39 @@ struct reactive_interface : public cell<dim, spacedim>
     static void
     assemble_globals(reactive_interface *in_cell,
                      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     * This function computes the linear matrices of the cell.
+     *
+     */
+    static void compute_linear_matrices(reactive_interface *in_cell);
+
+    /**
+     *
+     * This function computes the linear matrices of the cell.
+     *
+     */
+    static void compute_nonlinear_matrices(reactive_interface *in_cell);
+
+    /**
+     *
+     * This function computes the added stiffness and rhs corresponding to
+     * the dynamic terms.
+     *
+     */
+    static void set_dyna_terms(reactive_interface *in_cell,
+                               const time_integrator_type in_type);
+
+    /**
+     *
+     * This function sets the time integrator object of this cell.
+     *
+     */
+    static void
+    set_time_integrator(reactive_interface *in_cell,
+                        ode_solvers::first_order_ode_solver *in_time_integrator,
+                        time_integrator_type in_time_integrator_type);
 
     /**
      *
@@ -1526,6 +1622,13 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * @brief dynamic rhs terms.
+     *
+     */
+    Eigen::VectorXd dyna_n_rhs, dyna_p_rhs, dyna_r_rhs, dyna_o_rhs;
+
+    /**
+     *
      * @brief The std vector of gN's.
      *
      */
@@ -1539,6 +1642,20 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     std::vector<int> local_interior_unkn_idx;
+
+    /**
+     *
+     * Time integrator object.
+     *
+     */
+    ode_solvers::first_order_ode_solver *my_time_integrator;
+
+    /**
+     *
+     *
+     *
+     */
+    time_integrator_type my_time_integrator_type;
 
     /**
      *

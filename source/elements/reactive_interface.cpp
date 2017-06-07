@@ -1022,9 +1022,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 //
 //
 
-//
-//
-
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
@@ -1182,6 +1179,55 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   }
   if (this->trace_unkns_is_active[3])
     Lo += Q1 - Q2;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::add_my_recombination_source()
+{
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  //
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned cell_quad_size = my_basis->get_cell_quad_size();
+  my_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
+  dealii::FEValuesExtractors::Scalar scalar(0);
+  //
+  double rho_i = own_cell->my_data->intrinsic_rho();
+  double tau_n = own_cell->my_data->tau_n();
+  double tau_p = own_cell->my_data->tau_p();
+  //
+  if (local_equation_is_active[0] && local_equation_is_active[1])
+  {
+    for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
+    {
+      double rho_n_at_quad = 0;
+      double rho_p_at_quad = 0;
+      double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
+      for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+      {
+        double u_i1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(i1, i_quad);
+        rho_n_at_quad += rho_n_vec[i1] * u_i1;
+        rho_p_at_quad += rho_p_vec[i1] * u_i1;
+      }
+      for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+      {
+        double u_j1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(j1, i_quad);
+        double R_n_p =
+          ((rho_n_at_quad * rho_p_at_quad) - rho_i * rho_i) /
+          (tau_n * (rho_n_at_quad + rho_i) + tau_p * (rho_p_at_quad + rho_i));
+        // ***
+        Fn[j1] -= R_n_p * JxW * u_j1;
+        Fp[j1] -= R_n_p * JxW * u_j1;
+      }
+    }
+  }
 }
 
 //
@@ -1478,10 +1524,6 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
     {
       if (trace_unkns_is_active[0])
       {
-        dealii::Tensor<1, dim> gN_at_face_supp =
-          own_cell->my_data->gN_rho_n(face_supp_locs[i1]);
-        double RI_rhs_n_at_quad =
-          own_cell->my_data->rhs_of_RI_n(face_supp_locs[i1]);
         if (this->BCs[i_face] & boundary_condition::essential_rho_n)
         {
           double gD_at_face_supp =
@@ -1490,17 +1532,21 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         }
         if (this->BCs[i_face] & boundary_condition::natural_rho_n ||
             this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+        {
+          dealii::Tensor<1, dim> gN_at_face_supp =
+            own_cell->my_data->gN_rho_n(face_supp_locs[i1]);
           gN_rho_n[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
+        }
         if (this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+        {
+          double RI_rhs_n_at_quad =
+            own_cell->my_data->rhs_of_RI_n(face_supp_locs[i1]);
           gN_rho_n[idx1 + i1] -= RI_rhs_n_at_quad;
+        }
       }
       //
       if (trace_unkns_is_active[1])
       {
-        dealii::Tensor<1, dim> gN_at_face_supp =
-          own_cell->my_data->gN_rho_p(face_supp_locs[i1]);
-        double RI_rhs_p_at_quad =
-          own_cell->my_data->rhs_of_RI_p(face_supp_locs[i1]);
         if (this->BCs[i_face] & boundary_condition::essential_rho_p)
         {
           double gD_at_face_supp =
@@ -1509,17 +1555,21 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         }
         if (this->BCs[i_face] & boundary_condition::natural_rho_p ||
             this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+        {
+          dealii::Tensor<1, dim> gN_at_face_supp =
+            own_cell->my_data->gN_rho_p(face_supp_locs[i1]);
           gN_rho_p[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
+        }
         if (this->BCs[i_face] & boundary_condition::semiconductor_R_I)
+        {
+          double RI_rhs_p_at_quad =
+            own_cell->my_data->rhs_of_RI_p(face_supp_locs[i1]);
           gN_rho_p[idx1 + i1] -= RI_rhs_p_at_quad;
+        }
       }
       //
       if (trace_unkns_is_active[2])
       {
-        dealii::Tensor<1, dim> gN_at_face_supp =
-          own_cell->my_data->gN_rho_r(face_supp_locs[i1]);
-        double RI_rhs_r_at_quad =
-          own_cell->my_data->rhs_of_RI_r(face_supp_locs[i1]);
         if (this->BCs[i_face] & boundary_condition::essential_rho_r)
         {
           double gD_at_face_supp =
@@ -1528,17 +1578,21 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         }
         if (this->BCs[i_face] & boundary_condition::natural_rho_r ||
             this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+        {
+          dealii::Tensor<1, dim> gN_at_face_supp =
+            own_cell->my_data->gN_rho_r(face_supp_locs[i1]);
           gN_rho_r[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
+        }
         if (this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+        {
+          double RI_rhs_r_at_quad =
+            own_cell->my_data->rhs_of_RI_r(face_supp_locs[i1]);
           gN_rho_r[idx1 + i1] -= RI_rhs_r_at_quad;
+        }
       }
       //
       if (trace_unkns_is_active[3])
       {
-        dealii::Tensor<1, dim> gN_at_face_supp =
-          own_cell->my_data->gN_rho_o(face_supp_locs[i1]);
-        double RI_rhs_o_at_quad =
-          own_cell->my_data->rhs_of_RI_o(face_supp_locs[i1]);
         if (this->BCs[i_face] & boundary_condition::essential_rho_o)
         {
           double gD_at_face_supp =
@@ -1547,9 +1601,17 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         }
         if (this->BCs[i_face] & boundary_condition::natural_rho_o ||
             this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+        {
+          dealii::Tensor<1, dim> gN_at_face_supp =
+            own_cell->my_data->gN_rho_o(face_supp_locs[i1]);
           gN_rho_o[idx1 + i1] = gN_at_face_supp * n_vecs[i1];
+        }
         if (this->BCs[i_face] & boundary_condition::electrolyte_R_I)
+        {
+          double RI_rhs_o_at_quad =
+            own_cell->my_data->rhs_of_RI_o(face_supp_locs[i1]);
           gN_rho_o[idx1 + i1] -= RI_rhs_o_at_quad;
+        }
       }
     }
   }
@@ -1919,7 +1981,7 @@ bool nargil::reactive_interface<dim, spacedim>::hdg_manager<
   const reactive_interface *own_cell =
     static_cast<const reactive_interface *>(this->my_cell);
   out_rho_r = own_cell->my_data->alpha_r() * rho_r_vec;
-  out_rho_o = own_cell->my_data->alpha_n() * rho_o_vec;
+  out_rho_o = own_cell->my_data->alpha_o() * rho_o_vec;
   return (local_equation_is_active[2] && local_equation_is_active[3]);
 }
 
@@ -2065,6 +2127,19 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
   own_manager->compute_my_nonlinear_matrices();
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::add_recombination_source(reactive_interface *in_cell)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->add_my_recombination_source();
 }
 
 //

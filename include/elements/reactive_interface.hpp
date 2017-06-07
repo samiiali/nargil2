@@ -1174,6 +1174,13 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * Called from add_recombination_source.
+     *
+     */
+    void add_my_recombination_source();
+
+    /**
+     *
      * Called from static set_dyna_terms.
      *
      */
@@ -1394,6 +1401,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     static void compute_nonlinear_matrices(reactive_interface *in_cell);
+
+    /**
+     *
+     * This function computes the linear matrices of the cell.
+     *
+     */
+    static void add_recombination_source(reactive_interface *in_cell);
 
     /**
      *

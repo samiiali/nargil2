@@ -274,7 +274,7 @@ template <int dim, int spacedim>
 void nargil::solvers::petsc_direct_solver<dim, spacedim>::reinit_components(
   const int in_solver_props, const int update_opts)
 {
-  my_state = solver_state::solver_not_ready;
+  free_components(update_opts);
   init_components(in_solver_props, update_opts);
 }
 
@@ -285,15 +285,21 @@ template <int dim, int spacedim>
 void nargil::solvers::petsc_direct_solver<dim, spacedim>::free_components(
   const int update_opts)
 {
-  if (update_opts & solver_update_opts::update_mat)
+  if ((my_state & solver_state::operators_created) ||
+      (my_state & solver_state::assemble_is_finished) ||
+      (my_state & solver_state::ready_to_solve))
   {
-    MatDestroy(&A);
+    if (update_opts & solver_update_opts::update_mat)
+      MatDestroy(&A);
+    if (update_opts & solver_update_opts::update_rhs)
+      VecDestroy(&b);
+    if (update_opts & solver_update_opts::update_sol)
+      VecDestroy(&exact_sol);
+  }
+  if (my_state & solver_state::ready_to_solve)
+  {
     KSPDestroy(&ksp);
   }
-  if (update_opts & solver_update_opts::update_rhs)
-    VecDestroy(&b);
-  if (update_opts & solver_update_opts::update_sol)
-    VecDestroy(&exact_sol);
   my_state = solver_state::solver_not_ready;
 }
 
@@ -570,7 +576,7 @@ void nargil::solvers::petsc_implicit_cg_solver<
   dim, spacedim>::reinit_components(const int in_solver_props,
                                     const int update_opts)
 {
-  my_state = solver_state::solver_not_ready;
+  free_components(update_opts);
   init_components(in_solver_props, update_opts);
 }
 
@@ -581,15 +587,21 @@ template <int dim, int spacedim>
 void nargil::solvers::petsc_implicit_cg_solver<dim, spacedim>::free_components(
   const int update_opts)
 {
-  if (update_opts & solver_update_opts::update_mat)
+  if ((my_state & solver_state::operators_created) ||
+      (my_state & solver_state::assemble_is_finished) ||
+      (my_state & solver_state::ready_to_solve))
   {
-    MatDestroy(&A);
+    if (update_opts & solver_update_opts::update_mat)
+      MatDestroy(&A);
+    if (update_opts & solver_update_opts::update_rhs)
+      VecDestroy(&b);
+    if (update_opts & solver_update_opts::update_sol)
+      VecDestroy(&exact_sol);
+  }
+  if (my_state & solver_state::ready_to_solve)
+  {
     KSPDestroy(&ksp);
   }
-  if (update_opts & solver_update_opts::update_rhs)
-    VecDestroy(&b);
-  if (update_opts & solver_update_opts::update_sol)
-    VecDestroy(&exact_sol);
   my_state = solver_state::solver_not_ready;
 }
 

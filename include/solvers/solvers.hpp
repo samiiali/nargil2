@@ -111,10 +111,10 @@ namespace solver_state
  */
 enum state
 {
-  solver_not_ready = 1 << 0,
-  operators_created = 1 << 1,
-  assemble_is_finished = 1 << 2,
-  ready_to_solve = 1 << 3
+  solver_not_ready = 1 << 0,     //  0001
+  operators_created = 1 << 1,    //  0010
+  assemble_is_finished = 1 << 2, //  0100
+  ready_to_solve = 1 << 3        //  1000
 };
 }
 

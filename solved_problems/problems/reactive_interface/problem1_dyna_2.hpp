@@ -59,7 +59,10 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.;
+    if (p[0] < 0)
+      return 1.0;
+    else
+      return 0.;
     //
     return 25 *
            (2 * exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + sin(x1 - y1)));
@@ -71,9 +74,9 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
     if (p[0] > M_PI - 1.e-4)
-      return 0.;
+      return 0.0;
     else if (p[0] < -M_PI + 1.e-4)
-      return 15.;
+      return 2.0;
     else
       assert(false);
     //
@@ -100,7 +103,7 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double exact_u(const dealii::Point<spacedim> &p)
   {
-    return 0;
+    return 0.;
     //
     return exp(sin(p[0] - p[1]));
   }
@@ -126,8 +129,8 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &)
   {
     dealii::Tensor<2, dim> result;
-    result[0][0] = result[1][1] = 1.;
-    return result / 25.;
+    result[0][0] = result[1][1] = 0.02;
+    return result;
   }
 
   /**
@@ -136,7 +139,7 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.;
+    return 10.;
     //
   }
 };
@@ -203,7 +206,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.;
+    return 0;
     //
     return cos(x1) + sin(x1) +
            exp(sin(x1 - y1)) *
@@ -220,7 +223,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.;
+    return 0;
     //
     return 4 * cos(x1 - y1) *
            (1 + exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + 2 * sin(x1 - y1)));
@@ -234,7 +237,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.;
+    return 0;
     //
     return 6 * (1 + exp(sin(x1 - y1)) * (pow(cos(x1 - y1), 2) - sin(x1 - y1))) *
            sin(x1 + y1);
@@ -248,7 +251,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.;
+    return 0;
     //
     return 4 * (cos(x1) - sin(y1) -
                 ((cos(x1) + 4 * cos(x1 - 2 * y1) + cos(3 * x1 - 2 * y1) +
@@ -317,6 +320,7 @@ struct react_int_problem1_data
   virtual double gD_rho_n(const dealii::Point<spacedim> &p) final
   {
     double x1 = p[0];
+    // double y1 = p[1];
     //
     return rho_n_e();
     //
@@ -374,9 +378,9 @@ struct react_int_problem1_data
       {-cos(x1) + sin(x1) +
          exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)),
        -(exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)))});
-    //
+
     return dealii::Tensor<1, dim>();
-    //
+
     return result;
   }
 
@@ -391,9 +395,9 @@ struct react_int_problem1_data
     dealii::Tensor<1, dim> result(
       {2 * (-(exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2)) + sin(x1 - y1)),
        2 * exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2) - 2 * sin(x1 - y1)});
-    //
+
     return dealii::Tensor<1, dim>();
-    //
+
     return result;
   }
 
@@ -409,9 +413,9 @@ struct react_int_problem1_data
       {-3 * cos(x1 + y1) +
          (3 * exp(sin(x1 - y1)) * (sin(2 * x1) + sin(2 * y1))) / 2.,
        -3 * (cos(x1 + y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * sin(x1 + y1))});
-    //
+
     return dealii::Tensor<1, dim>();
-    //
+
     return result;
   }
 
@@ -426,53 +430,41 @@ struct react_int_problem1_data
     dealii::Tensor<1, dim> result(
       {4 * (sin(x1) - exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1))),
        4 * (cos(y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1)))});
-    //
+
     return dealii::Tensor<1, dim>();
-    //
+
     return result;
   }
 
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_0(const dealii::Point<spacedim> &p) final
-  {
-    return rho_n_e();
-  }
+  virtual double rho_n_0(const dealii::Point<spacedim> &p) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_p\f$
    */
-  virtual double rho_p_0(const dealii::Point<spacedim> &p) final
-  {
-    return rho_p_e();
-  }
+  virtual double rho_p_0(const dealii::Point<spacedim> &p) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_r\f$
    */
-  virtual double rho_r_0(const dealii::Point<spacedim> &p) final
-  {
-    return rho_r_inf();
-  }
+  virtual double rho_r_0(const dealii::Point<spacedim> &p) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_o\f$
    */
-  virtual double rho_o_0(const dealii::Point<spacedim> &p) final
-  {
-    return rho_o_inf();
-  }
+  virtual double rho_o_0(const dealii::Point<spacedim> &p) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_e() final { return 2.; }
+  virtual double rho_n_e() final { return 2.0; }
 
   /**
    * @brief Initial value for \f$\rho_p\f$
    */
-  virtual double rho_p_e() final { return 0.; }
+  virtual double rho_p_e() final { return 0.0; }
 
   /**
    * @brief Initial value for \f$\rho_r\f$
@@ -490,8 +482,7 @@ struct react_int_problem1_data
   virtual double lambda_inv2_S(
     const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 5.;
-    return 500.;
+    return 0.02;
   }
 
   /**
@@ -500,8 +491,7 @@ struct react_int_problem1_data
   virtual double
   lambda_inv2_E(const dealii::Point<spacedim> & = dealii::Point<spacedim>())
   {
-    return 7.;
-    return 7.;
+    return 0.02;
   }
 
   /**
@@ -510,8 +500,7 @@ struct react_int_problem1_data
   virtual double
   mu_n(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 3;
-    return 0.03;
+    return 0.003;
   }
 
   /**
@@ -520,8 +509,7 @@ struct react_int_problem1_data
   virtual double
   mu_p(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 2;
-    return 0.01;
+    return 0.001;
   }
 
   /**
@@ -530,8 +518,7 @@ struct react_int_problem1_data
   virtual double
   mu_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 5;
-    return 0.005;
+    return 0.0005;
   }
 
   /**
@@ -540,34 +527,33 @@ struct react_int_problem1_data
   virtual double
   mu_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 5;
-    return 0.005;
+    return 0.0005;
   }
 
   /**
    * @brief Value of intrinsic electron density.
    */
-  virtual double intrinsic_rho() final { return 2.5e-3; }
+  virtual double intrinsic_rho() final { return 2.5e-7; }
 
   /**
    * @brief Value of rescaled electron lifetime.
    */
-  virtual double tau_n() final { return 5.e3; }
+  virtual double tau_n() final { return 5.e7; }
 
   /**
    * @brief Value of rescaled hole lifetime.
    */
-  virtual double tau_p() final { return 5.e3; }
+  virtual double tau_p() final { return 5.e7; }
 
   /**
    * @brief Value of \f$k_{ht}\f$.
    */
-  virtual double k_et() final { return 1.e-2; }
+  virtual double k_et() final { return 1.e-11; }
 
   /**
    * @brief Value of \f$k_{ht}\f$.
    */
-  virtual double k_ht() final { return 2.e-2; }
+  virtual double k_ht() final { return 1.e-4; }
 
   /**
    * @brief Value of \f$\mu_n\f$.
@@ -593,7 +579,7 @@ struct react_int_problem1_data
   virtual double
   alpha_r(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return -1.0;
+    return -0.5;
   }
 
   /**
@@ -602,7 +588,7 @@ struct react_int_problem1_data
   virtual double
   alpha_o(const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 1.0;
+    return 0.5;
   }
 
   /**
@@ -720,16 +706,13 @@ struct react_int_problem1_data
     double y1 = p[1];
     dealii::Tensor<1, dim> result({-25 * exp(sin(x1 - y1)) * cos(x1 - y1),
                                    25 * exp(sin(x1 - y1)) * cos(x1 - y1)});
-    //
-    return dealii::Tensor<1, dim>();
-    //
     return result;
   }
 
   /**
    * @brief the stabilization parameter.
    */
-  virtual double tau(const dealii::Point<spacedim> &) final { return 10.0; }
+  virtual double tau(const dealii::Point<spacedim> &) final { return 1000.0; }
 };
 
 /**
@@ -843,7 +826,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       in_manager->BCs[i_face] = R_I_Eq::boundary_condition::not_set;
       dealii::Point<dim> face_center = face->center();
-      if (face_center[0] <= 1.E-4) // We are in semiconductor
+      if (face_center[0] <= 1.E-4) // We are in semi-conductor
       {
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         in_manager->dof_status_on_faces[i_face][0] = 1;
@@ -1027,7 +1010,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       //
       // The time stepping loop.
       //
-      for (unsigned i_time = 0; i_time < 200; ++i_time)
+      for (unsigned i_time = 0; i_time < 50; ++i_time)
       {
         //
         model_manager0.apply_on_owned_cells(
@@ -1100,7 +1083,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
                    "diffusion u error: \033[3;33m %10.4E \033[0m\n"
                    "diffusion q error: \033[3;33m  %10.4E \033[0m\n",
                    sqrt(u_error_global), sqrt(q_error_global));
-          std::cout << accuracy_output << std::endl;
+          // ***
+          // std::cout << accuracy_output << std::endl;
         }
 
         //
@@ -1175,7 +1159,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
             std::cout << "Newton-Raphson iteration " << NR_cycle << ": "
                       << accuracy_output << std::endl;
           }
-        } while (NR_delta > 1.e-8 && NR_cycle < 50);
+        } while (NR_delta > 1.e-8 && NR_cycle < 20);
         //
         //
         //
@@ -1217,7 +1201,9 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
         {
           char accuracy_output[400];
           snprintf(accuracy_output, 400,
-                   "The errors are: \n"
+                   // ***
+                   //       "The errors are: \n"
+                   "The L2 norms of the solutions are: \n"
                    "rho_n error: \033[3;33m %10.4E \033[0m\n"
                    "q_n error: \033[3;33m  %10.4E \033[0m\n"
                    "rho_p error: \033[3;33m %10.4E \033[0m\n"

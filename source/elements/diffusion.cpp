@@ -453,7 +453,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   //
   // Now, we clean memory from the above matrices.
   //
-  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
+  // this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //
@@ -489,7 +489,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   //
   // Now we free the memory.
   //
-  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
+  // this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //
@@ -799,14 +799,18 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
       my_basis->trace_fe_face_val_at_supp->get_quadrature_points();
     for (unsigned i1 = 0; i1 < n_dofs_per_face; ++i1)
     {
-      double gD_at_face_supp = own_cell->my_data->gD_func(face_supp_locs[i1]);
-      dealii::Tensor<1, dim> gN_at_face_supp =
-        own_cell->my_data->gN_func(face_supp_locs[i1]);
       unsigned idx1 = i_face * n_dofs_per_face;
       if (this->BCs[i_face] == boundary_condition::essential)
+      {
+        double gD_at_face_supp = own_cell->my_data->gD_func(face_supp_locs[i1]);
         gD_vec(idx1 + i1) = gD_at_face_supp;
+      }
       if (this->BCs[i_face] == boundary_condition::natural)
+      {
+        dealii::Tensor<1, dim> gN_at_face_supp =
+          own_cell->my_data->gN_func(face_supp_locs[i1]);
         gN_vec[idx1 + i1] = gN_at_face_supp;
+      }
     }
   }
 }

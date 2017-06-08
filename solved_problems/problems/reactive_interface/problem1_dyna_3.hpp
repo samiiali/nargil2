@@ -59,13 +59,10 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
     double x1 = p[0];
     double y1 = p[1];
     //
-    if (p[0] < 0)
-      return 2.0;
+    if (-2.5 * p[0] + 1.75 < p[1])
+      return 0.5;
     else
       return 0.;
-    //
-    return 25 *
-           (2 * exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + sin(x1 - y1)));
   }
 
   /**
@@ -73,14 +70,12 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    if (p[0] > M_PI - 1.e-4)
+    if (p[0] > 1 - 1.e-4)
       return 0.0;
-    else if (p[0] < -M_PI + 1.e-4)
-      return 2.0;
+    else if (p[0] < 1.e-4)
+      return 0.5;
     else
       assert(false);
-    //
-    return exp(sin(p[0] - p[1]));
   }
 
   /**
@@ -126,10 +121,15 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    *
    */
-  virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &)
+  virtual dealii::Tensor<2, dim> kappa_inv(const dealii::Point<spacedim> &p)
   {
     dealii::Tensor<2, dim> result;
-    result[0][0] = result[1][1] = 0.02;
+    if (-2.5 * p[0] + 1.75 > p[1] - 1.e-6)
+      result[0][0] = result[1][1] = 588.;
+    else if (-2.5 * p[0] + 1.75 < p[1] + 1.e-6)
+      result[0][0] = result[1][1] = 7.14;
+    else
+      assert(false);
     return result;
   }
 
@@ -459,7 +459,7 @@ struct react_int_problem1_data
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_e() final { return 2.0; }
+  virtual double rho_n_e() final { return 0.2; }
 
   /**
    * @brief Initial value for \f$\rho_p\f$
@@ -469,12 +469,12 @@ struct react_int_problem1_data
   /**
    * @brief Initial value for \f$\rho_r\f$
    */
-  virtual double rho_r_inf() final { return 5.; }
+  virtual double rho_r_inf() final { return 0.4; }
 
   /**
    * @brief Initial value for \f$\rho_o\f$
    */
-  virtual double rho_o_inf() final { return 4.; }
+  virtual double rho_o_inf() final { return 0.5; }
 
   /**
    *
@@ -482,7 +482,7 @@ struct react_int_problem1_data
   virtual double lambda_inv2_S(
     const dealii::Point<spacedim> & = dealii::Point<spacedim>()) final
   {
-    return 0.02;
+    return 588.;
   }
 
   /**
@@ -491,7 +491,7 @@ struct react_int_problem1_data
   virtual double
   lambda_inv2_E(const dealii::Point<spacedim> & = dealii::Point<spacedim>())
   {
-    return 0.02;
+    return 7.14;
   }
 
   /**
@@ -736,7 +736,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
   /**
    * @brief adaptive_mesh_gen
    */
-  static void mesh_gen(
+  static void mesh_gen_0(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     std::vector<unsigned> refine_repeats = {80, 40};
@@ -757,6 +757,33 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
     the_mesh.add_periodicity(periodic_faces);
   }
 
+  /**
+   *
+   */
+  static void mesh_gen(
+    dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
+  {
+    std::vector<dealii::Point<dim> > vertices_S, vertices_E;
+    //
+    vertices_S.push_back(dealii::Point<dim>(0., 0.));
+    vertices_S.push_back(dealii::Point<dim>(0.7, 0.));
+    vertices_S.push_back(dealii::Point<dim>(0., 1.));
+    vertices_S.push_back(dealii::Point<dim>(0.3, 1.));
+    vertices_E.push_back(dealii::Point<dim>(0.7, 0.));
+    vertices_E.push_back(dealii::Point<dim>(1.0, 0.));
+    vertices_E.push_back(dealii::Point<dim>(0.3, 1.));
+    vertices_E.push_back(dealii::Point<dim>(1., 1.));
+    //
+    dealii::parallel::distributed::Triangulation<dim, spacedim> mesh1(
+      MPI_COMM_WORLD);
+    dealii::parallel::distributed::Triangulation<dim, spacedim> mesh2(
+      MPI_COMM_WORLD);
+    dealii::GridGenerator::general_cell(mesh1, vertices_S, false);
+    dealii::GridGenerator::general_cell(mesh2, vertices_E, false);
+    dealii::GridGenerator::merge_triangulations(mesh1, mesh2, the_mesh);
+    the_mesh.refine_global(5);
+  }
+
   //
   //
 
@@ -773,7 +800,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (fabs(face->center()[0]) > M_PI - 1.E-4)
+        if (face->center()[0] > 1. - 1.E-4 || face->center()[0] < 1.E-4)
         {
           in_manager->BCs[i_face] =
             nargil::diffusion<dim>::boundary_condition::essential;
@@ -810,12 +837,14 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
   {
     unsigned n_dof_per_face = R_I_BasisType::get_n_dofs_per_face();
     in_manager->local_equation_is_active.resize(4, 0);
-    if (in_manager->my_cell->my_dealii_cell->center()[0] < 1.E-4)
+    double cell_x = in_manager->my_cell->my_dealii_cell->center()[0];
+    double cell_y = in_manager->my_cell->my_dealii_cell->center()[1];
+    if (-2.5 * cell_x + 1.75 > cell_y)
     {
       in_manager->local_equation_is_active[0] =
         in_manager->local_equation_is_active[1] = 1;
     }
-    if (in_manager->my_cell->my_dealii_cell->center()[0] > -1.E-4)
+    if (-2.5 * cell_x + 1.75 < cell_y)
     {
       in_manager->local_equation_is_active[2] =
         in_manager->local_equation_is_active[3] = 1;
@@ -826,7 +855,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       in_manager->BCs[i_face] = R_I_Eq::boundary_condition::not_set;
       dealii::Point<dim> face_center = face->center();
-      if (face_center[0] <= 1.E-4) // We are in semi-conductor
+      if (-2.5 * face_center[0] + 1.75 >
+          face_center[1] - 1e-4) // We are in semi-conductor
       {
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         in_manager->dof_status_on_faces[i_face][0] = 1;
@@ -834,7 +864,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
         //
         // Applying BC on rho_n and rho_p
         //
-        if (std::abs(face_center[0] + M_PI) < 1E-4)
+        if (face_center[0] < 1.e-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -844,7 +874,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           in_manager->dof_status_on_faces[i_face][0] = 0;
           in_manager->dof_status_on_faces[i_face][1] = 0;
         }
-        if (std::abs(face_center[0]) < 1E-4)
+        if (std::abs(-2.5 * face_center[0] + 1.75 - face_center[1]) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -853,8 +883,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           in_manager->dof_status_on_faces[i_face][0] = 1;
           in_manager->dof_status_on_faces[i_face][1] = 1;
         }
-        if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
-            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        if (std::abs(face_center[1]) < 1E-4 ||
+            std::abs(face_center[1] - 1) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -865,7 +895,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           in_manager->dof_status_on_faces[i_face][1] = 1;
         }
       }
-      if (face_center[0] >= -1.E-4) // We are in electrolyte
+      if (-2.5 * face_center[0] + 1.75 <
+          face_center[1] + 1.e-4) // We are in electrolyte
       {
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         in_manager->dof_status_on_faces[i_face][2] = 1;
@@ -873,7 +904,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
         //
         // Applying BC on rho_r and rho_o
         //
-        if (std::abs(face_center[0] - M_PI) < 1E-4)
+        if (std::abs(face_center[0] - 1) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -883,7 +914,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           in_manager->dof_status_on_faces[i_face][2] = 0;
           in_manager->dof_status_on_faces[i_face][3] = 0;
         }
-        if (std::abs(face_center[0]) < 1E-4)
+        if (std::abs(-2.5 * face_center[0] + 1.75 - face_center[1]) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -892,8 +923,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           in_manager->dof_status_on_faces[i_face][2] = 1;
           in_manager->dof_status_on_faces[i_face][3] = 1;
         }
-        if (std::abs(face_center[1] - M_PI / 2.0) < 1E-4 ||
-            std::abs(face_center[1] + M_PI / 2.0) < 1E-4)
+        if (std::abs(face_center[1]) < 1E-4 ||
+            std::abs(face_center[1] - 1) < 1E-4)
         {
           in_manager->BCs[i_face] =
             static_cast<typename R_I_Eq::boundary_condition>(
@@ -1010,7 +1041,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       //
       // The time stepping loop.
       //
-      for (unsigned i_time = 0; i_time < 50; ++i_time)
+      for (unsigned i_time = 0; i_time < 200; ++i_time)
       {
         //
         model_manager0.apply_on_owned_cells(

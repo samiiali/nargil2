@@ -184,7 +184,7 @@ template <typename F>
 void nargil::mesh<dim, spacedim>::generate_mesh(F mesh_gen_func)
 {
   mesh_gen_func(tria);
-  // write_grid();
+  write_grid();
 }
 
 //

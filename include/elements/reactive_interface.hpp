@@ -1480,18 +1480,18 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * The basis corresponding to this cell_manager.
-     *
-     */
-    const BasisType *my_basis;
-
-    /**
-     *
      * Contains all of the boundary conditions of on the faces of this
      * Cell.
      *
      */
     std::vector<boundary_condition> BCs;
+
+    /**
+     *
+     * The basis corresponding to this cell_manager.
+     *
+     */
+    const BasisType *my_basis;
 
     /**
      *

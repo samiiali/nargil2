@@ -76,6 +76,8 @@ void nargil::reactive_interface<dim, spacedim>::connect_to_other_cell(
 //
 //
 
+namespace nargil
+{
 /**
  *
  * This is specialized template of the above class. In C++ there is little
@@ -85,10 +87,11 @@ void nargil::reactive_interface<dim, spacedim>::connect_to_other_cell(
  */
 template <>
 template <>
-void nargil::reactive_interface<2, 2>::connect_to_other_cell(
+void reactive_interface<2, 2>::connect_to_other_cell(
   diffusion<2, 2> *in_relevant_cell)
 {
   my_relevant_diff_cell = in_relevant_cell;
+}
 }
 
 //
@@ -1079,6 +1082,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       {
         double face_JxW = fe_face_val->JxW(i_face_quad);
         dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
+        (void) n_vec;
         //
         // We obtain rho_hat_n, rho_hat_p, rho_hat_r, rho_hat_o at the
         // quadrature point.
@@ -1238,10 +1242,12 @@ template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::set_my_dyna_terms(const time_integrator_type in_type)
 {
-  if (in_type == BDF1)
+  if (in_type == time_integrator_type::BDF1)
   {
-    ode_solvers::BDF1_solver *own_time_integrator =
-      static_cast<ode_solvers::BDF1_solver *> time_integrator;
+    ode_solvers::BDF1_solver<Eigen::VectorXd> *own_time_integrator =
+      static_cast<ode_solvers::BDF1_solver<Eigen::VectorXd> *>(
+        my_time_integrator);
+    (void)own_time_integrator;
   }
 }
 
@@ -2305,7 +2311,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   if (comm_rank == 0)
   {
     std::vector<std::string> filenames;
-    for (unsigned int i = 0; i < comm_size; ++i)
+    for (int i = 0; i < comm_size; ++i)
       filenames.push_back(in_viz_data.my_out_filename + "-" +
                           dealii::Utilities::int_to_string(i, 4) + "-" +
                           dealii::Utilities::int_to_string(time_level, 4) +

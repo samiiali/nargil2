@@ -74,6 +74,8 @@ void nargil::diffusion<dim, spacedim>::connect_to_other_cell(OtherCellEq *)
 //
 //
 
+namespace nargil
+{
 /**
  *
  * This is specialized template of the above class. In C++ there is little
@@ -87,6 +89,7 @@ void nargil::diffusion<2, 2>::connect_to_other_cell(
   reactive_interface<2, 2> *in_relevant_cell)
 {
   my_relvevant_R_I_cell = in_relevant_cell;
+}
 }
 
 //
@@ -1134,7 +1137,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   if (comm_rank == 0)
   {
     std::vector<std::string> filenames;
-    for (unsigned int i = 0; i < comm_size; ++i)
+    for (int i = 0; i < comm_size; ++i)
       filenames.push_back(in_viz_data.my_out_filename + "-" +
                           dealii::Utilities::int_to_string(i, 4) + "-" +
                           dealii::Utilities::int_to_string(time_level, 4) +

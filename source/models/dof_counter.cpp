@@ -44,10 +44,12 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
   nargil::model<ModelEq, dim, spacedim> *in_model)
 {
   typedef typename BasisType::CellManagerType CellManagerType;
-  int comm_rank, comm_size;
+  int comm_rank_0, comm_size_0;
   const MPI_Comm *my_comm = in_model->my_mesh->my_comm;
-  MPI_Comm_rank(*my_comm, &comm_rank);
-  MPI_Comm_size(*my_comm, &comm_size);
+  MPI_Comm_rank(*my_comm, &comm_rank_0);
+  MPI_Comm_size(*my_comm, &comm_size_0);
+  unsigned comm_rank = static_cast<unsigned>(comm_rank_0);
+  unsigned comm_size = static_cast<unsigned>(comm_size_0);
 
   std::map<unsigned, std::vector<std::string> > face_to_rank_sender;
   std::map<unsigned, unsigned> face_to_rank_recver;

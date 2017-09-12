@@ -439,22 +439,22 @@ struct react_int_problem1_data
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_0(const dealii::Point<spacedim> &p) final { return 0; }
+  virtual double rho_n_0(const dealii::Point<spacedim> &) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_p\f$
    */
-  virtual double rho_p_0(const dealii::Point<spacedim> &p) final { return 0; }
+  virtual double rho_p_0(const dealii::Point<spacedim> &) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_r\f$
    */
-  virtual double rho_r_0(const dealii::Point<spacedim> &p) final { return 0; }
+  virtual double rho_r_0(const dealii::Point<spacedim> &) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_o\f$
    */
-  virtual double rho_o_0(const dealii::Point<spacedim> &p) final { return 0; }
+  virtual double rho_o_0(const dealii::Point<spacedim> &) final { return 0; }
 
   /**
    * @brief Initial values for \f$\rho_n\f$

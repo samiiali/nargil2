@@ -40,9 +40,12 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e-9;
-  const static double r_i = 0.53;
-  const static double r_o = 0.63;
+  constexpr static double epsinv = 1.0e-9;
+  constexpr static double z_0 = 0.0;
+  constexpr static double z_h = 5.0 * 2.0 * M_PI;
+  constexpr static double r_i = 0.53;
+  constexpr static double r_m = 1.00;
+  constexpr static double r_o = 0.63;
   /**
    * @brief Constructor.
    */
@@ -51,7 +54,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief rhs_func.
    */
-  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  virtual double rhs_func(const dealii::Point<spacedim> &)
   {
     //
     // ***
@@ -83,7 +86,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief gN_func.
    */
-  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &)
   {
     return dealii::Tensor<1, dim>({0, 0, 0});
   }
@@ -91,7 +94,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief exact_u
    */
-  virtual double exact_u(const dealii::Point<spacedim> &p) { return 0.; }
+  virtual double exact_u(const dealii::Point<spacedim> &) { return 0.; }
 
   /**
    * @brief exact_q
@@ -99,7 +102,6 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
     double R = 5.;
-    // double r_m = (r_i + r_o) / 2.;
 
     double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
     //
@@ -238,9 +240,12 @@ template <int dim, int spacedim = dim> struct Problem2
   typedef typename nargil::diffusion<dim>::template hdg_manager<BasisType>
     CellManagerType;
 
-  const static double epsinv = problem_data_2<dim, spacedim>::epsinv;
-  const static double r_i = problem_data_2<dim, spacedim>::r_i;
-  const static double r_o = problem_data_2<dim, spacedim>::r_o;
+  constexpr static double epsinv = problem_data_2<dim, spacedim>::epsinv;
+  constexpr static double r_i = problem_data_2<dim, spacedim>::r_i;
+  constexpr static double r_o = problem_data_2<dim, spacedim>::r_o;
+  constexpr static double z_0 = problem_data_2<dim, spacedim>::z_0;
+  constexpr static double z_h = problem_data_2<dim, spacedim>::z_h;
+  constexpr static double r_m = problem_data_2<dim, spacedim>::r_m;
 
   /**
    * @brief adaptive_mesh_gen
@@ -286,20 +291,13 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief adaptive_mesh_gen
    */
-  /*
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {80, 80, 4};
+    std::vector<unsigned> refine_repeats = {30, 30, 30};
     //
-    // ***
-    //
-    // double r_m = (r_i + r_o) / 2.;
-    double r_m = 1;
-    //
-    dealii::Point<dim> corner_1(r_i, 0., 0.);
-    // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
-    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
+    dealii::Point<dim> corner_1(r_i, 0., z_0);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, z_h);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -313,9 +311,7 @@ template <int dim, int spacedim = dim> struct Problem2
       the_mesh, 4, 5, 2, periodic_faces,
       dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
-    // the_mesh.refine_global(4);
   }
-  */
 
   /**
    * @brief dofs_on_nodes
@@ -350,25 +346,18 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief dofs_on_nodes
    */
-  /*
   static void assign_rect_mesh_BCs(CellManagerType *in_manager)
   {
-    //
-    // ***
-    //
-    double r_m = 1.;
-    // double r_m = (r_i + r_o) / 2.;
-    //
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * 5.0 * M_PI - 1.e-6 ||
-            face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
+        if (face->center()[2] > z_h - 1.e-6 ||
+            face->center()[2] < z_0 - 1.e-6 ||
+            face->center()[1] < 0.0 + 1.e-6 ||
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
-        // face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -385,7 +374,6 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
-  */
 
   //
   //
@@ -408,7 +396,7 @@ template <int dim, int spacedim = dim> struct Problem2
 
       problem_data_2<dim> data1;
 
-      mesh1.generate_mesh(mesh_gen);
+      mesh1.generate_mesh(generate_rect_mesh);
       BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
@@ -421,9 +409,9 @@ template <int dim, int spacedim = dim> struct Problem2
         model_manager1.form_dof_handlers(&model1, &basis1);
 
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         dof_counter1.template count_globals<BasisType>(&model1);
         //
         model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,

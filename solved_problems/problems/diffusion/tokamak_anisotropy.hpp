@@ -151,7 +151,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     double R = 5.0;
     double a = 1.0;
     double B0 = 1.0;
-    double psitilde = 0.0002*R;
+    double psitilde = 0.0002 * R;
     double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
     double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
                        2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
@@ -167,7 +167,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     double thetaprime = -(psishapep * psipert) / r + 1.0 / qsafety;
 
     double br = rprime / R;
-    double btheta = r * thetaprime / R;
+    double btheta = thetaprime / R;
     double bz = 1.0;
 
     return dealii::Tensor<1, dim>({br, btheta, bz});
@@ -271,7 +271,6 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     // double btheta =r*thetaprime/R;
     // double bz =1.0;
 
-
     double r = sqrt(p[0] * p[0] + p[1] * p[1]);
     double z = p[2];
     double theta = atan2(p[1], p[0]);
@@ -279,7 +278,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     double R = 5.0;
     double a = 1.0;
     double B0 = 1.0;
-    double psitilde = 0.0002*R;
+    double psitilde = 0.0002 * R;
     double psishape = a * B0 * (r * r) * (1. - r) * (1. - r);
     double psishapep = 2.0 * a * B0 * r * (1. - r) * (1. - r) -
                        2.0 * a * B0 * r * r * (1. - r); // diff(psishape, x);
@@ -528,7 +527,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
       problem_data<dim> data1;
 
-      mesh1.generate_mesh(mesh_gen);
+      mesh1.generate_mesh(generate_rect_mesh);
       BasisType basis1(1, 2);
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
@@ -541,9 +540,9 @@ template <int dim, int spacedim = dim> struct Problem1
         model_manager1.form_dof_handlers(&model1, &basis1);
 
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_BCs);
+          &model1, CellManagerType::assign_BCs, assign_rect_mesh_BCs);
         dof_counter1.template count_globals<BasisType>(&model1);
         //
         model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,

@@ -40,9 +40,9 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e-9;
-  const static double r_i = 0.53;
-  const static double r_o = 0.63;
+  constexpr static double epsinv = 1.0e-9;
+  constexpr static double r_i = 0.53;
+  constexpr static double r_o = 0.63;
   /**
    * @brief Constructor.
    */
@@ -238,9 +238,9 @@ template <int dim, int spacedim = dim> struct Problem2
   typedef typename nargil::diffusion<dim>::template hdg_manager<BasisType>
     CellManagerType;
 
-  const static double epsinv = problem_data_2<dim, spacedim>::epsinv;
-  const static double r_i = problem_data_2<dim, spacedim>::r_i;
-  const static double r_o = problem_data_2<dim, spacedim>::r_o;
+  constexpr static double epsinv = problem_data_2<dim, spacedim>::epsinv;
+  constexpr static double r_i = problem_data_2<dim, spacedim>::r_i;
+  constexpr static double r_o = problem_data_2<dim, spacedim>::r_o;
 
   /**
    * @brief adaptive_mesh_gen

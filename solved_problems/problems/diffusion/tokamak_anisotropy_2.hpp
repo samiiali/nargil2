@@ -102,6 +102,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
     double R = 5.;
+    // double r_m = (r_i + r_o) / 2.;
 
     double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
     //
@@ -291,13 +292,20 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief adaptive_mesh_gen
    */
+  /*
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     std::vector<unsigned> refine_repeats = {30, 30, 30};
     //
-    dealii::Point<dim> corner_1(r_i, 0., z_0);
-    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, z_h);
+    // ***
+    //
+    // double r_m = (r_i + r_o) / 2.;
+    double r_m = 1;
+    //
+    dealii::Point<dim> corner_1(r_i, 0., 0.);
+    // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -311,7 +319,9 @@ template <int dim, int spacedim = dim> struct Problem2
       the_mesh, 4, 5, 2, periodic_faces,
       dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
+    // the_mesh.refine_global(4);
   }
+  */
 
   /**
    * @brief dofs_on_nodes
@@ -346,8 +356,15 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief dofs_on_nodes
    */
+  /*
   static void assign_rect_mesh_BCs(CellManagerType *in_manager)
   {
+    //
+    // ***
+    //
+    double r_m = 1.;
+    // double r_m = (r_i + r_o) / 2.;
+    //
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
@@ -358,6 +375,7 @@ template <int dim, int spacedim = dim> struct Problem2
             face->center()[2] < z_0 - 1.e-6 ||
             face->center()[1] < 0.0 + 1.e-6 ||
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
+        // face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -374,6 +392,7 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
+  */
 
   //
   //

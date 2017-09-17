@@ -40,10 +40,10 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  constexpr static double epsinv = 1.0e-9;
+  constexpr static double epsinv = 1.0e6;
   constexpr static double z_0 = 0.0;
-  constexpr static double z_h = 5.0 * 2.0 * M_PI;
-  constexpr static double r_i = 0.53;
+  constexpr static double z_h = 1.0 * 2.0 * M_PI;
+  constexpr static double r_i = 0.55;
   constexpr static double r_m = 1.00;
   constexpr static double r_o = 0.63;
   /**
@@ -292,7 +292,6 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief adaptive_mesh_gen
    */
-  /*
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
@@ -319,9 +318,9 @@ template <int dim, int spacedim = dim> struct Problem2
       the_mesh, 4, 5, 2, periodic_faces,
       dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
     the_mesh.add_periodicity(periodic_faces);
+    std::cout << "mesh is done !" << std::endl;
     // the_mesh.refine_global(4);
   }
-  */
 
   /**
    * @brief dofs_on_nodes
@@ -356,7 +355,6 @@ template <int dim, int spacedim = dim> struct Problem2
   /**
    * @brief dofs_on_nodes
    */
-  /*
   static void assign_rect_mesh_BCs(CellManagerType *in_manager)
   {
     //
@@ -392,7 +390,6 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
-  */
 
   //
   //

@@ -37,7 +37,7 @@
 template <int dim, int spacedim = dim>
 struct problem_data : public nargil::diffusion<dim, spacedim>::data
 {
-  const double epsinv = 1.0e6;
+  const double epsinv = 1.0e10;
   const double r_i = 0.55;
   const double r_o = 0.63;
   /**
@@ -151,7 +151,7 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     double x = p[0]; //sqrt(p[0] * p[0] + p[1] * p[1]);
     double y = p[1]; //atan2(p[1], p[0]);
     double z = p[2];
-    double theta = atan2(p[1], p[0]);
+    //    double theta = atan2(p[1], p[0]);
 
     double R = 5.0;
     double a = 1.0;
@@ -181,7 +181,8 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     result[0][1] = (epsinv - 1.) * br * btheta;
     result[0][2] = (epsinv - 1.) * br * bz;
     result[1][0] = result[0][1];
-    result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * btheta * btheta;
+    // result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * btheta * btheta;
+    result[1][1] = 1.0 + (epsinv - 1.) * btheta * btheta;
     result[1][2] = (epsinv - 1) * btheta * bz;
     result[2][0] = result[0][2];
     result[2][1] = result[1][2];
@@ -283,7 +284,7 @@ template <int dim, int spacedim = dim> struct Problem1
 
     double circ = 1.0; //(r_i+r_o)/2.0;
 
-    std::vector<unsigned> refine_repeats = {40, 40, 40};
+    std::vector<unsigned> refine_repeats = {50, 50, 20};
     dealii::Point<dim> corner_1(r_i, 0., 0.);
     dealii::Point<dim> corner_2(r_o, circ * 2. * M_PI, 2. * 1.0 * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
@@ -409,10 +410,10 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        // nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-        //   solver_keys, dof_counter1, comm);
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-                                                          dof_counter1, comm);
+        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+           solver_keys, dof_counter1, comm);
+        //nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        //                                                  dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 

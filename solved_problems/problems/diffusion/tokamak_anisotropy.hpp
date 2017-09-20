@@ -37,7 +37,7 @@
 template <int dim, int spacedim = dim>
 struct problem_data : public nargil::diffusion<dim, spacedim>::data
 {
-  const double epsinv = 1.0e10;
+  const double epsinv = 1.0e6;
   const double r_i = 0.55;
   const double r_o = 0.63;
   /**
@@ -59,9 +59,12 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
-    double temperature = 4.7e-4;
+    //double temperature = 4.7e-4;
+    double temperature = 4.7e-4 * exp( -(-p[1]-1)*(p[1]-1) - (p[2]-1)*(p[2]-1) )/0.1; //* cos(3.0*p[1]-2.0*p[2]/5.0);
     if (p[0] > 0.63 - 1.e-6)
-      temperature = 4.1e-4;
+      temperature = 4.7e-4 * exp( (-p[1]-1)*(p[1]-1) - (p[2]-1)*(p[2]-1) )/0.1;
+    //      temperature = 4.7e-4* cos(3.0*p[1]-2.0*p[2]/5.0);
+    //temperature = 4.1e-4;
     return temperature;
   }
 
@@ -156,41 +159,65 @@ struct problem_data : public nargil::diffusion<dim, spacedim>::data
     double R = 5.0;
     double a = 1.0;
     double B0 = 1.0;
-    double psitilde = 0.0002 * R;
-    double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
-    double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
-                       2.0 * a * B0 * x * x * (1. - x); // diff(psishape, x);
-    double psi32 = std::cos(3.0 * y - 2.0 * z);
-    double psi43 = std::cos(4.0 * y - 3.0 * z);
-    double psip32 = -3.0 * std::sin(3.0 * y - 2.0 * z);
-    double psip43 = -4.0 * std::sin(4.0 * y - 3.0 * z);
-    double psipert = psi32 + psi43; 
-    double psipertp =  psip32 + psip43;
-    double qsafety = 0.2 * std::exp(x / (a * 0.3));
 
-    double rprime = (psitilde * psishape * psipertp) / (B0 * x);
-    double thetaprime = -(psitilde * psishapep * psipert) / (B0 * x) + 1.0 / (qsafety);
+    double psitilde = 0.0; //0.0002;
+    double psishape = a*B0*(x * x) * (1. - x) * (1. - x);
+    double psishapep = 2.0*a*B0*x  * (1. - x) * (1. - x) - 2.0*a*B0*x * x * (1. - x); 
+    double psi32 = cos(3.0 * y - 2.0 * z);
+    double psi43 = cos(4.0 * y - 3.0 * z);
+    double psip32 = -3.0 * sin(3.0 * y - 2.0 * z/R);
+    double psip43 = -4.0 * sin(4.0 * y - 3.0 * z/R);
+    double psipert  = psi32 + psi43;
+    double psipertp = psip32 + psip43;
+    double qsafety = 3.0/2.0; //0.2 * exp(x/(a*0.3));
 
-    double br = rprime;
-    double btheta = thetaprime;
+    double xprime=(psitilde*psishape*psipertp)/(B0*x);
+    double yprime=-(psitilde*psishapep*psipert/(B0*x)) + a / (R*qsafety);
+
+    // double R = 5.0;
+    // double a = 1.0;
+    // double B0 = 1.0;
+    // double psitilde = 0.0002 * R;
+    // double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
+    // double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
+    //                    2.0 * a * B0 * x * x * (1. - x); // diff(psishape, x);
+    // double psi32 = std::cos(3.0 * y - 2.0 * z);
+    // double psi43 = std::cos(4.0 * y - 3.0 * z);
+    // double psip32 = -3.0 * std::sin(3.0 * y - 2.0 * z);
+    // double psip43 = -4.0 * std::sin(4.0 * y - 3.0 * z);
+    // double psipert = psi32 + psi43; 
+    // double psipertp =  psip32 + psip43;
+    // double qsafety = 0.2 * std::exp(x / (a * 0.3));
+
+    // double rprime = (psitilde * psishape * psipertp) / (B0 * x);
+    // double thetaprime = -(psitilde * psishapep * psipert) / (B0 * x) + 1.0 / (qsafety);
+
+    double br = xprime;
+    double btheta = yprime;
     double bz = 1.0;
 
-    dealii::Tensor<2, dim> result;
+    dealii::Tensor<2, dim> result; // 
     
-    result[0][0] = 1.0 + (epsinv - 1.) * br * br;
-    result[0][1] = (epsinv - 1.) * br * btheta;
-    result[0][2] = (epsinv - 1.) * br * bz;
-    result[1][0] = result[0][1];
-    // result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * btheta * btheta;
-    result[1][1] = 1.0 + (epsinv - 1.) * btheta * btheta;
-    result[1][2] = (epsinv - 1) * btheta * bz;
-    result[2][0] = result[0][2];
-    result[2][1] = result[1][2];
-    result[2][2] = 1. + (epsinv - 1.) * bz * bz;
-    // result[2][2] = 1. / (1. + sin(p[2]) * sin(p[2]));
-    // result[0][0] = 1.0;
-    // result[1][1] = 1.0;
-    // result[2][2] = 1.0;
+    // result[0][0] = 1.0 + (epsinv - 1.) * br * br;
+    // result[0][1] = (epsinv - 1.) * br * btheta;
+    // result[0][2] = (epsinv - 1.) * br * bz;
+    // result[1][0] = result[0][1];
+    // // result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * btheta * btheta;
+    // result[1][1] = 1.0 + (epsinv - 1.) * btheta * btheta;
+    // result[1][2] = (epsinv - 1) * btheta * bz;
+    // result[2][0] = result[0][2];
+    // result[2][1] = result[1][2];
+    // result[2][2] = 1. + (epsinv - 1.) * bz * bz;
+
+    result[0][0] = 1.0;
+    result[0][1] = 0.0;
+    result[0][2] = 0.0;
+    result[1][0] = 0.0;
+    result[1][1] = epsinv+1.0;
+    result[1][2] = epsinv;
+    result[2][0] = 0.0;
+    result[2][1] = epsinv;
+    result[2][2] = epsinv+1.0;
 
     for (int i = 0; i < 3; ++i)
     {
@@ -284,9 +311,9 @@ template <int dim, int spacedim = dim> struct Problem1
 
     double circ = 1.0; //(r_i+r_o)/2.0;
 
-    std::vector<unsigned> refine_repeats = {50, 50, 20};
+    std::vector<unsigned> refine_repeats = {30, 30, 30};
     dealii::Point<dim> corner_1(r_i, 0., 0.);
-    dealii::Point<dim> corner_2(r_o, circ * 2. * M_PI, 2. * 1.0 * M_PI);
+    dealii::Point<dim> corner_2(r_o, circ * 2. * M_PI, 2. * 5.0 * M_PI);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -298,7 +325,7 @@ template <int dim, int spacedim = dim> struct Problem1
       dealii::Tensor<1, dim>({0.0, circ * 2. * M_PI, 0.}));
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 4, 5, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0.0, 2.0 * 1.0 * M_PI}));
+      dealii::Tensor<1, dim>({0., 0.0, 2.0 * 5.0 * M_PI}));
     the_mesh.add_periodicity(periodic_faces);
     // the_mesh.refine_global(4);
   }
@@ -343,9 +370,9 @@ template <int dim, int spacedim = dim> struct Problem1
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 1. - 1.e-6 ||
+        if (face->center()[2] > 2. * M_PI * 5. - 1.e-6 ||
             face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
-            face->center()[1] > 2. * M_PI - 1.e-6)
+            face->center()[1] > 2. * M_PI  - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);

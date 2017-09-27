@@ -74,12 +74,23 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
+    /*
     double temperature = 4.7e-6;
 
     double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
 
     if (y1 > r_o - 1.e-6)
       temperature = 4.6e-6;
+    */
+
+    double temperature = 0.0;
+    if (p[0] > r_o - 1e-6 &&
+        sqrt((p[1] - M_PI) * (p[1] - M_PI) +
+             (p[2] - (z_h) / 2.) * (p[2] - (z_h) / 2.)) < 1.0)
+    {
+      temperature = 1.0;
+    }
+
     return temperature;
   }
 
@@ -216,6 +227,10 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     beta_ik[2][2] = 1.;
     result = beta_ik * result * dealii::transpose(beta_ik);
 
+    result = dealii::Tensor<2, dim>();
+    result[1][1] = result[2][2] = 1.0;
+    result[0][0] = 0.01;
+
     return dealii::invert(result);
   }
 
@@ -225,7 +240,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0e3;
+    return 1.0e1;
     //
   }
 };
@@ -295,16 +310,15 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {30, 30, 30};
+    std::vector<unsigned> refine_repeats = {20, 80, 80};
     //
     // ***
     //
     // double r_m = (r_i + r_o) / 2.;
-    double r_m = 1;
+    // double r_m = 1;
     //
-    dealii::Point<dim> corner_1(r_i, 0., 0.);
-    // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
-    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
+    dealii::Point<dim> corner_1(r_i, 0., z_0);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, z_h);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -316,9 +330,8 @@ template <int dim, int spacedim = dim> struct Problem2
       dealii::Tensor<1, dim>({0.0, 2.0 * M_PI * r_m, 0.}));
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 4, 5, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
+      dealii::Tensor<1, dim>({0., 0., z_h - z_0}));
     the_mesh.add_periodicity(periodic_faces);
-    std::cout << "mesh is done !" << std::endl;
     // the_mesh.refine_global(4);
   }
 
@@ -333,8 +346,7 @@ template <int dim, int spacedim = dim> struct Problem2
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
-            face->center()[2] < 1.e-6)
+        if (face->center()[2] > z_h - 1.e-6 || face->center()[2] < 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -360,7 +372,7 @@ template <int dim, int spacedim = dim> struct Problem2
     //
     // ***
     //
-    double r_m = 1.;
+    // double r_m = 1.;
     // double r_m = (r_i + r_o) / 2.;
     //
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -373,7 +385,6 @@ template <int dim, int spacedim = dim> struct Problem2
             face->center()[2] < z_0 - 1.e-6 ||
             face->center()[1] < 0.0 + 1.e-6 ||
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
-        // face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
@@ -435,7 +446,7 @@ template <int dim, int spacedim = dim> struct Problem2
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::set_source_and_BCs);
         //
-        int solver_keys = nargil::solvers::solver_props::default_option;
+        int solver_keys = nargil::solvers::solver_props::spd_matrix;
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
@@ -444,6 +455,7 @@ template <int dim, int spacedim = dim> struct Problem2
         //        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
         //                                                          dof_counter1,
         //                                                          comm);
+        //
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 

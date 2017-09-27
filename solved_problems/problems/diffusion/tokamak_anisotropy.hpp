@@ -437,10 +437,10 @@ template <int dim, int spacedim = dim> struct Problem1
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-           solver_keys, dof_counter1, comm);
-        //nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-        //                                                  dof_counter1, comm);
+                nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+                   solver_keys, dof_counter1, comm);
+//        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+//                                                          dof_counter1, comm);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 

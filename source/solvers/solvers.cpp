@@ -674,6 +674,7 @@ void nargil::solvers::petsc_implicit_cg_solver<dim, spacedim>::form_factors()
   KSPSetTolerances(ksp, 1.E-6, PETSC_DEFAULT, PETSC_DEFAULT, 40000);
   KSPGetPC(ksp, &pc);
   PCSetType(pc, PCHYPRE);
+  //  PCSetType(pc, PCGAMG);
   PCSetFromOptions(pc);
   // PCGAMGSetNSmooths(pc, 1);
   //

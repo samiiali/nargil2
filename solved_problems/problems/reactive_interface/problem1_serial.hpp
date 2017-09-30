@@ -234,6 +234,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 6. * (-12. + cos(x1) + sin(x1)) * (cos(x1) - sin(y1));
@@ -247,6 +248,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 8. * (-22. + cos(x1 - y1)) * sin(x1 + y1);
@@ -260,6 +262,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 8. * (-22. + cos(x1 - y1)) * sin(x1 + y1) -
@@ -274,6 +277,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
 
+    // ***
     return 0.;
 
     return 6. * (-12. + cos(x1) + sin(x1)) * (cos(x1) - sin(y1)) -
@@ -333,7 +337,8 @@ struct react_int_problem1_data
          exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)),
        -(exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) + sin(x1)))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -350,7 +355,8 @@ struct react_int_problem1_data
       {2 * (-(exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2)) + sin(x1 - y1)),
        2 * exp(sin(x1 - y1)) * pow(cos(x1 - y1), 2) - 2 * sin(x1 - y1)});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -368,7 +374,8 @@ struct react_int_problem1_data
          (3 * exp(sin(x1 - y1)) * (sin(2 * x1) + sin(2 * y1))) / 2.,
        -3 * (cos(x1 + y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * sin(x1 + y1))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -385,7 +392,8 @@ struct react_int_problem1_data
       {4 * (sin(x1) - exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1))),
        4 * (cos(y1) + exp(sin(x1 - y1)) * cos(x1 - y1) * (cos(x1) - sin(y1)))});
 
-    return dealii::Tensor<1, dim>();
+    // ***
+    //    return dealii::Tensor<1, dim>();
 
     return result;
   }
@@ -633,7 +641,7 @@ struct react_int_problem1_data
 /**
  * Just a sample problem
  */
-template <int dim, int spacedim = dim> struct RI_Problem1
+template <int dim, int spacedim = dim> struct RI_Problem1_2
 {
   typedef nargil::reactive_interface<dim> R_I_Eq;
   typedef nargil::model<R_I_Eq, dim> R_I_Model;
@@ -654,7 +662,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {200, 100};
+    std::vector<unsigned> refine_repeats = {80, 40};
     dealii::Point<dim> corner_1(-M_PI, -M_PI / 2.);
     dealii::Point<dim> corner_2(M_PI, M_PI / 2.);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
@@ -831,14 +839,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1
 
     PetscInitialize(&argc, &argv, NULL, NULL);
     dealii::MultithreadInfo::set_thread_limit(1);
-    //
-    // PETSc scope.
-    //
+
     {
       const MPI_Comm &comm = PETSC_COMM_WORLD;
-      int comm_rank, comm_size;
-      MPI_Comm_rank(comm, &comm_rank);
-      MPI_Comm_size(comm, &comm_size);
+      int comm_rank = 0;
       //
       nargil::mesh<dim> mesh1(comm, 1, true);
       mesh1.generate_mesh(mesh_gen);
@@ -879,24 +883,17 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         model_manager0.apply_on_owned_cells(
           &model0, DiffManagerType::set_source_and_BCs);
         //
-        int solver_keys0 = nargil::solvers::solver_props::spd_matrix;
-        int update_keys0 = nargil::solvers::solver_update_opts::update_mat |
-                           nargil::solvers::solver_update_opts::update_rhs;
-        //
-        nargil::solvers::petsc_direct_solver<dim> solver0(solver_keys0,
-                                                          dof_counter0, comm);
+        nargil::solvers::simple_implicit_solver<dim> solver0(dof_counter0);
         model_manager0.apply_on_owned_cells(
           &model0, DiffManagerType::assemble_globals, &solver0);
         //
-        Vec sol_vec0;
-        solver0.finish_assemble(update_keys0);
+        Eigen::VectorXd sol_vec0;
+        solver0.finish_assemble();
         solver0.form_factors();
-        solver0.solve_system(&sol_vec0);
+        solver0.solve_system(sol_vec0);
         //
-        std::vector<double> local_sol_vec0(
-          solver0.get_local_part_of_global_vec(&sol_vec0));
         model_manager0.apply_on_owned_cells(
-          &model0, DiffManagerType::compute_local_unkns, local_sol_vec0.data());
+          &model0, DiffManagerType::compute_local_unkns, sol_vec0.data());
         //
         nargil::distributed_vector<dim> dist_sol_vec0(
           model_manager0.local_dof_handler, PETSC_COMM_WORLD);
@@ -977,30 +974,22 @@ template <int dim, int spacedim = dim> struct RI_Problem1
         model_manager1.apply_on_owned_cells(&model1,
                                             R_I_ManagerType::set_init_vals);
         //
-        int solver_keys1 = nargil::solvers::solver_props::default_option;
-        int update_keys1 = nargil::solvers::solver_update_opts::update_mat |
-                           nargil::solvers::solver_update_opts::update_rhs;
-        //
         // This is Newton-Raphson iteration loop
         //
         double NR_delta;
         do
         {
-          nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
-                                                            dof_counter1, comm);
+          nargil::solvers::simple_implicit_solver<dim> solver1(dof_counter1);
           model_manager1.apply_on_owned_cells(
             &model1, R_I_ManagerType::assemble_globals, &solver1);
           //
-          Vec sol_vec1;
-          solver1.finish_assemble(update_keys1);
+          Eigen::VectorXd sol_vec1;
+          solver1.finish_assemble();
           solver1.form_factors();
-          solver1.solve_system(&sol_vec1);
+          solver1.solve_system(sol_vec1);
           //
-          std::vector<double> local_sol_vec1(
-            solver1.get_local_part_of_global_vec(&sol_vec1));
           model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::extract_NR_increment,
-            local_sol_vec1.data());
+            &model1, R_I_ManagerType::extract_NR_increment, sol_vec1.data());
           model_manager1.apply_on_owned_cells(
             &model1, R_I_ManagerType::compute_NR_increments);
           //
@@ -1106,9 +1095,5 @@ template <int dim, int spacedim = dim> struct RI_Problem1
       //
       //
     }
-    //
-    // PETSc scope.
-    //
-    PetscFinalize();
   }
 };

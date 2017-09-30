@@ -22,6 +22,7 @@
 #include "../models/model_options.hpp"
 #include "../solvers/solvers.hpp"
 #include "cell.hpp"
+#include "reactive_interface.hpp"
 
 #ifndef DIFFUSION_HPP
 #define DIFFUSION_HPP
@@ -64,6 +65,19 @@ struct diffusion : public cell<dim, spacedim>
    *
    */
   virtual ~diffusion() final;
+
+  /**
+   *
+   * The boundary condition for diffusion problem
+   *
+   */
+  enum class boundary_condition
+  {
+    not_set = 0,
+    essential = 1,
+    natural = 2,
+    periodic = 3
+  };
 
   /**
    *
@@ -166,6 +180,11 @@ struct diffusion : public cell<dim, spacedim>
      * This will be displayed in Paraview (like Hydraulic flow or Heat flow).
      */
     const std::string my_q_name;
+
+    /**
+     * @brief The time step and iteration cycle.
+     */
+    unsigned time_step, cycle;
   };
 
   /**
@@ -203,6 +222,14 @@ struct diffusion : public cell<dim, spacedim>
 
   /**
    *
+   * This connects the diffusion cell to the R_I cell.
+   *
+   */
+  template <typename OtherCellEq>
+  void connect_to_other_cell(OtherCellEq *in_relevant_R_I_cell);
+
+  /**
+   *
    * Contains the basis of the current cell.
    *
    */
@@ -224,6 +251,13 @@ struct diffusion : public cell<dim, spacedim>
    *
    */
   data *my_data;
+
+  /**
+   *
+   *
+   *
+   */
+  nargil::reactive_interface<dim, spacedim> *my_relvevant_R_I_cell;
 
   /**
    *
@@ -296,6 +330,7 @@ struct diffusion : public cell<dim, spacedim>
      *
      * Returns the finite element basis for the local basis of the element.
      * Only used in hybridized_model_manager::form_dof_handlers().
+     *
      */
     const dealii::FESystem<dim> *get_local_fe() const;
 
@@ -314,6 +349,14 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     const dealii::FE_DGQ<dim> *get_refn_fe() const;
+
+    /**
+     *
+     * Returns the finite element basis for the visualization basis of the
+     * element. Only used in hybridized_model_manager::form_dof_handlers().
+     *
+     */
+    const dealii::FESystem<dim> *get_viz_fe() const;
 
     /**
      *
@@ -647,10 +690,25 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from apply_R_I_source.
+     *
+     */
+    template <typename RelevantCellManagerType> void apply_my_R_I_source();
+
+    /**
+     *
      * Called from compute_errors().
      *
      */
     void compute_my_errors(std::vector<double> *sum_of_L2_errors);
+
+    /**
+     *
+     * This function gives the computed fluxes in the element and on the
+     * boundary of the element.
+     *
+     */
+    void set_flux_vector(double **out_q, double **out_q_flux);
 
     /**
      *
@@ -710,6 +768,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     *
+     *
+     */
+    template <typename RelevantCellManagerType>
+    static void apply_R_I_source(diffusion *in_cell);
+
+    /**
+     *
      * compute_my_local_unkns
      *
      */
@@ -725,6 +791,13 @@ struct diffusion : public cell<dim, spacedim>
     static void
     assemble_globals(diffusion *in_cell,
                      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     *
+     *
+     */
+    static void compute_matrices(diffusion *in_cell);
 
     /**
      *
@@ -745,6 +818,14 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Contains all of the boundary conditions of on the faces of this
+     * Cell.
+     *
+     */
+    std::vector<boundary_condition> BCs;
+
+    /**
+     *
      * The basis corresponding to this cell_manager.
      *
      */
@@ -755,7 +836,7 @@ struct diffusion : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D, E, H;
+    Eigen::MatrixXd A, B, C, D, E, H, H0;
     ///@}
 
     /** @{
@@ -771,7 +852,8 @@ struct diffusion : public cell<dim, spacedim>
      * @brief The exact solutions on the corresponding nodes.
      *
      */
-    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec;
+    Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec,
+      q_star_dot_n_vec;
     ///@}
 
     /** @{

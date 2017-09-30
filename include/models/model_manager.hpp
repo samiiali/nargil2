@@ -63,6 +63,17 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
 
   /**
    *
+   * This function connects the elements from another model to the elements
+   * of the current model.
+   *
+   */
+  template <typename ModelEq, typename OtherModelEq>
+  void
+  connect_to_other_model(model<ModelEq, dim, spacedim> *in_model,
+                         model<OtherModelEq, dim, spacedim> *in_other_model);
+
+  /**
+   *
    * dof handler containing the local dof data of cells.
    *
    */
@@ -81,6 +92,13 @@ template <int dim, int spacedim = dim> struct hybridized_model_manager
    *
    */
   dealii::DoFHandler<dim, spacedim> refn_dof_handler;
+
+  /**
+   *
+   * The dealii DoFHandler which is used for refining the grid.
+   *
+   */
+  dealii::DoFHandler<dim, spacedim> viz_dof_handler;
 };
 }
 

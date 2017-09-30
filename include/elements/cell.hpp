@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
+#include <utility>
 
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/grid/tria.h>
@@ -89,7 +90,29 @@ template <int dim, int spacedim> struct cell_manager
  *
  *
  * This is the base class for all nargil::cell_manager 's with
- * their global unknowns on their faces.
+ * their global unknowns on their faces. The main task of this class
+ * is numbering the unknowns. Let us use the following naming in
+ * our problem:
+ *
+ * dof = The degree of freedom in the continuous problem. This can
+ *       be \f$\hat u\f$ in the diffusion problem.
+ *
+ * unkn = The unknowns which are used to express the dofs on each
+ *        face. For example for quadratic polynomial approximation
+ *        of our dofs, we have 3 unkns.
+ *
+ * As a result, the total number of unknowns in a quadratic element
+ * with 4 dofs (for example the reactive interface problem) is:
+ * n_faces * n_dofs_per_face * n_unkns_per_dof = n_faces * 4 * 3.
+ * The way we number these unkns is as follows:
+ *
+ *        |    } --> Block of n_unkn values for 1st dof of face 1
+ *        |    } --> Block of n_unkn values for 2nd dof of face 1
+ *           .
+ *           .
+ *           .
+ *        |    } --> Block of n_unkn values for (n_dof-1)th dof of face n_face
+ *        |    } --> Block of n_unkn values for (n_dof)th dof of face n_face
  *
  * @ingroup CellManagers
  *
@@ -216,6 +239,28 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
 
   /**
    *
+   * This is a helper function to the variadic template funciton.
+   *
+   */
+  void remove_from_memory();
+
+  /**
+   *
+   * This variadic function, removes all of its argument from memory.
+   *
+   */
+  template <typename T, typename... Pack>
+  void remove_from_memory(T arg0, Pack... args);
+
+  /**
+   *
+   * This variadic function, removes all of its argument from memory.
+   *
+   */
+  template <typename... Pack> void free_up_memory(Pack... args);
+
+  /**
+   *
    * The local integer ID of the unknowns in this rank.
    *
    */
@@ -227,14 +272,6 @@ struct hybridized_cell_manager : public cell_manager<dim, spacedim>
    *
    */
   std::vector<std::vector<int> > unkns_id_in_all_ranks;
-
-  /**
-   *
-   * Contains all of the boundary conditions of on the faces of this
-   * Cell.
-   *
-   */
-  std::vector<boundary_condition> BCs;
 
   /**
    *

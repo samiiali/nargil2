@@ -21,9 +21,11 @@ void nargil::hybridized_model_manager<dim, spacedim>::form_dof_handlers(
   const dealii::FiniteElement<dim, spacedim> *trace_fe =
     in_basis->get_trace_fe();
   const dealii::FiniteElement<dim, spacedim> *refn_fe = in_basis->get_refn_fe();
+  const dealii::FiniteElement<dim, spacedim> *viz_fe = in_basis->get_viz_fe();
   local_dof_handler.initialize(in_model->my_mesh->tria, *local_fe);
   trace_dof_handler.initialize(in_model->my_mesh->tria, *trace_fe);
   refn_dof_handler.initialize(in_model->my_mesh->tria, *refn_fe);
+  viz_dof_handler.initialize(in_model->my_mesh->tria, *viz_fe);
 
   typedef typename BasisType::CellManagerType CellManagerType;
   auto active_owned_cell = in_model->all_owned_cells.begin();
@@ -74,5 +76,26 @@ void nargil::hybridized_model_manager<dim, spacedim>::apply_on_ghost_cells(
   {
     ModelEq *casted_cell = static_cast<ModelEq *>(i_cell.get());
     f(casted_cell, args...);
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename ModelEq, typename OtherModelEq>
+void nargil::hybridized_model_manager<dim, spacedim>::connect_to_other_model(
+  model<ModelEq, dim, spacedim> *in_model,
+  model<OtherModelEq, dim, spacedim> *in_other_model)
+{
+  auto other_cell = in_other_model->all_owned_cells.begin();
+  for (std::unique_ptr<cell<dim, spacedim> > &i_cell :
+       in_model->all_owned_cells)
+  {
+    OtherModelEq *casted_other_cell =
+      static_cast<OtherModelEq *>(other_cell->get());
+    ModelEq *casted_cell = static_cast<ModelEq *>(i_cell.get());
+    casted_cell->connect_to_other_cell(casted_other_cell);
+    ++other_cell;
   }
 }

@@ -17,6 +17,15 @@ void nargil::Tokenize(const std::string &str_in,
 
 //
 //
+
+template <typename T> int nargil::reck_it_Ralph(T *obj)
+{
+  T().swap(*obj);
+  return 0;
+}
+
+//
+//
 //
 //
 //

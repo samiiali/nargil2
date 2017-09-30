@@ -19,7 +19,6 @@ nargil::hybridized_cell_manager<dim, spacedim>::hybridized_cell_manager(
   : cell_manager<dim, spacedim>(in_cell),
     unkns_id_in_this_rank(2 * dim),
     unkns_id_in_all_ranks(2 * dim),
-    BCs(2 * dim, boundary_condition::not_set),
     dof_status_on_faces(2 * dim),
     half_range_flag(2 * dim, 0),
     face_owner_rank(2 * dim, -1)
@@ -150,7 +149,12 @@ void nargil::hybridized_cell_manager<dim, spacedim>::set_nonlocal_unkn_ids(
   const int global_num_,
   const std::vector<unsigned> &n_unkns_per_dofs)
 {
-  assert(global_num_ >= 0);
+  /**
+   * \warning There had been some reasons to believe that an assertion of
+   * global_num_ >= 0 is required in this function. I do not see any reason for
+   * this, though.
+   */
+  // assert(global_num_ >= 0);
   unsigned n_unkns = 0;
   for (unsigned i_dof = 0; i_dof < dof_status_on_faces[i_face].size(); ++i_dof)
   {
@@ -224,6 +228,41 @@ void nargil::hybridized_cell_manager<dim, spacedim>::assign_dof_handler_cells(
 {
   my_dealii_local_dofs_cell = dealii_local_cell;
   my_dealii_trace_dofs_cell = dealii_trace_cell;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::hybridized_cell_manager<dim, spacedim>::remove_from_memory()
+{
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename T, typename... Pack>
+void nargil::hybridized_cell_manager<dim, spacedim>::remove_from_memory(
+  T arg0, Pack... other_args)
+{
+  reck_it_Ralph(arg0);
+  remove_from_memory(other_args...);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename... PackType>
+void nargil::hybridized_cell_manager<dim, spacedim>::free_up_memory(
+  PackType... pack_args)
+{
+  //
+  // Read more on this syntax by searching for variadic-template-pack-expansion.
+  //
+  int dummy[] = {(reck_it_Ralph(std::forward<PackType>(pack_args)))...};
+  (void)dummy;
 }
 
 //

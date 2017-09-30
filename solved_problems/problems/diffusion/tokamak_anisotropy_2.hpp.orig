@@ -43,9 +43,15 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   constexpr static double epsinv = 1.0e6;
   constexpr static double z_0 = 0.0;
   constexpr static double z_h = 1.0 * 2.0 * M_PI;
+<<<<<<< HEAD
+  constexpr static double r_i = 0.55;
+  constexpr static double r_m = 1.00;
+  constexpr static double r_o = 0.63;
+=======
   constexpr static double r_i = 0.0;
   constexpr static double r_m = 1.00;
   constexpr static double r_o = 2.0 * M_PI;
+>>>>>>> new_tokamak
   /**
    * @brief Constructor.
    */
@@ -229,7 +235,11 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
 
     result = dealii::Tensor<2, dim>();
     result[1][1] = result[2][2] = 1.0;
+<<<<<<< HEAD
+    result[0][0] = 0.01;
+=======
     result[0][0] = 1.0;
+>>>>>>> new_tokamak
 
     return dealii::invert(result);
   }
@@ -310,7 +320,11 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
+<<<<<<< HEAD
+    std::vector<unsigned> refine_repeats = {20, 80, 80};
+=======
     std::vector<unsigned> refine_repeats = {30, 30, 30};
+>>>>>>> new_tokamak
     //
     // ***
     //
@@ -382,8 +396,13 @@ template <int dim, int spacedim = dim> struct Problem2
       if (face->at_boundary())
       {
         if (face->center()[2] > z_h - 1.e-6 ||
+<<<<<<< HEAD
+            face->center()[2] < z_0 - 1.e-6 ||
+            face->center()[1] < 0.0 + 1.e-6 ||
+=======
             face->center()[2] < z_0 + 1.e-6 ||
             face->center()[1] < r_i + 1.e-6 ||
+>>>>>>> new_tokamak
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;

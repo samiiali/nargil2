@@ -422,7 +422,7 @@ template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   assemble_my_globals(solvers::base_implicit_solver<dim, spacedim> *in_solver)
 {
-  //  compute_my_matrices();
+  compute_my_matrices();
   //
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::LDLT<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
@@ -602,8 +602,10 @@ void nargil::diffusion<dim,
       //
       // Here we compute the value of gN at quadrature point.
       //
+      //
+      // double to_be_1 = 0;
+      //
       dealii::Tensor<1, dim> gN_at_face_quad;
-      double to_be_1 = 0;
       for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns; ++j_face_unkn)
       {
         double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);

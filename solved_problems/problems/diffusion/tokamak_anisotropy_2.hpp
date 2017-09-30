@@ -40,9 +40,12 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  const static double epsinv = 1.0e9;
-  const static double r_i = 0.55;
-  const static double r_o = 0.63;
+  constexpr static double epsinv = 1.0e6;
+  constexpr static double z_0 = 0.0;
+  constexpr static double z_h = 1.0 * 2.0 * M_PI;
+  constexpr static double r_i = 0.0;
+  constexpr static double r_m = 1.00;
+  constexpr static double r_o = 2.0 * M_PI;
   /**
    * @brief Constructor.
    */
@@ -51,9 +54,8 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief rhs_func.
    */
-  virtual double rhs_func(const dealii::Point<spacedim> &p)
+  virtual double rhs_func(const dealii::Point<spacedim> &)
   {
-    double r = p[0];
     //
     // ***
     //
@@ -61,6 +63,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //
     // ***
     //
+    // double r = sqrt(p[0] * p[0] + p[1] * p[1]);
     // return (56.0 * pow(r, 6.0) * pow((1 - r), 16.0) +
     //         256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
     //         240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
@@ -71,16 +74,30 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
+    /*
     double temperature = 4.7e-6;
-    if (p[0] > r_o - 1.e-6)
+
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
+
+    if (y1 > r_o - 1.e-6)
       temperature = 4.6e-6;
+    */
+
+    double temperature = 0.0;
+    if (p[0] > r_o - 1e-6 &&
+        sqrt((p[1] - M_PI) * (p[1] - M_PI) +
+             (p[2] - (z_h) / 2.) * (p[2] - (z_h) / 2.)) < 1.0)
+    {
+      temperature = 1.0;
+    }
+
     return temperature;
   }
 
   /**
    * @brief gN_func.
    */
-  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &)
   {
     return dealii::Tensor<1, dim>({0, 0, 0});
   }
@@ -88,7 +105,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief exact_u
    */
-  virtual double exact_u(const dealii::Point<spacedim> &p) { return 0.; }
+  virtual double exact_u(const dealii::Point<spacedim> &) { return 0.; }
 
   /**
    * @brief exact_q
@@ -96,28 +113,41 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
     double R = 5.;
-    double r_m = (r_i + r_o) / 2.;
+    // double r_m = (r_i + r_o) / 2.;
 
-    double y1 = p[0];
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
     //
-    // ***
-    //
-    // double y2 = p[1] / p[0];
-    double y2 = p[1];
+    // double y2 = p[1];
+    double y2 = atan2(p[1], p[0]);
     //
     double y3 = p[2] / R;
+    // double y3 = p[2];
+    //
 
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
-         (4 * sin(4 * y2 - 3 * y3) + 3 * sin(3 * y2 - 2 * y3))) /
-         200.,
+         (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
+         5000.,
        ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
          ((-1 + y1) * y1 * (-1 + 2 * y1) *
-          (cos(4 * y2 - 3 * y3) + cos(3 * y2 - 2 * y3))) /
-           100.,
+          (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
+           2500.,
        1.});
 
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
+    //
+    //           [ cos(x,r)  cos(x,t)  cos(x,z) ]
+    // beta_ij = [ cos(y,r)  cos(y,t)  cos(y,z) ]
+    //           [ cos(z,r)  cos(z,t)  cos(z,z) ]
+    //
+    dealii::Tensor<2, dim> beta_ik;
+    beta_ik[0][0] = cos(y2);
+    beta_ik[0][1] = -sin(y2);
+    beta_ik[1][0] = sin(y2);
+    beta_ik[1][1] = cos(y2);
+    beta_ik[2][2] = 1.;
+    // b1 = beta_ik * b1;
+
     return b1;
   }
 
@@ -159,21 +189,11 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //     double theta = std::atan2(p[1], p[0]);
 
     double R = 5.;
-    double r_m = (r_i + r_o) / 2.;
-
-    double y1 = p[0];
     //
-    // ***
-    //
-    double y2 = p[1];
-    // double y2 = p[1] / p[0];
-    //
-    // ***
-    //
+    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
+    double y2 = atan2(p[1], p[0]);
     double y3 = p[2] / R;
-    // double y3 = p[2];
     //
-
     dealii::Tensor<1, dim> B1(
       {-(pow(-1 + y1, 2) * y1 *
          (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
@@ -183,19 +203,33 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
           (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
            2500.,
        1.});
-
+    //
     dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
-
+    //
     dealii::Tensor<2, dim> result((epsinv - 1.) *
                                   dealii::outer_product(b1, b1));
+    //
     result[0][0] += 1.;
-    //
-    // ***
-    //
     result[1][1] += 1. / y1 / y1;
-    // result[1][1] += 1.;
-    //
     result[2][2] += 1.;
+    //
+    // We know do a coordinate transform kappa_ij = beta_ik kappa_kl beta_lj
+    //
+    //           [ cos(x,r)  cos(x,t)  cos(x,z) ]
+    // beta_ij = [ cos(y,r)  cos(y,t)  cos(y,z) ]
+    //           [ cos(z,r)  cos(z,t)  cos(z,z) ]
+    //
+    dealii::Tensor<2, dim> beta_ik;
+    beta_ik[0][0] = cos(y2);
+    beta_ik[0][1] = -sin(y2);
+    beta_ik[1][0] = sin(y2);
+    beta_ik[1][1] = cos(y2);
+    beta_ik[2][2] = 1.;
+    result = beta_ik * result * dealii::transpose(beta_ik);
+
+    result = dealii::Tensor<2, dim>();
+    result[1][1] = result[2][2] = 1.0;
+    result[0][0] = 1.0;
 
     return dealii::invert(result);
   }
@@ -206,7 +240,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double tau(const dealii::Point<spacedim> &)
   {
     //
-    return 1.0e3;
+    return 1.0e1;
     //
   }
 };
@@ -222,20 +256,22 @@ template <int dim, int spacedim = dim> struct Problem2
   typedef typename nargil::diffusion<dim>::template hdg_manager<BasisType>
     CellManagerType;
 
-  const static double epsinv = problem_data_2<dim, spacedim>::epsinv;
-  const static double r_i = problem_data_2<dim, spacedim>::r_i;
-  const static double r_o = problem_data_2<dim, spacedim>::r_o;
+  constexpr static double epsinv = problem_data_2<dim, spacedim>::epsinv;
+  constexpr static double r_i = problem_data_2<dim, spacedim>::r_i;
+  constexpr static double r_o = problem_data_2<dim, spacedim>::r_o;
+  constexpr static double z_0 = problem_data_2<dim, spacedim>::z_0;
+  constexpr static double z_h = problem_data_2<dim, spacedim>::z_h;
+  constexpr static double r_m = problem_data_2<dim, spacedim>::r_m;
 
   /**
    * @brief adaptive_mesh_gen
    */
-  /*
   static void mesh_gen(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
     dealii::CylindricalManifold<dim> manifold1(2);
     dealii::GridGenerator::cylinder_shell(the_mesh, 2. * M_PI * 5.0, r_i, r_o,
-                                          15, 1);
+                                          3, 1);
 
     // Here we assign boundary id 10 and 11 to the bottom and top caps of
     // the cylindrical shell.
@@ -246,9 +282,9 @@ template <int dim, int spacedim = dim> struct Problem2
         if (i_cell->face(i_face)->at_boundary())
         {
           dealii::Point<dim> face_center = i_cell->face(i_face)->center();
-          if (face_center[2] < 1.e-6)
+          if (face_center[2] < 1.e-4)
             i_cell->face(i_face)->set_boundary_id(10);
-          if (face_center[2] > 2. * M_PI * 5.0 - 1.e-6)
+          if (face_center[2] > 2. * M_PI * 5.0 - 1.e-4)
             i_cell->face(i_face)->set_boundary_id(11);
         }
       }
@@ -264,10 +300,9 @@ template <int dim, int spacedim = dim> struct Problem2
 
     the_mesh.set_all_manifold_ids(0);
     the_mesh.set_manifold(0, manifold1);
-    the_mesh.refine_global(5);
+    the_mesh.refine_global(6);
     the_mesh.set_manifold(0);
   }
-  */
 
   /**
    * @brief adaptive_mesh_gen
@@ -275,16 +310,15 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {80, 80, 4};
+    std::vector<unsigned> refine_repeats = {30, 30, 30};
     //
     // ***
     //
     // double r_m = (r_i + r_o) / 2.;
-    double r_m = 1;
+    // double r_m = 1;
     //
-    dealii::Point<dim> corner_1(r_i, 0., 0.);
-    // dealii::Point<dim> corner_2(r_o, 2. * 0.59 * M_PI, 5. * 2. * M_PI);
-    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, 2. * 5. * M_PI);
+    dealii::Point<dim> corner_1(r_i, 0., z_0);
+    dealii::Point<dim> corner_2(r_o, 2. * M_PI * r_m, z_h);
     dealii::GridGenerator::subdivided_hyper_rectangle(the_mesh, refine_repeats,
                                                       corner_1, corner_2, true);
     std::vector<dealii::GridTools::PeriodicFacePair<
@@ -296,15 +330,14 @@ template <int dim, int spacedim = dim> struct Problem2
       dealii::Tensor<1, dim>({0.0, 2.0 * M_PI * r_m, 0.}));
     dealii::GridTools::collect_periodic_faces(
       the_mesh, 4, 5, 2, periodic_faces,
-      dealii::Tensor<1, dim>({0., 0., 2.0 * M_PI * 5.0}));
+      dealii::Tensor<1, dim>({0., 0., z_h - z_0}));
     the_mesh.add_periodicity(periodic_faces);
-    // the_mesh.refine_global(4);
+    //    the_mesh.refine_global(2);
   }
 
   /**
    * @brief dofs_on_nodes
    */
-  /*
   static void assign_BCs(CellManagerType *in_manager)
   {
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -313,15 +346,14 @@ template <int dim, int spacedim = dim> struct Problem2
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * M_PI * 5.0 - 1.e-6 ||
-            face->center()[2] < 1.e-6)
+        if (face->center()[2] > z_h - 1.e-6 || face->center()[2] < 1.e-6)
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
         else
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
       }
@@ -331,7 +363,6 @@ template <int dim, int spacedim = dim> struct Problem2
       }
     }
   }
-  */
 
   /**
    * @brief dofs_on_nodes
@@ -341,7 +372,7 @@ template <int dim, int spacedim = dim> struct Problem2
     //
     // ***
     //
-    double r_m = 1.;
+    // double r_m = 1.;
     // double r_m = (r_i + r_o) / 2.;
     //
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -350,17 +381,17 @@ template <int dim, int spacedim = dim> struct Problem2
       auto &&face = in_manager->my_cell->my_dealii_cell->face(i_face);
       if (face->at_boundary())
       {
-        if (face->center()[2] > 2. * 5.0 * M_PI - 1.e-6 ||
-            face->center()[2] < 1.e-6 || face->center()[1] < 1.e-6 ||
+        if (face->center()[2] > z_h - 1.e-6 ||
+            face->center()[2] < z_0 + 1.e-6 ||
+            face->center()[1] < r_i + 1.e-6 ||
             face->center()[1] > r_m * 2. * M_PI - 1.e-6)
-        // face->center()[1] > 2. * M_PI - 1.e-6)
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::periodic;
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
         else
         {
-          in_manager->BCs[i_face] = nargil::boundary_condition::essential;
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
         }
       }
@@ -415,14 +446,16 @@ template <int dim, int spacedim = dim> struct Problem2
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::set_source_and_BCs);
         //
-        int solver_keys = nargil::solvers::solver_props::default_option;
+        int solver_keys = nargil::solvers::solver_props::spd_matrix;
         int update_keys = nargil::solvers::solver_update_opts::update_mat |
                           nargil::solvers::solver_update_opts::update_rhs;
         //
-        //         nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-        //           solver_keys, dof_counter1, comm);
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-                                                          dof_counter1, comm);
+        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          solver_keys, dof_counter1, comm);
+        //        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        //                                                          dof_counter1,
+        //                                                          comm);
+        //
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);
 
@@ -457,12 +490,14 @@ template <int dim, int spacedim = dim> struct Problem2
         //
         // We prepare the visulization data
         //
-        std::string cycle_string = std::to_string(i_cycle);
-        cycle_string =
-          std::string(2 - cycle_string.length(), '0') + cycle_string;
+        //        std::string cycle_string = std::to_string(i_cycle);
+        //        cycle_string =
+        //          std::string(2 - cycle_string.length(), '0') + cycle_string;
         typename ModelEq::viz_data viz_data1(
-          comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "solution" + cycle_string, "Temperature", "Heat_flow");
+          comm, &model_manager1.local_dof_handler, &global_sol_vec, "solution",
+          "Temperature", "Heat_flow");
+        viz_data1.time_step = 0;
+        viz_data1.cycle = 0;
 
         // Now we visualize the results
         CellManagerType::visualize_results(viz_data1);
@@ -476,9 +511,11 @@ template <int dim, int spacedim = dim> struct Problem2
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
         typename ModelEq::viz_data viz_data2(
           comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "kappa_comps" + cycle_string, "Temperature", "b_components");
+          "kappa_comps", "Temperature", "b_components");
+        viz_data2.time_step = 0;
+        viz_data2.cycle = 0;
         CellManagerType::visualize_results(viz_data2);
-
+        //
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_errors, &sum_of_L2_errors);

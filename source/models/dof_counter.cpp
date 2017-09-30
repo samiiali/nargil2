@@ -307,6 +307,13 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                               face_nb_i1,
                               0,
                               i_global_unkn_on_this_rank);
+                //
+                //
+                // printf("rank %d cell %s has neighbor %s in %d\n", comm_rank,
+                //        i_cell->cell_id.c_str(), nb_str_id.c_str(),
+                //        nb_i1->subdomain_id());
+                //
+                //
                 face_to_rank_sender[nb_i1->subdomain_id()].push_back(buffer);
                 i_global_unkn_on_this_rank += n_open_unkns_on_this_face;
                 ++mpi_request_counter;
@@ -320,6 +327,13 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
                 face_to_rank_recver[nb_i1->subdomain_id()]++;
                 if (!is_there_a_msg_from_rank[nb_i1->subdomain_id()])
                   is_there_a_msg_from_rank[nb_i1->subdomain_id()] = true;
+                //
+                //
+                // printf("rank %d cell %s has neighbor %s in %d\n", comm_rank,
+                //        i_cell->cell_id.c_str(), nb_str_id.c_str(),
+                //        nb_i1->subdomain_id());
+                //
+                //
                 ++mpi_status_counter;
               }
             }
@@ -329,6 +343,9 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
       }
     }
   }
+
+  // printf("%d sends %d\n", comm_rank, mpi_request_counter);
+  // printf("%d recvs %d\n", comm_rank, mpi_status_counter);
 
   //
   // The next two variables contain num faces from rank zero to the
@@ -532,6 +549,7 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         break;
       }
     }
+
     if (i_recv != is_there_a_msg_from_rank.end())
     {
       for (unsigned jth_rank_on_i_recv = 0;
@@ -539,13 +557,14 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
            ++jth_rank_on_i_recv)
       {
         char buffer[300];
-        MPI_Recv(&buffer[0],
-                 300,
-                 MPI_CHAR,
-                 i_recv->first,
-                 in_model->my_mesh->refn_cycle,
-                 *my_comm,
-                 &all_mpi_stats_of_rank[recv_counter]);
+        int recv_result = MPI_Recv(&buffer[0],
+                                   300,
+                                   MPI_CHAR,
+                                   i_recv->first,
+                                   in_model->my_mesh->refn_cycle,
+                                   *my_comm,
+                                   &all_mpi_stats_of_rank[recv_counter]);
+        assert(recv_result == 0);
         std::vector<std::string> tokens;
         Tokenize(buffer, tokens, "#");
         assert(tokens.size() == 4);
@@ -558,10 +577,10 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
           in_model->template get_owned_cell_basis<BasisType>(cell_unique_id);
         std::vector<unsigned> n_unkns_per_dofs =
           i_basis->get_n_unkns_per_dofs();
-        /**
-         * \warning I am removing an assertion here which is useful for 99%
-         * of cases, but not always !
-         */
+        //
+        // \warning I am removing an assertion here which is useful for 99%
+        // of cases, but not always !
+        //
         // assert(i_manager->dof_status_on_faces[face_num].count() != 0);
         assert(i_manager->unkns_id_in_all_ranks[face_num].size() == 0);
         //
@@ -571,13 +590,16 @@ void nargil::implicit_hybridized_numbering<dim, spacedim>::count_globals(
         i_manager->set_nonlocal_unkn_ids(
           face_num, std::stoi(tokens[3]) + unkns_count_be4_rank[i_recv->first],
           n_unkns_per_dofs);
-        /*
-        for (unsigned i_dof = 0;
-             i_dof < i_manager->dof_status_on_faces[face_num].count();
-             ++i_dof)
-          i_manager->dofs_ID_in_all_ranks[face_num].push_back(
-            std::stoi(tokens[3]) + dofs_count_be4_rank[i_recv->first] + i_dof);
-        */
+        //
+        // This next loop is not required.
+        //
+        // for (unsigned i_dof = 0;
+        //     i_dof < i_manager->dof_status_on_faces[face_num].count();
+        //     ++i_dof)
+        //  i_manager->dofs_ID_in_all_ranks[face_num].push_back(
+        //    std::stoi(tokens[3]) + dofs_count_be4_rank[i_recv->first] +
+        //    i_dof);
+        //
         ++recv_counter;
       }
       i_recv->second = false;

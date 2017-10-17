@@ -892,7 +892,7 @@ struct reactive_interface : public cell<dim, spacedim>
    *   H_1 \delta \hat \rho_{nh} + c_n H_2 \delta \hat \rho_{nh} +
    *   C_1^T \mathbf q_{nh} + E_1^T \rho_{nh} - H_1 \hat \rho_{nh}
    *   + c_n H_2 \hat \rho_{nh} - L_n = 0.
-   * \end{gathered}
+   * \end{gathered} \tag{3}
    * \f]
    *
    * Now, regarding the Dirichlet BC, we can follow two strategies here.
@@ -900,12 +900,41 @@ struct reactive_interface : public cell<dim, spacedim>
    * and taking \f$\delta \hat \rho_n = 0\f$. This way, the first equation
    * becomes:
    * \f[
+   *   \begin{gathered}
    *   \mu_n^{-1} A_1 \delta \mathbf q_{nh} - B_1 \delta \rho_{nh}
    *   + C_1 \delta \hat \rho_{nh} = -\bar R_n,
    *   \quad \text { with } \quad
    *   \bar R_n =
-   *   \mu_n^{-1} A_1 \mathbf q_{nh} - B_1 \rho_{nh} + C_1 g_{Dn}.
+   *   \mu_n^{-1} A_1 \mathbf q_{nh} - B_1 \rho_{nh} + C_1 g_{Dn}, \\
+   *   \Rightarrow \quad
+   *   \delta \mathbf q_{nh} = \mu_n A_1^{-1}\left(B_1 \delta \rho_{nh}
+   *   - C_1 \delta \hat \rho_{nh} -\bar R_n \right), \\
+   *   \text{and,}\quad
+   *   \delta \rho_{nh} =
+   *   \mathcal M_1^{-1}
+   *   \left(\bar F_n
+   *   + \mu_n B_1^T A_1^{-1} \bar R_n
+   *   + \mathcal M_2 \delta \hat \rho_{nh}
+   *   \right).
+   *   \end{gathered}
    * \f]
+   * With
+   * \f$
+   * \mathcal M_1 = \mu_n B_1^T A_1^{-1} B_1 + D_1 - c_n D_2
+   * \f$,
+   * \f$
+   * \mathcal M_2 = \mu_n B_1^T A_1^{-1} C_1 + (E_1 - c_n E_2)
+   * \f$, and
+   * \f$
+   * \bar F_n =
+   *   F_n - B_1^T \mathbf q_{nh} - D_1 \rho_{nh} + c_n D_2 \rho_{nh} +
+   *   E_1 \hat \rho_{nh} - c_n E_2 \hat \rho_{nh}
+   * \f$.
+   * The values of \f$\bar F_n \f$ is inialized in compute_my_linear_matrices()
+   * and is modified in compute_my_nonlinear_matrices(). The values of
+   * \f$\bar R_n\f$ on the other hand, is directly computed in
+   * compute_my_nonlinear_matrices().
+   *
    * The second strategy is not to take \f$\hat \rho_n = g_D\f$, and instead
    * set \f$\delta \hat \rho_n = g_{Dn} - \hat \rho_n\f$. Then, again, we get
    * the same equation as above. Although, both of these approaches result in
@@ -987,6 +1016,10 @@ struct reactive_interface : public cell<dim, spacedim>
    *   \frac{\partial Q_1}{\partial \hat \rho_o} \delta \hat \rho_o, \mu
    * \right\rangle
    * \f]
+   * The values of \f$\bar L_n \f$ is inialized in compute_my_linear_matrices()
+   * and is modified in compute_my_nonlinear_matrices() to include nonlinear
+   * terms.
+   *
    * Next, we also write the reactive interface equation (RI-1) in the matrix
    * form:
    * \f[
@@ -1082,6 +1115,28 @@ struct reactive_interface : public cell<dim, spacedim>
    * \f$\mathbf A_0 \delta \mathbf x = \mathbf F_1 - \mathbf F_0 =
    * \bar {\mathbf L}_0 - \bar {\mathbf L}_1\f$.
    *
+   * ## Adding the time derivative term
+   * We use trapezoidal rule as our time stepping scheme. By applying this
+   * method, the first and last euqations in Eq. (3), will not change.
+   * However, the second equation will change. By including the time derivative,
+   * this equation can be written as (refer to ode_solvers::trapezoidal_solver):
+   * \f[
+   * \frac 1 {\Delta t} A_1 \delta \rho_{nh}
+   * + \frac 1 2 \mathscr M (\delta \rho_n, \delta \mathbf q_n, \delta \hat
+   *   \rho_n)
+   * + \frac 1 {\Delta t} A_1 \rho_{nh}
+   * + \frac 1 2 \mathscr M (\rho_n, \mathbf q_n, \hat \rho_n)
+   * = \frac 1 {\Delta t} A_1 \rho_{(n-1),h}
+   * - \frac 1 2 \mathscr M (\rho_{n-1}, \mathbf q_{n-1}, \hat \rho_{n-1})
+   * + \frac 1 2 (F_n+F_{n-1}),
+   * \f]
+   * with,
+   * \f$
+   * \mathscr M(\rho_{n}, \mathbf q_{n}, \hat \rho_{n})
+   * = B_1^T \mathbf q_{nh} + D_1 \rho_{nh} - c_n D_2 \rho_{nh}
+   *   - E_1 \hat \rho_{nh} + c_n E_2 \hat \rho_{nh}
+   * \f$.
+   *
    */
   template <typename BasisType>
   struct hdg_manager : hybridized_cell_manager<dim, spacedim>
@@ -1094,6 +1149,7 @@ struct reactive_interface : public cell<dim, spacedim>
     enum class time_integrator_type
     {
       BDF1 = 1,
+      TRPZ = 2
     };
 
     /**

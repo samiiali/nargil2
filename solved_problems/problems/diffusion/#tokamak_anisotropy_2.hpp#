@@ -126,7 +126,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief gN_func.
    */
-  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &)
+  virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
   {
     return dealii::Tensor<1, dim>({0, 0, 0});
   }

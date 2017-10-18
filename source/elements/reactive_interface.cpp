@@ -1249,6 +1249,13 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
         my_time_integrator);
     (void)own_time_integrator;
   }
+  if (in_type == time_integrator_type::TRPZ)
+  {
+    ode_solvers::BDF1_solver<Eigen::VectorXd> *own_time_integrator =
+      static_cast<ode_solvers::trapezoidal_solver<Eigen::VectorXd> *>(
+        my_time_integrator);
+    (void)own_time_integrator;
+  }
 }
 
 //

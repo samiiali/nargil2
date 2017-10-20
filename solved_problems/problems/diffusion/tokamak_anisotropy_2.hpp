@@ -40,7 +40,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  constexpr static double epsinv = 1.0e10;
+  constexpr static double epsinv = 1.0e4;
   constexpr static double z_0 = 0.0;
   constexpr static double z_h = 2.0 * M_PI;
   constexpr static double s_i = 0.1;
@@ -368,7 +368,7 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {20, 20, 20};
+    std::vector<unsigned> refine_repeats = {40, 40, 40};
     //
     // ***
     //

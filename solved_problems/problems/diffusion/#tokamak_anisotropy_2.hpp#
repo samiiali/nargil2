@@ -54,12 +54,12 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief rhs_func.
    */
-  virtual double rhs_func(const dealii::Point<spacedim> & p)
+  virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
     //
     // ***
     //
-    //return 0.0;
+    // return 0.0;
     //
     // ***
     //
@@ -68,42 +68,71 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //         256.0 * pow(r, 7.0) * pow((1 - r), 15.0) +
     //         240.0 * pow(r, 8.0) * pow((1 - r), 14.0));
 
-    double s  = p[0];
+    double s = p[0];
     double left = 0.55;
-    double dr = 0.08/(2.0*M_PI);
-
-
-    return  -56.0*pow(dr,2)*pow( (left + dr*s),6)*pow( (pow( (left + dr*s),2) - 1.0),8) 
-      - 272.0*pow(dr,2)*pow( (left + dr*s),8)*pow( (pow( (left + dr*s),2) - 1.0),7) 
-      - 224.0*pow(dr,2)*pow( (left + dr*s),10)*pow( (pow( (left + dr*s),2) - 1.0),6);
-
+    double dr = 0.08 / (2.0 * M_PI);
     
-    // return -9.3198864878881439535914505906675e-391*pow( (9174657822756255.0*s + 396316767208603648.0) ,6)
-    //   *pow( (1019406424750695.0*s - 36028797018963968.0) ,6)*pow( (9174657822756255.0*s + 1116892707587883008.0), 6)
-    //   *(4.8888711810514237134313323899743e65*pow(s,4) + 8.4473629827059037211098258702876e67*pow(s,3) 
-    // 	+ 3.3756189548712634831839246221647e69*pow(s,2) - 2.3618327835261228636907987719231e70*s - 3.2515549176917038198854303552233e71);
-
+    return -56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
+      pow((pow((left + dr * s), 2) - 1.0), 8) -
+      272.0 * pow(dr, 2) * pow((left + dr * s), 8) *
+      pow((pow((left + dr * s), 2) - 1.0), 7) -
+      224.0 * pow(dr, 2) * pow((left + dr * s), 10) *
+      pow((pow((left + dr * s), 2) - 1.0), 6);
     
-    // return -(23568816926105512708339039655007*pow( (pow(((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),8)
-    // 	     *pow( ((1834931564551251*s)/144115188075855872 + 11/20),6) )/2596148429267413814265248164610048 
-    //   - (3366973846586501815477005665001*pow((pow( ((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),7)
-    // 	 *pow( ((1834931564551251*s)/144115188075855872 + 11/20),8) )/1298074214633706907132624082305024 
-    //   - (1834931564551251*((3366973846586501815477005665001*s)/10384593717069655257060992658440192 
-    // 			   + 20184247210063761/1441151880758558720)*pow((pow( ((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),7)
-    // 	 *pow( ((1834931564551251*s)/144115188075855872 + 11/20),7))/1125899906842624 
-    //   - 56*pow( ((3366973846586501815477005665001*s)/10384593717069655257060992658440192 
-    // 		 + 20184247210063761/1441151880758558720),2)*pow((pow( ((1834931564551251*s)/144115188075855872 + 11/20),2)
-    // 								  - 1),6)*pow( ((1834931564551251*s)/144115188075855872 + 11/20),8);
+    // return -9.3198864878881439535914505906675e-391*pow( (9174657822756255.0*s
+    // + 396316767208603648.0) ,6)
+    //   *pow( (1019406424750695.0*s - 36028797018963968.0) ,6)*pow(
+    //   (9174657822756255.0*s + 1116892707587883008.0), 6)
+    //   *(4.8888711810514237134313323899743e65*pow(s,4) +
+    //   8.4473629827059037211098258702876e67*pow(s,3)
+    // 	+ 3.3756189548712634831839246221647e69*pow(s,2) -
+    // 2.3618327835261228636907987719231e70*s -
+    // 3.2515549176917038198854303552233e71);
 
-      // - (23568816926105512708339039655007*(((1834931564551251*s)/144115188075855872 + 11/20)^2 - 1)^8
-      // 	 *((1834931564551251*s)/144115188075855872 + 11/20)^6)/2596148429267413814265248164610048 
-      // - (3366973846586501815477005665001*(((1834931564551251*s)/144115188075855872 + 11/20)^2 - 1)^7
-      // 	 *((1834931564551251*s)/144115188075855872 + 11/20)^8)/1298074214633706907132624082305024 
-      // - (1834931564551251*((3366973846586501815477005665001*s)/10384593717069655257060992658440192 
-      // 			   + 20184247210063761/1441151880758558720)*(((1834931564551251*s)/144115188075855872 + 11/20)^2 - 1)^7
-      // 	 *((1834931564551251*s)/144115188075855872 + 11/20)^7)/1125899906842624 
-      // - 56*((3366973846586501815477005665001*s)/10384593717069655257060992658440192 + 20184247210063761/1441151880758558720)^2*(((1834931564551251*s)/144115188075855872 + 11/20)^2 - 1)^6*((1834931564551251*s)/144115188075855872 + 11/20)^8
+    // return -(23568816926105512708339039655007*pow(
+    // (pow(((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),8)
+    // 	     *pow( ((1834931564551251*s)/144115188075855872 + 11/20),6)
+    // )/2596148429267413814265248164610048
+    //   - (3366973846586501815477005665001*pow((pow(
+    //   ((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),7)
+    // 	 *pow( ((1834931564551251*s)/144115188075855872 + 11/20),8)
+    // )/1298074214633706907132624082305024
+    //   -
+    //   (1834931564551251*((3366973846586501815477005665001*s)/10384593717069655257060992658440192
+    // 			   + 20184247210063761/1441151880758558720)*pow((pow(
+    // ((1834931564551251*s)/144115188075855872 + 11/20),2) - 1),7)
+    // 	 *pow( ((1834931564551251*s)/144115188075855872 +
+    // 11/20),7))/1125899906842624
+    //   - 56*pow(
+    //   ((3366973846586501815477005665001*s)/10384593717069655257060992658440192
+    // 		 + 20184247210063761/1441151880758558720),2)*pow((pow(
+    // ((1834931564551251*s)/144115188075855872 + 11/20),2)
+    // 								  - 1),6)*pow(
+    // ((1834931564551251*s)/144115188075855872
+    // +
+    // 11/20),8);
 
+    // -
+    // (23568816926105512708339039655007*(((1834931564551251*s)/144115188075855872
+    // + 11/20)^2 - 1)^8
+    // 	 *((1834931564551251*s)/144115188075855872 +
+    // 11/20)^6)/2596148429267413814265248164610048
+    // -
+    // (3366973846586501815477005665001*(((1834931564551251*s)/144115188075855872
+    // + 11/20)^2 - 1)^7
+    // 	 *((1834931564551251*s)/144115188075855872 +
+    // 11/20)^8)/1298074214633706907132624082305024
+    // -
+    // (1834931564551251*((3366973846586501815477005665001*s)/10384593717069655257060992658440192
+    // 			   +
+    // 20184247210063761/1441151880758558720)*(((1834931564551251*s)/144115188075855872
+    // + 11/20)^2 - 1)^7
+    // 	 *((1834931564551251*s)/144115188075855872 + 11/20)^7)/1125899906842624
+    // -
+    // 56*((3366973846586501815477005665001*s)/10384593717069655257060992658440192
+    // +
+    // 20184247210063761/1441151880758558720)^2*(((1834931564551251*s)/144115188075855872
+    // + 11/20)^2 - 1)^6*((1834931564551251*s)/144115188075855872 + 11/20)^8
   }
 
   /**
@@ -112,22 +141,25 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
 
-    double s=p[0], y=p[1], z=p[2];
-    double g = M_PI;
-    double temperature =  0.0; //1.0; //1e-4*exp( -(-y-g)*(y-g) - (z-g)*(z-g) )/0.2; 
+    double s = p[0], y = p[1], z = p[2];
+    // double g = M_PI;
+    double temperature =
+      0.0; // 1.0; //1e-4*exp( -(-y-g)*(y-g) - (z-g)*(z-g) )/0.2;
 
-    if (s > s_o - 1.e-6)
-      temperature = 0.0; //.1; //1e-4*exp( (-y-g)*(y-g) - (z-g)*(z-g) )/0.2;
+    if (!(s > s_o - 1.e-6))
+      assert(false);
 
     return temperature;
-
-  }    
+  }
 
   /**
    * @brief gN_func.
    */
   virtual dealii::Tensor<1, dim> gN_func(const dealii::Point<spacedim> &p)
   {
+    double s = p[0];
+    if (!(s < s_i + 1.E-6))
+      assert(false);
     return dealii::Tensor<1, dim>({0, 0, 0});
   }
 
@@ -217,39 +249,41 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     //     double z = p[2];
     //     double theta = std::atan2(p[1], p[0]);
 
-    double s=p[0], y=p[1], z=p[2];
-    double R=5.0, a=1.0, B0=1.0;
-    
+    double s = p[0], y = p[1], z = p[2];
+    double R = 5.0, a = 1.0, B0 = 1.0;
+
     // .63-.55 = .08
-    double dx = 0.08/(2. * M_PI); // Ali, this is just x_step in equation 7
-    double x = 0.55 + dx*s;
+    double dx = 0.08 / (2. * M_PI); // Ali, this is just x_step in equation 7
+    double x = 0.55 + dx * s;
 
     double psitilde = 0.0002 * 4.0;
-    double psishape = a*B0*(x * x) * (1. - x) * (1. - x);
-    double psishapep = 2.0*a*B0*x * (1. - x) * (1. - x) - 2.0*a*B0*x * x * (1. - x); // 
+    double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
+    double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
+                       2.0 * a * B0 * x * x * (1. - x); //
     double psi32 = cos(3.0 * y - 2.0 * z);
-    double psi43 = 0.0; //cos(4.0 * y - 3.0 * z);
+    double psi43 = 0.0; // cos(4.0 * y - 3.0 * z);
     double psip32 = -3.0 * sin(3.0 * y - 2.0 * z);
     double psip43 = 0.0; //-4.0 * sin(4.0 * y - 3.0 * z);
-    double psipert  = psi32 + psi43;
+    double psipert = psi32 + psi43;
     double psipertp = psip32 + psip43;
-    double qsafety =  0.2 * exp(x/(a*0.3));
-    
-    double bs=(psitilde*psishape*psipertp)/(B0*x*dx);
-    double by=(-(psitilde*psishapep*psipert/(B0*x))) + a / (R*qsafety);
-    
-					   //    double bs = bs;
-					   //    double by = thetaprime;
-    double bz = 1.0/R;
+    double qsafety = 0.2 * exp(x / (a * 0.3));
 
-    dealii::Tensor<2, dim> result; 
+    double bs = (psitilde * psishape * psipertp) / (B0 * x * dx);
+    double by =
+      (-(psitilde * psishapep * psipert / (B0 * x))) + a / (R * qsafety);
+
+    //    double bs = bs;
+    //    double by = thetaprime;
+    double bz = 1.0 / R;
+
+    dealii::Tensor<2, dim> result;
 
     result[0][0] = 1.0 + (epsinv - 1.) * bs * bs;
     result[0][1] = (epsinv - 1.) * bs * by;
     result[0][2] = (epsinv - 1.) * bs * bz;
     result[1][0] = result[0][1];
     result[1][1] = 1.0 / (x * x) + (epsinv - 1.) * by * by;
-    //result[1][1] = 1.0 + (epsinv - 1.) * by * by;
+    // result[1][1] = 1.0 + (epsinv - 1.) * by * by;
     result[1][2] = (epsinv - 1) * by * bz;
     result[2][0] = result[0][2];
     result[2][1] = result[1][2];
@@ -334,7 +368,7 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {40, 40, 40};
+    std::vector<unsigned> refine_repeats = {20, 20, 20};
     //
     // ***
     //
@@ -406,17 +440,27 @@ template <int dim, int spacedim = dim> struct Problem2
       if (face->at_boundary())
       {
         if (face->center()[2] > z_h - 1.e-6 ||
-            face->center()[2] < z_0 + 1.e-6 ||
-            face->center()[1] <  1.e-6 ||
-            face->center()[1] >  2. * M_PI - 1.e-6)
+            face->center()[2] < z_0 + 1.e-6 || face->center()[1] < 1.e-6 ||
+            face->center()[1] > 2. * M_PI - 1.e-6)
         {
           in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
-        else
+        else if (face->center()[0] > s_o - 1e-6)
         {
           in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+        }
+        else if (face->center()[0] < s_i + 1e-6)
+        {
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::natural;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        }
+        else
+        {
+          // to make sure that all of the boundary conditions are taken care of:
+          std::cout << face->center()[0] << std::endl;
+          assert(false);
         }
       }
       else
@@ -475,14 +519,13 @@ template <int dim, int spacedim = dim> struct Problem2
                           nargil::solvers::solver_update_opts::update_rhs;
         //
 
-	
-	//PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);
-	nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-							       solver_keys, dof_counter1, comm);
- 
-	// nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-	// 						  dof_counter1,
-	// 						  comm);
+        // PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);
+        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          solver_keys, dof_counter1, comm);
+
+        // nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        // 						  dof_counter1,
+        // 						  comm);
         //
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::assemble_globals, &solver1);

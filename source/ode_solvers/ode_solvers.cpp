@@ -1,6 +1,7 @@
 #include "../../include/ode_solvers/ode_solver.hpp"
 
-nargil::ode_solvers::trapezoidal_solver::trapezoidal_solver(const double h)
+template <typename T>
+nargil::ode_solvers::trapezoidal_solver<T>::trapezoidal_solver(const double h)
   : my_h(h)
 {
 }
@@ -8,8 +9,9 @@ nargil::ode_solvers::trapezoidal_solver::trapezoidal_solver(const double h)
 //
 //
 
-T nargil::ode_solvers::trapezoidal_solver::trapezoidal_solver::compute_next_x(
-  const T &f0, const T &f1)
+template <typename T>
+T nargil::ode_solvers::trapezoidal_solver<T>::compute_next_x(const T &f0,
+                                                             const T &f1)
 {
-  x = x0 + h / 2. * (f0 + f1);
+  x = x0 + my_h / 2. * (f0 + f1);
 }

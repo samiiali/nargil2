@@ -1019,6 +1019,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
     // PETSc scope.
     //
     {
+      double dt = 0.01;
       const MPI_Comm &comm = PETSC_COMM_WORLD;
       int comm_rank, comm_size;
       MPI_Comm_rank(comm, &comm_rank);
@@ -1038,7 +1039,8 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
       //
-      nargil::ode_solvers::trapezoidal_solver<Eigen::MatrixXd> tpz_integrator1;
+      nargil::ode_solvers::trapezoidal_solver<Eigen::MatrixXd> tpz_integrator1(
+        dt);
       //
       // Mesh refinement cycle.
       //
@@ -1097,11 +1099,14 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys1,
                                                         dof_counter1, comm);
       //
-      // Setting the initial value and time stepping type of the R-I problem.
+      // This might be a little overkill.
       //
       model_manager1.apply_on_owned_cells(
         &model1, R_I_ManagerType::set_time_integrator, &tpz_integrator1,
         R_I_ManagerType::time_integrator_type::TRPZ);
+      //
+      // Setting the initial value of the R-I problem.
+      //
       model_manager1.apply_on_owned_cells(&model1,
                                           R_I_ManagerType::set_source_and_BCs);
       model_manager1.apply_on_owned_cells(&model1,
@@ -1213,7 +1218,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
           model_manager1.apply_on_owned_cells(
             &model1, R_I_ManagerType::compute_linear_matrices);
           model_manager1.apply_on_owned_cells(
-            &model1, R_I_ManagerType::compute_nonlinear_matrices);
+            &model1, R_I_ManagerType::add_nonlinear_terms);
           model_manager1.apply_on_owned_cells(
             &model1, R_I_ManagerType::add_recombination_source);
           model_manager1.apply_on_owned_cells(

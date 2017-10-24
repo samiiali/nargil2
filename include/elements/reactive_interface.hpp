@@ -1119,16 +1119,19 @@ struct reactive_interface : public cell<dim, spacedim>
    * We use trapezoidal rule as our time stepping scheme. By applying this
    * method, the first and last euqations in Eq. (3), will not change.
    * However, the second equation will change. By including the time derivative,
-   * this equation can be written as (refer to ode_solvers::trapezoidal_solver):
+   * this equation can be written as (refer to ode_solvers::trapezoidal_solver)
+   * (superscripts denote the time step):
    * \f[
    * \frac 1 {\Delta t} A_1 \delta \rho_{nh}
    * + \frac 1 2 \mathscr M (\delta \rho_n, \delta \mathbf q_n, \delta \hat
    *   \rho_n)
-   * + \frac 1 {\Delta t} A_1 \rho_{nh}
-   * + \frac 1 2 \mathscr M (\rho_n, \mathbf q_n, \hat \rho_n)
-   * = \frac 1 {\Delta t} A_1 \rho_{(n-1),h}
-   * - \frac 1 2 \mathscr M (\rho_{n-1}, \mathbf q_{n-1}, \hat \rho_{n-1})
-   * + \frac 1 2 (F_n+F_{n-1}),
+   * + \frac 1 {\Delta t} A_1 \bar \rho^i_{nh}
+   * + \frac 1 2 \mathscr M (\bar \rho^i_{nh}, \bar {\mathbf q}^i_{nh},
+   *   \bar{\hat \rho}^i_{nh})
+   * = \frac 1 {\Delta t} A_1 \rho^{i-1}_{nh}
+   * - \frac 1 2
+   * \mathscr M (\rho^{i-1}_{nh}, \mathbf q^{i-1}_{nh}, \hat \rho^{i-1}_{nh})
+   * + \frac 1 2 (F^{i}_n+F^{i-1}_{n}),
    * \f]
    * with,
    * \f$
@@ -1136,6 +1139,26 @@ struct reactive_interface : public cell<dim, spacedim>
    * = B_1^T \mathbf q_{nh} + D_1 \rho_{nh} - c_n D_2 \rho_{nh}
    *   - E_1 \hat \rho_{nh} + c_n E_2 \hat \rho_{nh}
    * \f$.
+   *
+   * Now, we can define the matrices:
+   * \f$
+   *   \mathcal M_3 = \frac 1 2 \mathcal M_1 + \frac 1 {\Delta t} A_1
+   * \f$,
+   * \f$
+   *   \mathcal M_4 = \frac 1 2 \mathcal M_2
+   * \f$,
+   * \f$
+   *   F_{n2}^{i} = \frac 1 2 F_n^i - \frac 1 {\Delta t} A_1 \rho_{nh}^i
+   * \f$, and
+   * \f$
+   *   F_{n2}^{i-1} = \frac 1 2 F_n^{i-1} + \frac 1 {\Delta t} A_1
+   *   \rho_{nh}^{i-1}
+   * \f$. These definitions then result in the following formula:
+   * \f[
+   *   \mathcal M_3 \delta \rho_{nh} - \mathcal M_4 \delta \hat \rho_{nh} =
+   *   \frac 1 2 (F_{n2}^i+F_{n2}^{i-1}) +
+   *   \frac 1 2 \mu_n B_1^T A_1^{-1} \bar R_n
+   * \f]
    *
    */
   template <typename BasisType>
@@ -1200,6 +1223,15 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * Assembles the global matrices. It is called from static
+     * assemble_globals().
+     *
+     */
+    void assemble_my_trpz_globals(
+      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
      * This function computes the local unknowns from the input trace solution.
      * It should not be called directly, but through the static
      * compute_local_unkns().
@@ -1230,6 +1262,20 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
+     * Computes the local matrices.
+     *
+     */
+    void compute_my_nonlinear_trpz_matrices();
+
+    /**
+     *
+     * Computes the local matrices.
+     *
+     */
+    void add_my_nonlinear_terms();
+
+    /**
+     *
      * Called from add_recombination_source.
      *
      */
@@ -1240,7 +1286,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * Called from static set_dyna_terms.
      *
      */
-    void set_my_dyna_terms(const time_integrator_type in_type);
+    void set_my_dyna_terms();
 
     /**
      *
@@ -1456,7 +1502,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * This function computes the linear matrices of the cell.
      *
      */
-    static void compute_nonlinear_matrices(reactive_interface *in_cell);
+    static void add_nonlinear_terms(reactive_interface *in_cell);
 
     /**
      *
@@ -1471,8 +1517,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * the dynamic terms.
      *
      */
-    static void set_dyna_terms(reactive_interface *in_cell,
-                               const time_integrator_type in_type);
+    static void set_dyna_terms(reactive_interface *in_cell);
 
     /**
      *
@@ -1610,7 +1655,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /** @{
      *
-     * @brief The Newton Raphson increments.
+     * @brief The value of rho_n in the current time step.
      *
      */
     Eigen::VectorXd rho_n_vec, rho_p_vec, rho_r_vec, rho_o_vec;
@@ -1618,7 +1663,15 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /** @{
      *
-     * @brief The exact solutions on the corresponding nodes.
+     * @brief The value of rho_n in the last time step.
+     *
+     */
+    Eigen::VectorXd rho_n_vec0, rho_p_vec0, rho_r_vec0, rho_o_vec0;
+    ///@}
+
+    /** @{
+     *
+     * @brief NR increment
      *
      */
     Eigen::VectorXd d_rho_n, d_rho_p, d_rho_r, d_rho_o;
@@ -1626,10 +1679,18 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /** @{
      *
-     * @brief The exact solutions on the corresponding nodes.
+     * @brief \f$\hat\rho_n\f$ in the current time step.
      *
      */
     Eigen::VectorXd rho_n_hat, rho_p_hat, rho_r_hat, rho_o_hat;
+    ///@}
+
+    /** @{
+     *
+     * @brief \f$\hat\rho_n\f$ in the last time step.
+     *
+     */
+    Eigen::VectorXd rho_n_hat0, rho_p_hat0, rho_r_hat0, rho_o_hat0;
     ///@}
 
     /** @{
@@ -1646,6 +1707,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     Eigen::VectorXd q_n_vec, q_p_vec, q_r_vec, q_o_vec;
+
+    /** @{
+     *
+     * @brief The exact solutions on the corresponding nodes.
+     *
+     */
+    Eigen::VectorXd q_n_vec0, q_p_vec0, q_r_vec0, q_o_vec0;
 
     /** @{
      *

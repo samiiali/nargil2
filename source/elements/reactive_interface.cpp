@@ -622,6 +622,94 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
 
 template <int dim, int spacedim>
 template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<BasisType>::
+  assemble_my_trpz_globals(
+    solvers::base_implicit_solver<dim, spacedim> *in_solver)
+{
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  unsigned n_trace_unkns = my_basis->n_trace_unkns_per_face_dof();
+  ode_solvers::trapezoidal_solver<Eigen::VectorXd> *own_time_integrator =
+    static_cast<ode_solvers::trapezoidal_solver<Eigen::VectorXd> *>(
+      my_time_integrator);
+  double dt = own_time_integrator->my_h;
+  //
+  double mu_n = own_cell->my_data->mu_n();
+  double c_n =
+    own_cell->my_data->alpha_n() * mu_n * own_cell->my_data->lambda_inv2_S();
+  double mu_p = own_cell->my_data->mu_p();
+  double c_p =
+    own_cell->my_data->alpha_p() * mu_p * own_cell->my_data->lambda_inv2_S();
+  double mu_r = own_cell->my_data->mu_r();
+  double c_r =
+    own_cell->my_data->alpha_r() * mu_r * own_cell->my_data->lambda_inv2_E();
+  double mu_o = own_cell->my_data->mu_o();
+  double c_o =
+    own_cell->my_data->alpha_o() * mu_o * own_cell->my_data->lambda_inv2_E();
+  //
+  Eigen::MatrixXd d_rho_vec, d_q_vec, NR_rhs;
+  Eigen::MatrixXd A_inv = A1.inverse();
+  Eigen::FullPivLU<Eigen::MatrixXd> lu_of_Mat3;
+  //
+  std::vector<int> indices_n(my_basis->n_trace_unkns_per_cell_dof());
+  std::vector<int> indices_p(my_basis->n_trace_unkns_per_cell_dof());
+  std::vector<int> indices_r(my_basis->n_trace_unkns_per_cell_dof());
+  std::vector<int> indices_o(my_basis->n_trace_unkns_per_cell_dof());
+  for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
+  {
+    for (unsigned i_unkn = 0; i_unkn < n_trace_unkns; ++i_unkn)
+    {
+      unsigned idx = i_face * n_trace_unkns + i_unkn;
+      unsigned j_unkn0 = 0 * my_basis->n_trace_unkns_per_cell_dof() + i_unkn;
+      unsigned j_unkn1 = 1 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+      unsigned j_unkn2 = 2 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+      unsigned j_unkn3 = 3 * my_basis->n_trace_unkns_per_face_dof() + i_unkn;
+      indices_n[idx] = this->unkns_id_in_all_ranks[i_face][j_unkn0];
+      indices_p[idx] = this->unkns_id_in_all_ranks[i_face][j_unkn1];
+      indices_r[idx] = this->unkns_id_in_all_ranks[i_face][j_unkn2];
+      indices_o[idx] = this->unkns_id_in_all_ranks[i_face][j_unkn3];
+    }
+  }
+  //
+  // Assembeling equations rho_n
+  //
+  if (this->local_equation_is_active[0])
+  {
+    lu_of_Mat3.compute(
+      1 / 2. * (B1.transpose() * (mu_n * A_inv) * B1 + D1 - c_n * D2) +
+      1.0 / dt * A1);
+    Eigen::MatrixXd Mat4 =
+      (B1.transpose() * (mu_n * A_inv) * C1 + E1 - c_n * E2);
+    //
+    for (unsigned i_dof = 0; i_dof < indices_n.size(); ++i_dof)
+    {
+      d_rho_vec = lu_of_Mat3.solve(Mat4.col(i_dof));
+      d_q_vec = mu_n * A_inv * (B1 * d_rho_vec - C1.col(i_dof));
+      Eigen::VectorXd jth_col_n = C1.transpose() * d_q_vec +
+                                  E1.transpose() * d_rho_vec - H1.col(i_dof) +
+                                  c_n * H2.col(i_dof) - H11.col(i_dof);
+      int i_col_n = indices_n[i_dof];
+      in_solver->push_to_global_mat(indices_n.data(), &i_col_n, jth_col_n,
+                                    ADD_VALUES);
+      //
+      Eigen::VectorXd jth_col_o = -H14.col(i_dof);
+      int i_col_o = indices_o[i_dof];
+      in_solver->push_to_global_mat(indices_n.data(), &i_col_o, jth_col_o,
+                                    ADD_VALUES);
+    }
+    //
+    d_rho_vec = lu_of_Mat3.solve(Fn + B1.transpose() * mu_n * A_inv * Rn);
+    d_q_vec = mu_n * A_inv * (-Rn + B1 * d_rho_vec);
+    NR_rhs = Ln - C1.transpose() * d_q_vec - E1.transpose() * d_rho_vec;
+    in_solver->push_to_rhs_vec(indices_n.data(), NR_rhs, ADD_VALUES);
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_NR_increments()
 {
@@ -1082,7 +1170,7 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       {
         double face_JxW = fe_face_val->JxW(i_face_quad);
         dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
-        (void) n_vec;
+        (void)n_vec;
         //
         // We obtain rho_hat_n, rho_hat_p, rho_hat_r, rho_hat_o at the
         // quadrature point.
@@ -1188,6 +1276,227 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 //
 //
 
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::compute_my_nonlinear_trpz_matrices()
+{
+  unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell_dof();
+  unsigned face_quad_size = my_basis->get_face_quad_size();
+  //
+  ode_solvers::trapezoidal_solver<Eigen::VectorXd> *own_time_integrator =
+    static_cast<ode_solvers::trapezoidal_solver<Eigen::VectorXd> *>(
+      my_time_integrator);
+  double dt = own_time_integrator->my_h;
+  //
+  const reactive_interface *own_cell =
+    static_cast<const reactive_interface *>(this->my_cell);
+  //
+  // We assume that, compute_my_linear_matrices() has been called before.
+  //
+  double mu_n = own_cell->my_data->mu_n();
+  double c_n =
+    own_cell->my_data->alpha_n() * mu_n * own_cell->my_data->lambda_inv2_S();
+  double mu_p = own_cell->my_data->mu_p();
+  double c_p =
+    own_cell->my_data->alpha_p() * mu_p * own_cell->my_data->lambda_inv2_S();
+  double mu_r = own_cell->my_data->mu_r();
+  double c_r =
+    own_cell->my_data->alpha_r() * mu_r * own_cell->my_data->lambda_inv2_E();
+  double mu_o = own_cell->my_data->mu_o();
+  double c_o =
+    own_cell->my_data->alpha_o() * mu_o * own_cell->my_data->lambda_inv2_E();
+  //
+  // Setting the sizes of Q1, Q2
+  //
+  Q1 = Eigen::VectorXd::Zero(n_trace_unkns);
+  Q2 = Eigen::VectorXd::Zero(n_trace_unkns);
+  H11 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  H14 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  H22 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  H23 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  //
+  //
+  //
+  for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+  {
+    unsigned i_half = this->half_range_flag[i_face];
+    dealii::FEFaceValues<dim> *fe_face_val =
+      my_basis->trace_fe_face_val[i_half].get();
+    fe_face_val->reinit(this->my_dealii_trace_dofs_cell, i_face);
+    my_basis->local_fe_val_on_faces[i_face]->reinit(
+      this->my_dealii_local_dofs_cell);
+    bool i_am_on_sigma_s = BCs[i_face] & boundary_condition::semiconductor_R_I;
+    bool i_am_on_sigma_e = BCs[i_face] & boundary_condition::electrolyte_R_I;
+    bool i_am_on_sigma = i_am_on_sigma_e || i_am_on_sigma_s;
+    if (i_am_on_sigma)
+    {
+      //
+      // Loop 1
+      for (unsigned i_face_quad = 0; i_face_quad < face_quad_size;
+           ++i_face_quad)
+      {
+        double face_JxW = fe_face_val->JxW(i_face_quad);
+        dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
+        (void)n_vec;
+        //
+        // We obtain rho_hat_n, rho_hat_p, rho_hat_r, rho_hat_o at the
+        // quadrature point.
+        //
+        double rho_hat_n_at_quad = 0;
+        double rho_hat_p_at_quad = 0;
+        double rho_hat_r_at_quad = 0;
+        double rho_hat_o_at_quad = 0;
+        //
+        for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
+             ++j_face_unkn)
+        {
+          double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
+          if (trace_unkns_is_active[0])
+            rho_hat_n_at_quad += rho_n_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[1])
+            rho_hat_p_at_quad += rho_p_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[2])
+            rho_hat_r_at_quad += rho_r_hat[j_face_unkn] * lambda_j1;
+          if (trace_unkns_is_active[3])
+            rho_hat_o_at_quad += rho_o_hat[j_face_unkn] * lambda_j1;
+        }
+        //
+        double Q1_at_quad = get_Q1(rho_hat_n_at_quad, rho_hat_o_at_quad);
+        double Q2_at_quad = get_Q2(rho_hat_p_at_quad, rho_hat_r_at_quad);
+        double d_Q1_d_n_at_quad = get_d_Q1_d_n(rho_hat_o_at_quad);
+        double d_Q1_d_o_at_quad = get_d_Q1_d_o(rho_hat_n_at_quad);
+        double d_Q2_d_p_at_quad = get_d_Q2_d_p(rho_hat_r_at_quad);
+        double d_Q2_d_r_at_quad = get_d_Q2_d_r(rho_hat_p_at_quad);
+        //
+        if (trace_unkns_is_active[0] && trace_unkns_is_active[2])
+        {
+          for (unsigned i_face_unkn = 0; i_face_unkn < n_trace_unkns;
+               ++i_face_unkn)
+          {
+            double lambda_i1 =
+              fe_face_val->shape_value(i_face_unkn, i_face_quad);
+            for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
+                 ++j_face_unkn)
+            {
+              double lambda_j1 =
+                fe_face_val->shape_value(j_face_unkn, i_face_quad);
+              H11(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_n_at_quad;
+              H14(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q1_d_o_at_quad;
+              H22(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_p_at_quad;
+              H23(i_face_unkn, j_face_unkn) +=
+                lambda_i1 * lambda_j1 * face_JxW * d_Q2_d_r_at_quad;
+            }
+            Q1(i_face_unkn) += lambda_i1 * face_JxW * Q1_at_quad;
+            Q2(i_face_unkn) += lambda_i1 * face_JxW * Q2_at_quad;
+          }
+        }
+      }
+      // Loop 1
+    }
+  }
+  //
+  if (this->local_equation_is_active[0])
+  {
+    Rn = 1. / mu_n * A1 * q_n_vec - B1 * rho_n_vec + C1 * rho_n_hat;
+    Eigen::VectorXd Fn20, Fn21;
+    Fn21 = (-B1.transpose() * q_n_vec - D1 * rho_n_vec + c_n * D2 * rho_n_vec +
+            E1 * rho_n_hat - c_n * E2 * rho_n_hat) /
+             2. -
+           1. / dt * A1 * rho_n_vec;
+    Fn20 = (-B1.transpose() * q_n_vec0 - D1 * rho_n_vec0 +
+            c_n * D2 * rho_n_vec0 + E1 * rho_n_hat0 - c_n * E2 * rho_n_hat0) /
+             2. +
+           1. / dt * A1 * rho_n_vec0;
+    Fn += (Fn20 + Fn21) / 2.;
+    Ln += -C1.transpose() * q_n_vec - E1.transpose() * rho_n_vec +
+          H1 * rho_n_hat - c_n * H2 * rho_n_hat;
+  }
+  if (this->trace_unkns_is_active[0])
+    Ln += Q1;
+  if (this->local_equation_is_active[1])
+  {
+    Rp = 1. / mu_p * A1 * q_p_vec - B1 * rho_p_vec + C1 * rho_p_hat;
+    Eigen::VectorXd Fp20, Fp21;
+    Fp21 = (-B1.transpose() * q_p_vec - D1 * rho_p_vec + c_p * D2 * rho_p_vec +
+            E1 * rho_p_hat - c_p * E2 * rho_p_hat) /
+             2. -
+           1. / dt * A1 * rho_p_vec;
+    Fp20 = (-B1.transpose() * q_p_vec0 - D1 * rho_p_vec0 +
+            c_p * D2 * rho_p_vec0 + E1 * rho_p_hat0 - c_p * E2 * rho_p_hat0) /
+             2. +
+           1. / dt * A1 * rho_p_vec0;
+    Fp += (Fp20 + Fp21) / 2.;
+    Lp += -C1.transpose() * q_p_vec - E1.transpose() * rho_p_vec +
+          H1 * rho_p_hat - c_p * H2 * rho_p_hat;
+  }
+  if (this->trace_unkns_is_active[1])
+    Lp += Q2;
+  if (this->local_equation_is_active[2])
+  {
+    Rr = 1. / mu_r * A1 * q_r_vec - B1 * rho_r_vec + C1 * rho_r_hat;
+    Eigen::VectorXd Fr20, Fr21;
+    Fr21 = (-B1.transpose() * q_r_vec - D1 * rho_r_vec + c_r * D2 * rho_r_vec +
+            E1 * rho_r_hat - c_r * E2 * rho_r_hat) /
+             2. -
+           1. / dt * A1 * rho_r_vec;
+    Fr20 = (-B1.transpose() * q_r_vec0 - D1 * rho_r_vec0 +
+            c_r * D2 * rho_r_vec0 + E1 * rho_r_hat0 - c_r * E2 * rho_r_hat0) /
+             2. +
+           1. / dt * A1 * rho_r_vec0;
+    Fr += (Fr20 + Fr21) / 2.;
+    Lr += -C1.transpose() * q_r_vec - E1.transpose() * rho_r_vec +
+          H1 * rho_r_hat - c_r * H2 * rho_r_hat;
+  }
+  if (this->trace_unkns_is_active[2])
+    Lr += -Q1 + Q2;
+  if (this->local_equation_is_active[3])
+  {
+    Ro = 1. / mu_o * A1 * q_o_vec - B1 * rho_o_vec + C1 * rho_o_hat;
+    Eigen::VectorXd Fo20, Fo21;
+    Fo21 = (-B1.transpose() * q_o_vec - D1 * rho_o_vec + c_o * D2 * rho_o_vec +
+            E1 * rho_o_hat - c_o * E2 * rho_o_hat) /
+             2. -
+           1. / dt * A1 * rho_o_vec;
+    Fo20 = (-B1.transpose() * q_o_vec0 - D1 * rho_o_vec0 +
+            c_n * D2 * rho_o_vec0 + E1 * rho_o_hat0 - c_o * E2 * rho_o_hat0) /
+             2. +
+           1. / dt * A1 * rho_o_vec0;
+    Fo += (Fo20 + Fo21) / 2.;
+    Lo += -C1.transpose() * q_o_vec - E1.transpose() * rho_o_vec +
+          H1 * rho_o_hat - c_o * H2 * rho_o_hat;
+  }
+  if (this->trace_unkns_is_active[3])
+    Lo += Q1 - Q2;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::reactive_interface<dim, spacedim>::hdg_manager<
+  BasisType>::add_my_nonlinear_terms()
+{
+  if (my_time_integrator_type == time_integrator_type::TRPZ)
+  {
+    compute_my_nonlinear_trpz_matrices();
+  }
+  // If we solve the problem with no time integration.
+  {
+    compute_my_nonlinear_matrices();
+  }
+}
+
+//
+//
+
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
@@ -1240,18 +1549,18 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
-  BasisType>::set_my_dyna_terms(const time_integrator_type in_type)
+  BasisType>::set_my_dyna_terms()
 {
-  if (in_type == time_integrator_type::BDF1)
+  if (my_time_integrator_type == time_integrator_type::BDF1)
   {
     ode_solvers::BDF1_solver<Eigen::VectorXd> *own_time_integrator =
       static_cast<ode_solvers::BDF1_solver<Eigen::VectorXd> *>(
         my_time_integrator);
     (void)own_time_integrator;
   }
-  if (in_type == time_integrator_type::TRPZ)
+  if (my_time_integrator_type == time_integrator_type::TRPZ)
   {
-    ode_solvers::BDF1_solver<Eigen::VectorXd> *own_time_integrator =
+    ode_solvers::trapezoidal_solver<Eigen::VectorXd> *own_time_integrator =
       static_cast<ode_solvers::trapezoidal_solver<Eigen::VectorXd> *>(
         my_time_integrator);
     (void)own_time_integrator;
@@ -1645,35 +1954,35 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
   //
   //
   if (trace_unkns_is_active[0])
-    rho_n_hat = gD_rho_n;
+    rho_n_hat = rho_n_hat0 = gD_rho_n;
   if (trace_unkns_is_active[1])
-    rho_p_hat = gD_rho_p;
+    rho_p_hat = rho_p_hat0 = gD_rho_p;
   if (trace_unkns_is_active[2])
-    rho_r_hat = gD_rho_r;
+    rho_r_hat = rho_r_hat0 = gD_rho_r;
   if (trace_unkns_is_active[3])
-    rho_o_hat = gD_rho_o;
+    rho_o_hat = rho_o_hat0 = gD_rho_o;
   //
   // Setting the size of initial values of rho_n,p,r,o.
   //
   if (this->local_equation_is_active[0])
   {
-    rho_n_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
-    q_n_vec = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
+    rho_n_vec = rho_n_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns);
+    q_n_vec = q_n_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
   }
   if (this->local_equation_is_active[1])
   {
-    rho_p_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
-    q_p_vec = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
+    rho_p_vec = rho_p_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns);
+    q_p_vec = q_p_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
   }
   if (this->local_equation_is_active[2])
   {
-    rho_r_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
-    q_r_vec = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
+    rho_r_vec = rho_r_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns);
+    q_r_vec = q_r_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
   }
   if (this->local_equation_is_active[3])
   {
-    rho_o_vec = Eigen::VectorXd::Zero(n_scalar_unkns);
-    q_o_vec = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
+    rho_o_vec = rho_o_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns);
+    q_o_vec = q_o_vec0 = Eigen::VectorXd::Zero(n_scalar_unkns * dim);
   }
   //
   // Now, we get rho_n,p,r,o from the corresponding functions.
@@ -1684,13 +1993,17 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
       my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
     //
     if (this->local_equation_is_active[0])
-      rho_n_vec[i_unkn] = own_cell->my_data->rho_n_0(q_point);
+      rho_n_vec[i_unkn] = rho_n_vec0[i_unkn] =
+        own_cell->my_data->rho_n_0(q_point);
     if (this->local_equation_is_active[1])
-      rho_p_vec[i_unkn] = own_cell->my_data->rho_p_0(q_point);
+      rho_p_vec[i_unkn] = rho_p_vec0[i_unkn] =
+        own_cell->my_data->rho_p_0(q_point);
     if (this->local_equation_is_active[2])
-      rho_r_vec[i_unkn] = own_cell->my_data->rho_r_0(q_point);
+      rho_r_vec[i_unkn] = rho_r_vec0[i_unkn] =
+        own_cell->my_data->rho_r_0(q_point);
     if (this->local_equation_is_active[3])
-      rho_o_vec[i_unkn] = own_cell->my_data->rho_o_0(q_point);
+      rho_o_vec[i_unkn] = rho_o_vec0[i_unkn] =
+        own_cell->my_data->rho_o_0(q_point);
   }
 }
 
@@ -2135,11 +2448,11 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
-  BasisType>::compute_nonlinear_matrices(reactive_interface *in_cell)
+  BasisType>::add_nonlinear_terms(reactive_interface *in_cell)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
-  own_manager->compute_my_nonlinear_matrices();
+  own_manager->add_my_nonlinear_terms();
 }
 
 //
@@ -2161,12 +2474,11 @@ void nargil::reactive_interface<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::reactive_interface<dim, spacedim>::hdg_manager<
-  BasisType>::set_dyna_terms(reactive_interface *in_cell,
-                             const time_integrator_type in_type)
+  BasisType>::set_dyna_terms(reactive_interface *in_cell)
 {
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
-  own_manager->set_my_dyna_terms(in_type);
+  own_manager->set_my_dyna_terms();
 }
 
 //

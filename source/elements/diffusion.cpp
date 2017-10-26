@@ -868,7 +868,7 @@ void nargil::diffusion<dim,
       }
     }
   }
-  if (in_electrolyte)
+  else if (in_electrolyte)
   {
     for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
     {
@@ -890,6 +890,8 @@ void nargil::diffusion<dim,
       }
     }
   }
+  else
+    assert(false);
 }
 
 //

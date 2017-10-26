@@ -10,10 +10,15 @@ namespace ode_solvers
  *
  * @brief This is the base struct for all other 1st order ODE solvers.
  *
+ * The base class for all other 1st order ODE solvers. We want this
+ * class to be polymorphic. So, the desctructor is defined virtual.
+ *
  *
  */
 struct first_order_ode_solver
 {
+  first_order_ode_solver() {}
+  virtual ~first_order_ode_solver() {}
 };
 
 /**
@@ -61,7 +66,31 @@ struct first_order_ode_solver
  */
 template <typename T> struct BDF1_solver : public first_order_ode_solver
 {
+  /**
+   *
+   *
+   *
+   */
+  BDF1_solver(const double h);
+
+  /**
+   *
+   * @brief Destructor guy
+   *
+   * This destructor needs to be virtual.
+   *
+   */
+  virtual ~BDF1_solver() final {}
+
+  /**
+   *
+   *
+   *
+   */
+  void scale_dt(const double sc_fac);
+
   T x0, x;
+  double my_h;
 };
 
 /**
@@ -114,9 +143,6 @@ template <typename T> struct BDF1_solver : public first_order_ode_solver
  */
 template <typename T> struct trapezoidal_solver : public first_order_ode_solver
 {
-  T x0, x;
-  double my_h;
-
   /**
    *
    * The constructor.
@@ -126,10 +152,21 @@ template <typename T> struct trapezoidal_solver : public first_order_ode_solver
 
   /**
    *
+   * Since the destrcutor of the base class is virtual, we make this destructor
+   * virtual as well.
+   *
+   */
+  virtual ~trapezoidal_solver() final {}
+
+  /**
+   *
    *
    *
    */
   T compute_next_x(const T &f0, const T &f1);
+
+  T x0, x;
+  double my_h;
 };
 }
 }

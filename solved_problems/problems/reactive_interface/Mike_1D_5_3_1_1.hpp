@@ -58,7 +58,7 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double rhs_func(const dealii::Point<spacedim> &p)
   {
     if (RI_Problem1_dyna<dim, spacedim>::in_semiconductor(p))
-      return 0.;
+      return 0.0;
     // if in electrolyte:
     return 0.;
   }
@@ -88,6 +88,9 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
     double y1 = p[1];
     dealii::Tensor<1, dim> result(
       {-exp(sin(x1 - y1)) * cos(x1 - y1), exp(sin(x1 - y1)) * cos(x1 - y1)});
+    //
+    return dealii::Tensor<1, dim>();
+    //
     return 25 * result;
   }
 
@@ -231,7 +234,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 1.0E-6;
+    return 0.1;
     //
     return cos(x1) + sin(x1) +
            exp(sin(x1 - y1)) *
@@ -248,7 +251,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 1.0E-6;
+    return 0.1;
     //
     return 4 * cos(x1 - y1) *
            (1 + exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + 2 * sin(x1 - y1)));
@@ -1019,7 +1022,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
     // PETSc scope.
     //
     {
-      double dt = 0.01;
+      double dt = 1.E0;
       const MPI_Comm &comm = PETSC_COMM_WORLD;
       int comm_rank, comm_size;
       MPI_Comm_rank(comm, &comm_rank);
@@ -1039,8 +1042,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
       //
-      nargil::ode_solvers::trapezoidal_solver<Eigen::MatrixXd> tpz_integrator1(
-        dt);
+      nargil::ode_solvers::BDF1_solver<Eigen::VectorXd> bdf1_integrator1(dt);
       //
       // Mesh refinement cycle.
       //
@@ -1101,9 +1103,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       //
       // This might be a little overkill.
       //
+
       model_manager1.apply_on_owned_cells(
-        &model1, R_I_ManagerType::set_time_integrator, &tpz_integrator1,
-        R_I_ManagerType::time_integrator_type::TRPZ);
+        &model1, R_I_ManagerType::set_time_integrator, &bdf1_integrator1,
+        R_I_ManagerType::time_integrator_type::NONE);
       //
       // Setting the initial value of the R-I problem.
       //
@@ -1114,8 +1117,10 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
       //
       // The time stepping loop.
       //
-      for (unsigned i_time = 0; i_time < 200; ++i_time)
+      for (unsigned i_time = 0; i_time < 1000; ++i_time)
       {
+        //
+        bdf1_integrator1.scale_dt(1.0);
         //
         model_manager0.apply_on_owned_cells(
           &model0, DiffManagerType::set_source_and_BCs);
@@ -1264,6 +1269,11 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
                       << accuracy_output << std::endl;
           }
         } while (NR_delta > 1.e-8 && NR_cycle < 20);
+        //
+        // After NR iteration we should advance in time
+        //
+        model_manager1.apply_on_owned_cells(&model1,
+                                            R_I_ManagerType::advance_in_time);
         //
         //
         //

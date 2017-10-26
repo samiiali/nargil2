@@ -1122,16 +1122,16 @@ struct reactive_interface : public cell<dim, spacedim>
    * this equation can be written as (refer to ode_solvers::trapezoidal_solver)
    * (superscripts denote the time step):
    * \f[
-   * \frac 1 {\Delta t} A_1 \delta \rho_{nh}
+   * \frac 1 {\Delta t} A_2 \delta \rho_{nh}
    * + \frac 1 2 \mathscr M (\delta \rho_n, \delta \mathbf q_n, \delta \hat
    *   \rho_n)
-   * + \frac 1 {\Delta t} A_1 \bar \rho^i_{nh}
+   * + \frac 1 {\Delta t} A_2 \bar \rho^i_{nh}
    * + \frac 1 2 \mathscr M (\bar \rho^i_{nh}, \bar {\mathbf q}^i_{nh},
    *   \bar{\hat \rho}^i_{nh})
-   * = \frac 1 {\Delta t} A_1 \rho^{i-1}_{nh}
+   * = \frac 1 {\Delta t} A_2 \rho^{i-1}_{nh}
    * - \frac 1 2
    * \mathscr M (\rho^{i-1}_{nh}, \mathbf q^{i-1}_{nh}, \hat \rho^{i-1}_{nh})
-   * + \frac 1 2 (F^{i}_n+F^{i-1}_{n}),
+   * + F_{n},
    * \f]
    * with,
    * \f$
@@ -1142,21 +1142,26 @@ struct reactive_interface : public cell<dim, spacedim>
    *
    * Now, we can define the matrices:
    * \f$
-   *   \mathcal M_3 = \frac 1 2 \mathcal M_1 + \frac 1 {\Delta t} A_1
+   *   \mathcal M_3 = \frac 1 2 \mathcal M_1 + \frac 1 {\Delta t} A_2
    * \f$,
    * \f$
    *   \mathcal M_4 = \frac 1 2 \mathcal M_2
    * \f$,
    * \f$
-   *   F_{n2}^{i} = \frac 1 2 F_n^i - \frac 1 {\Delta t} A_1 \rho_{nh}^i
+   *   F_{n2}^{i} = - \frac 1 2 \mathscr M (\bar \rho^i_{nh},
+   *                  \bar {\mathbf q}^i_{nh}, \bar{\hat \rho}^i_{nh})
+   *                - \frac 1 {\Delta t} A_2 \rho_{nh}^i
    * \f$, and
    * \f$
-   *   F_{n2}^{i-1} = \frac 1 2 F_n^{i-1} + \frac 1 {\Delta t} A_1
-   *   \rho_{nh}^{i-1}
+   *   F_{n2}^{i-1} = - \frac 1 2
+   *                    \mathscr M (\rho^{i-1}_{nh},
+   *                    \mathbf q^{i-1}_{nh},
+   *                    \hat \rho^{i-1}_{nh})
+   *                  + \frac 1 {\Delta t} A_2 \rho_{nh}^{i-1}
    * \f$. These definitions then result in the following formula:
    * \f[
    *   \mathcal M_3 \delta \rho_{nh} - \mathcal M_4 \delta \hat \rho_{nh} =
-   *   \frac 1 2 (F_{n2}^i+F_{n2}^{i-1}) +
+   *   (F_{n2}^i+F_{n2}^{i-1}) +
    *   \frac 1 2 \mu_n B_1^T A_1^{-1} \bar R_n
    * \f]
    *
@@ -1171,6 +1176,7 @@ struct reactive_interface : public cell<dim, spacedim>
      */
     enum class time_integrator_type
     {
+      NONE = 0,
       BDF1 = 1,
       TRPZ = 2
     };
@@ -1227,7 +1233,25 @@ struct reactive_interface : public cell<dim, spacedim>
      * assemble_globals().
      *
      */
+    void assemble_my_stdy_globals(
+      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     * Assembles the global matrices. It is called from static
+     * assemble_globals().
+     *
+     */
     void assemble_my_trpz_globals(
+      solvers::base_implicit_solver<dim, spacedim> *in_solver);
+
+    /**
+     *
+     * Assembles the global matrices. It is called from static
+     * assemble_globals().
+     *
+     */
+    void assemble_my_bdf1_globals(
       solvers::base_implicit_solver<dim, spacedim> *in_solver);
 
     /**
@@ -1245,6 +1269,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     void extract_my_NR_increment(const double *trace_sol);
+
+    /**
+     *
+     * This function merely sets \f$\rho_n^{i}=\rho_n^{i+1}, ...\f$.
+     *
+     */
+    void advance_me_in_time();
 
     /**
      *
@@ -1272,6 +1303,13 @@ struct reactive_interface : public cell<dim, spacedim>
      * Computes the local matrices.
      *
      */
+    void compute_my_nonlinear_bdf1_matrices();
+
+    /**
+     *
+     * Computes the local matrices.
+     *
+     */
     void add_my_nonlinear_terms();
 
     /**
@@ -1283,14 +1321,7 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * Called from static set_dyna_terms.
-     *
-     */
-    void set_my_dyna_terms();
-
-    /**
-     *
-     * Called from static set_dyna_terms.
+     * Called from static set_time_integrator.
      *
      */
     void set_my_time_integrator(
@@ -1513,14 +1544,6 @@ struct reactive_interface : public cell<dim, spacedim>
 
     /**
      *
-     * This function computes the added stiffness and rhs corresponding to
-     * the dynamic terms.
-     *
-     */
-    static void set_dyna_terms(reactive_interface *in_cell);
-
-    /**
-     *
      * This function sets the time integrator object of this cell.
      *
      */
@@ -1535,6 +1558,13 @@ struct reactive_interface : public cell<dim, spacedim>
      *
      */
     static void compute_NR_increments(reactive_interface *in_cell);
+
+    /**
+     *
+     *
+     *
+     */
+    static void advance_in_time(reactive_interface *in_cell);
 
     /**
      *
@@ -1626,7 +1656,7 @@ struct reactive_interface : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A1, B1, C1, D1, D2, E1, E2, H1, H2;
+    Eigen::MatrixXd A1, A2, B1, C1, D1, D2, E1, E2, H1, H2;
     ///@}
 
     /** @{

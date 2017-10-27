@@ -483,6 +483,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   }
   u_vec = lu_of_Mat1.solve(F + (B.transpose() * A_inv * C + E) * uhat_vec);
   q_vec = A_inv * (B * u_vec - C * uhat_vec);
+  grad_u_vec = -A0.inverse() * A * q_vec;
   //
   // *** This part can be moved to another function.
   //
@@ -527,6 +528,10 @@ void nargil::diffusion<dim,
   R = Eigen::VectorXd::Zero(n_trace_unkns);
   H0 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
   //
+  // A0 matrix is the same as A, only does not have kappa_inv
+  //
+  A0 = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, dim * n_scalar_unkns);
+  //
   for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
   {
     double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
@@ -542,6 +547,7 @@ void nargil::diffusion<dim,
           (*my_basis->local_fe_val_in_cell)[fluxes].value(j1, i_quad);
         A(i1 - n_scalar_unkns, j1 - n_scalar_unkns) +=
           kappa_inv_at_quad * q_i1 * v_j1 * JxW;
+        A0(i1 - n_scalar_unkns, j1 - n_scalar_unkns) += q_i1 * v_j1 * JxW;
       }
     }
     //
@@ -727,6 +733,29 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
       int idx2 =
         this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
       out_vec->assemble(idx2, q_vec(i_dim * n_scalar_unkns + i_unkn));
+    }
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_my_viz_vector_with_grad_u(distributed_vector<dim, spacedim> *out_vec)
+{
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->local_interior_unkn_idx[i_unkn];
+    out_vec->assemble(idx1, u_vec(i_unkn));
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+    {
+      int idx2 =
+        this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
+      out_vec->assemble(idx2, grad_u_vec(i_dim * n_scalar_unkns + i_unkn));
     }
   }
 }
@@ -987,6 +1016,19 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->fill_my_viz_vector(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_viz_vector_with_grad_u(diffusion *in_cell,
+                              distributed_vector<dim, spacedim> *out_vec)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_viz_vector_with_grad_u(out_vec);
 }
 
 //

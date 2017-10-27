@@ -71,7 +71,7 @@ struct diff_data_2 : public nargil::diffusion<dim, spacedim>::data
     if (p[0] > 1. - 1.e-8)
       return 0.0;
     else if (p[0] < -1. + 1.E-8)
-      return 0.0;
+      return 15.0;
     else
       assert(false);
   }
@@ -234,7 +234,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.1;
+    return 0.0;
     //
     return cos(x1) + sin(x1) +
            exp(sin(x1 - y1)) *
@@ -251,7 +251,7 @@ struct react_int_problem1_data
     double x1 = p[0];
     double y1 = p[1];
     //
-    return 0.1;
+    return 0.0;
     //
     return 4 * cos(x1 - y1) *
            (1 + exp(sin(x1 - y1)) * (-pow(cos(x1 - y1), 2) + 2 * sin(x1 - y1)));
@@ -499,7 +499,7 @@ struct react_int_problem1_data
   /**
    * @brief Initial values for \f$\rho_n\f$
    */
-  virtual double rho_n_e() final { return 2.; }
+  virtual double rho_n_e() final { return 2.e6; }
 
   /**
    * @brief Initial value for \f$\rho_p\f$
@@ -509,12 +509,12 @@ struct react_int_problem1_data
   /**
    * @brief Initial value for \f$\rho_r\f$
    */
-  virtual double rho_r_inf() final { return 5.; }
+  virtual double rho_r_inf() final { return 5.e6; }
 
   /**
    * @brief Initial value for \f$\rho_o\f$
    */
-  virtual double rho_o_inf() final { return 4.; }
+  virtual double rho_o_inf() final { return 4.e6; }
 
   /**
    *
@@ -1022,7 +1022,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
     // PETSc scope.
     //
     {
-      double dt = 1.E0;
+      double dt = 1.e0;
       const MPI_Comm &comm = PETSC_COMM_WORLD;
       int comm_rank, comm_size;
       MPI_Comm_rank(comm, &comm_rank);
@@ -1106,7 +1106,7 @@ template <int dim, int spacedim = dim> struct RI_Problem1_dyna
 
       model_manager1.apply_on_owned_cells(
         &model1, R_I_ManagerType::set_time_integrator, &bdf1_integrator1,
-        R_I_ManagerType::time_integrator_type::NONE);
+        R_I_ManagerType::time_integrator_type::BDF1);
       //
       // Setting the initial value of the R-I problem.
       //

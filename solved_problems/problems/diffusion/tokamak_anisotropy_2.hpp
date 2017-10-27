@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <fstream>
+#include <functional>
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
@@ -40,7 +41,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  constexpr static double epsinv = 1.0e10;
+  constexpr static double epsinv = 1.0e4;
   constexpr static double z_0 = 0.0;
   constexpr static double z_h = 2.0 * M_PI;
   constexpr static double s_i = 0.1;
@@ -141,10 +142,10 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   virtual double gD_func(const dealii::Point<spacedim> &p)
   {
 
-    double s = p[0], y = p[1], z = p[2];
+    double s = p[0];
+    // double y = p[1], z = p[2];
     // double g = M_PI;
-    double temperature =
-      0.0; // 1.0; //1e-4*exp( -(-y-g)*(y-g) - (z-g)*(z-g) )/0.2;
+    double temperature = 0.0;
 
     if (!(s > s_o - 1.e-6))
       assert(false);
@@ -173,43 +174,35 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
    */
   virtual dealii::Tensor<1, dim> exact_q(const dealii::Point<spacedim> &p)
   {
-    double R = 5.;
-    // double r_m = (r_i + r_o) / 2.;
+    double s = p[0], y = p[1], z = p[2];
+    double R = 5.0, a = 1.0, B0 = 1.0;
 
-    double y1 = sqrt(p[0] * p[0] + p[1] * p[1]);
-    //
-    // double y2 = p[1];
-    double y2 = atan2(p[1], p[0]);
-    //
-    double y3 = p[2] / R;
-    // double y3 = p[2];
-    //
+    // .63-.55 = .08
+    double dx = 0.08 / (2. * M_PI); // Ali, this is just x_step in equation 7
+    double x = 0.55 + dx * s;
 
-    dealii::Tensor<1, dim> B1(
-      {-(pow(-1 + y1, 2) * y1 *
-         (3 * sin(3 * y2 + 2 * y3) + 4 * sin(4 * y2 + 3 * y3))) /
-         5000.,
-       ((3 - 5 * y1) * y1) / (3. * exp((10 * y1) / 3.)) -
-         ((-1 + y1) * y1 * (-1 + 2 * y1) *
-          (cos(3 * y2 + 2 * y3) + cos(4 * y2 + 3 * y3))) /
-           2500.,
-       1.});
+    double psitilde = 0.0002 * 4.0;
+    double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
+    double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
+                       2.0 * a * B0 * x * x * (1. - x); //
+    double psi32 = cos(3.0 * y - 2.0 * z);
+    double psi43 = 0.0; // cos(4.0 * y - 3.0 * z);
+    double psip32 = -3.0 * sin(3.0 * y - 2.0 * z);
+    double psip43 = 0.0; //-4.0 * sin(4.0 * y - 3.0 * z);
+    double psipert = psi32 + psi43;
+    double psipertp = psip32 + psip43;
+    double qsafety = 0.2 * exp(x / (a * 0.3));
 
-    dealii::Tensor<1, dim> b1 = B1 / sqrt(B1 * B1);
-    //
-    //           [ cos(x,r)  cos(x,t)  cos(x,z) ]
-    // beta_ij = [ cos(y,r)  cos(y,t)  cos(y,z) ]
-    //           [ cos(z,r)  cos(z,t)  cos(z,z) ]
-    //
-    dealii::Tensor<2, dim> beta_ik;
-    beta_ik[0][0] = cos(y2);
-    beta_ik[0][1] = -sin(y2);
-    beta_ik[1][0] = sin(y2);
-    beta_ik[1][1] = cos(y2);
-    beta_ik[2][2] = 1.;
-    // b1 = beta_ik * b1;
+    double bs = (psitilde * psishape * psipertp) / (B0 * x * dx);
+    double by =
+      (-(psitilde * psishapep * psipert / (B0 * x))) + a / (R * qsafety);
 
-    return b1;
+    //    double bs = bs;
+    //    double by = thetaprime;
+    double bz = 1.0 / R;
+
+    dealii::Tensor<1, dim> b_vec({bs, by, bz});
+    return b_vec;
   }
 
   /**
@@ -473,6 +466,42 @@ template <int dim, int spacedim = dim> struct Problem2
   //
   //
 
+  static dealii::Tensor<1, dim> b_components(const dealii::Point<spacedim> &p)
+  {
+    double s = p[0], y = p[1], z = p[2];
+    double R = 5.0, a = 1.0, B0 = 1.0;
+
+    // .63-.55 = .08
+    double dx = 0.08 / (2. * M_PI); // Ali, this is just x_step in equation 7
+    double x = 0.55 + dx * s;
+
+    double psitilde = 0.0002 * 4.0;
+    double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
+    double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
+                       2.0 * a * B0 * x * x * (1. - x); //
+    double psi32 = cos(3.0 * y - 2.0 * z);
+    double psi43 = 0.0; // cos(4.0 * y - 3.0 * z);
+    double psip32 = -3.0 * sin(3.0 * y - 2.0 * z);
+    double psip43 = 0.0; //-4.0 * sin(4.0 * y - 3.0 * z);
+    double psipert = psi32 + psi43;
+    double psipertp = psip32 + psip43;
+    double qsafety = 0.2 * exp(x / (a * 0.3));
+
+    double bs = (psitilde * psishape * psipertp) / (B0 * x * dx);
+    double by =
+      (-(psitilde * psishapep * psipert / (B0 * x))) + a / (R * qsafety);
+
+    //    double bs = bs;
+    //    double by = thetaprime;
+    double bz = 1.0 / R;
+
+    dealii::Tensor<1, dim> b_vec({bs, by, bz});
+    return b_vec;
+  }
+
+  //
+  //
+
   static void run(int argc, char **argv)
   {
 
@@ -569,9 +598,22 @@ template <int dim, int spacedim = dim> struct Problem2
           "Temperature", "Heat_flow");
         viz_data1.time_step = 0;
         viz_data1.cycle = 0;
-
         // Now we visualize the results
         CellManagerType::visualize_results(viz_data1);
+
+        //
+        // Here, we visualize grad_u, which will be used to compute b.grad_u
+        //
+        model_manager1.apply_on_owned_cells(
+          &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
+          &dist_sol_vec, b_components);
+        dist_sol_vec.copy_to_global_vec(global_sol_vec);
+        typename ModelEq::viz_data viz_data3(
+          comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
+          "Grad_T_dot_b", "Grad_T");
+        viz_data3.time_step = 0;
+        viz_data3.cycle = 0;
+        CellManagerType::visualize_results(viz_data3);
 
         // We interpolated exact u and q to u_exact and q_exact
         model_manager1.apply_on_owned_cells(
@@ -582,11 +624,12 @@ template <int dim, int spacedim = dim> struct Problem2
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
         typename ModelEq::viz_data viz_data2(
           comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "kappa_comps", "Temperature", "b_components");
+          "b_components", "Temperature", "b_components");
         viz_data2.time_step = 0;
         viz_data2.cycle = 0;
         CellManagerType::visualize_results(viz_data2);
         //
+
         std::vector<double> sum_of_L2_errors(2, 0);
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::compute_errors, &sum_of_L2_errors);

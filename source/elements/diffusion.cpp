@@ -483,6 +483,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   }
   u_vec = lu_of_Mat1.solve(F + (B.transpose() * A_inv * C + E) * uhat_vec);
   q_vec = A_inv * (B * u_vec - C * uhat_vec);
+  grad_u_vec = -A0.inverse() * A * q_vec;
   //
   // *** This part can be moved to another function.
   //
@@ -527,6 +528,10 @@ void nargil::diffusion<dim,
   R = Eigen::VectorXd::Zero(n_trace_unkns);
   H0 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
   //
+  // A0 matrix is the same as A, only does not have kappa_inv
+  //
+  A0 = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, dim * n_scalar_unkns);
+  //
   for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
   {
     double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
@@ -542,6 +547,7 @@ void nargil::diffusion<dim,
           (*my_basis->local_fe_val_in_cell)[fluxes].value(j1, i_quad);
         A(i1 - n_scalar_unkns, j1 - n_scalar_unkns) +=
           kappa_inv_at_quad * q_i1 * v_j1 * JxW;
+        A0(i1 - n_scalar_unkns, j1 - n_scalar_unkns) += q_i1 * v_j1 * JxW;
       }
     }
     //
@@ -728,6 +734,40 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
         this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
       out_vec->assemble(idx2, q_vec(i_dim * n_scalar_unkns + i_unkn));
     }
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_my_viz_vector_with_grad_u_dot_b(
+    distributed_vector<dim, spacedim> *out_vec,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
+{
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  //
+  my_basis->local_fe_val_at_cell_supp->reinit(this->my_dealii_local_dofs_cell);
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    dealii::Point<spacedim> q_point =
+      my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
+    dealii::Tensor<1, dim> b_comps_at_q_point = b_func(q_point);
+    dealii::Tensor<1, dim> grad_u_at_q_point;
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+    {
+      int idx2 =
+        this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
+      out_vec->assemble(idx2, grad_u_vec(i_dim * n_scalar_unkns + i_unkn));
+      grad_u_at_q_point[i_dim] = grad_u_vec(i_dim * n_scalar_unkns + i_unkn);
+    }
+    double b_dot_grad_u_at_q_point = grad_u_at_q_point * b_comps_at_q_point;
+    int idx1 = this->local_interior_unkn_idx[i_unkn];
+    out_vec->assemble(idx1, b_dot_grad_u_at_q_point);
   }
 }
 
@@ -987,6 +1027,21 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->fill_my_viz_vector(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_viz_vector_with_grad_u_dot_b(
+    diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_viz_vector_with_grad_u_dot_b(out_vec, b_func);
 }
 
 //

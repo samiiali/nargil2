@@ -668,6 +668,16 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from static fill_viz_vector().
+     *
+     */
+    void fill_my_viz_vector_with_grad_u_dot_b(
+      distributed_vector<dim, spacedim> *out_vec,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
+
+    /**
+     *
      * Called from static fill_viz_vec_with_exact_sol().
      *
      */
@@ -741,6 +751,16 @@ struct diffusion : public cell<dim, spacedim>
      */
     static void fill_viz_vector(diffusion *in_cell,
                                 distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
+     * Fills the visualization vector of the element.
+     *
+     */
+    static void fill_viz_vector_with_grad_u_dot_b(
+      diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
 
     /**
      *
@@ -836,7 +856,7 @@ struct diffusion : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D, E, H, H0;
+    Eigen::MatrixXd A, B, C, D, E, H, H0, A0;
     ///@}
 
     /** @{
@@ -853,7 +873,7 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     Eigen::VectorXd exact_uhat, exact_u, exact_q, uhat_vec, u_vec, q_vec,
-      q_star_dot_n_vec;
+      q_star_dot_n_vec, grad_u_vec;
     ///@}
 
     /** @{

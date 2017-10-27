@@ -743,20 +743,31 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  fill_my_viz_vector_with_grad_u(distributed_vector<dim, spacedim> *out_vec)
+  fill_my_viz_vector_with_grad_u_dot_b(
+    distributed_vector<dim, spacedim> *out_vec,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
 {
   unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
   //
+  my_basis->local_fe_val_at_cell_supp->reinit(this->my_dealii_local_dofs_cell);
+  //
   for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
   {
-    int idx1 = this->local_interior_unkn_idx[i_unkn];
-    out_vec->assemble(idx1, u_vec(i_unkn));
+    dealii::Point<spacedim> q_point =
+      my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
+    dealii::Tensor<1, dim> b_comps_at_q_point = b_func(q_point);
+    dealii::Tensor<1, dim> grad_u_at_q_point;
     for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
     {
       int idx2 =
         this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
       out_vec->assemble(idx2, grad_u_vec(i_dim * n_scalar_unkns + i_unkn));
+      grad_u_at_q_point[i_dim] = grad_u_vec(i_dim * n_scalar_unkns + i_unkn);
     }
+    double b_dot_grad_u_at_q_point = grad_u_at_q_point * b_comps_at_q_point;
+    int idx1 = this->local_interior_unkn_idx[i_unkn];
+    out_vec->assemble(idx1, b_dot_grad_u_at_q_point);
   }
 }
 
@@ -1024,11 +1035,13 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_viz_vector(
 template <int dim, int spacedim>
 template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
-  fill_viz_vector_with_grad_u(diffusion *in_cell,
-                              distributed_vector<dim, spacedim> *out_vec)
+  fill_viz_vector_with_grad_u_dot_b(
+    diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
-  own_manager->fill_my_viz_vector_with_grad_u(out_vec);
+  own_manager->fill_my_viz_vector_with_grad_u_dot_b(out_vec, b_func);
 }
 
 //

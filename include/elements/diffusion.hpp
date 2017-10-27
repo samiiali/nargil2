@@ -671,8 +671,10 @@ struct diffusion : public cell<dim, spacedim>
      * Called from static fill_viz_vector().
      *
      */
-    void
-    fill_my_viz_vector_with_grad_u(distributed_vector<dim, spacedim> *out_vec);
+    void fill_my_viz_vector_with_grad_u_dot_b(
+      distributed_vector<dim, spacedim> *out_vec,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
 
     /**
      *
@@ -755,9 +757,10 @@ struct diffusion : public cell<dim, spacedim>
      * Fills the visualization vector of the element.
      *
      */
-    static void
-    fill_viz_vector_with_grad_u(diffusion *in_cell,
-                                distributed_vector<dim, spacedim> *out_vec);
+    static void fill_viz_vector_with_grad_u_dot_b(
+      diffusion *in_cell, distributed_vector<dim, spacedim> *out_vec,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
 
     /**
      *

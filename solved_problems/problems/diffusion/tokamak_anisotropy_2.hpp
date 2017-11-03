@@ -41,7 +41,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  constexpr static double epsinv = 1.0e4;
+  constexpr static double epsinv = 1.0e10;
   constexpr static double z_0 = 0.0;
   constexpr static double z_h = 2.0 * M_PI;
   constexpr static double s_i = 0.1;
@@ -73,12 +73,12 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double left = 0.55;
     double dr = 0.08 / (2.0 * M_PI);
 
-    return -56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
+    return epsinv*(-56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
              pow((pow((left + dr * s), 2) - 1.0), 8) -
            272.0 * pow(dr, 2) * pow((left + dr * s), 8) *
              pow((pow((left + dr * s), 2) - 1.0), 7) -
            224.0 * pow(dr, 2) * pow((left + dr * s), 10) *
-             pow((pow((left + dr * s), 2) - 1.0), 6);
+		   pow((pow((left + dr * s), 2) - 1.0), 6));
 
     // return -9.3198864878881439535914505906675e-391*pow( (9174657822756255.0*s
     // + 396316767208603648.0) ,6)
@@ -361,7 +361,7 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {20, 20, 20};
+    std::vector<unsigned> refine_repeats = {70, 70, 70};
     //
     // ***
     //

@@ -757,17 +757,20 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
     dealii::Point<spacedim> q_point =
       my_basis->local_fe_val_at_cell_supp->quadrature_point(i_unkn);
     dealii::Tensor<1, dim> b_comps_at_q_point = b_func(q_point);
-    dealii::Tensor<1, dim> grad_u_at_q_point;
+    // dealii::Tensor<1, dim> grad_u_at_q_point;
+    dealii::Tensor<1, dim> q_at_q_point;
     for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
     {
       int idx2 =
         this->local_interior_unkn_idx[(i_dim + 1) * n_scalar_unkns + i_unkn];
       out_vec->assemble(idx2, grad_u_vec(i_dim * n_scalar_unkns + i_unkn));
-      grad_u_at_q_point[i_dim] = grad_u_vec(i_dim * n_scalar_unkns + i_unkn);
+      // grad_u_at_q_point[i_dim] = grad_u_vec(i_dim * n_scalar_unkns + i_unkn);
+      q_at_q_point[i_dim] = q_vec(i_dim * n_scalar_unkns + i_unkn);
     }
-    double b_dot_grad_u_at_q_point = grad_u_at_q_point * b_comps_at_q_point;
+    // double b_dot_grad_u_at_q_point = grad_u_at_q_point * b_comps_at_q_point;
+    double b_dot_q_at_q_point = q_at_q_point * b_comps_at_q_point;
     int idx1 = this->local_interior_unkn_idx[i_unkn];
-    out_vec->assemble(idx1, b_dot_grad_u_at_q_point);
+    out_vec->assemble(idx1, b_dot_q_at_q_point);
   }
 }
 

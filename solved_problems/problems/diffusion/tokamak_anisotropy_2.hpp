@@ -608,9 +608,12 @@ template <int dim, int spacedim = dim> struct Problem2
           &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
           &dist_sol_vec, b_components);
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
+        // typename ModelEq::viz_data viz_data3(
+        //   comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
+        //   "Grad_T_dot_b", "Grad_T");
         typename ModelEq::viz_data viz_data3(
           comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
-          "Grad_T_dot_b", "Grad_T");
+          "q_dot_b", "Grad_T");
         viz_data3.time_step = 0;
         viz_data3.cycle = 0;
         CellManagerType::visualize_results(viz_data3);

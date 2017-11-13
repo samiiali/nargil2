@@ -73,12 +73,12 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double left = 0.55;
     double dr = 0.08 / (2.0 * M_PI);
 
-    return epsinv*(-56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
-             pow((pow((left + dr * s), 2) - 1.0), 8) -
-           272.0 * pow(dr, 2) * pow((left + dr * s), 8) *
-             pow((pow((left + dr * s), 2) - 1.0), 7) -
-           224.0 * pow(dr, 2) * pow((left + dr * s), 10) *
-		   pow((pow((left + dr * s), 2) - 1.0), 6));
+    return epsinv * (-56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
+                       pow((pow((left + dr * s), 2) - 1.0), 8) -
+                     272.0 * pow(dr, 2) * pow((left + dr * s), 8) *
+                       pow((pow((left + dr * s), 2) - 1.0), 7) -
+                     224.0 * pow(dr, 2) * pow((left + dr * s), 10) *
+                       pow((pow((left + dr * s), 2) - 1.0), 6));
 
     // return -9.3198864878881439535914505906675e-391*pow( (9174657822756255.0*s
     // + 396316767208603648.0) ,6)
@@ -361,7 +361,7 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {70, 70, 70};
+    std::vector<unsigned> refine_repeats = {5, 5, 5};
     //
     // ***
     //
@@ -404,8 +404,9 @@ template <int dim, int spacedim = dim> struct Problem2
         }
         else
         {
-          in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+          in_manager->BCs[i_face] =
+            ModelEq::boundary_condition::tokamak_specific;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
       }
       else
@@ -441,8 +442,9 @@ template <int dim, int spacedim = dim> struct Problem2
         }
         else if (face->center()[0] > s_o - 1e-6)
         {
-          in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+          in_manager->BCs[i_face] =
+            ModelEq::boundary_condition::tokamak_specific;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
         else if (face->center()[0] < s_i + 1e-6)
         {
@@ -557,7 +559,8 @@ template <int dim, int spacedim = dim> struct Problem2
         // 						  comm);
         //
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assemble_globals, &solver1);
+          &model1, CellManagerType::assemble_tokamak_globals, &solver1,
+          b_components);
 
         //
         Vec sol_vec2;

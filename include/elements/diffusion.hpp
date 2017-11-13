@@ -76,7 +76,8 @@ struct diffusion : public cell<dim, spacedim>
     not_set = 0,
     essential = 1,
     natural = 2,
-    periodic = 3
+    periodic = 3,
+    tokamak_specific = 4
   };
 
   /**
@@ -631,6 +632,17 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Assembles the global matrices. It is called from static
+     * assemble_globals().
+     *
+     */
+    void assemble_my_tokamak_globals(
+      solvers::base_implicit_solver<dim, spacedim> *in_solver,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
+
+    /**
+     *
      * This function computes the local unknowns from the input trace solution.
      * It should not be called directly, but through the static
      * compute_local_unkns().
@@ -644,6 +656,15 @@ struct diffusion : public cell<dim, spacedim>
      *
      */
     void compute_my_matrices();
+
+    /**
+     *
+     * Computes the local matrices.
+     *
+     */
+    void compute_tokamak_matrices(
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
 
     /**
      *
@@ -814,6 +835,18 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from outside of the class to assemble global matrices and
+     * rhs vector corresponding to this element.
+     *
+     */
+    static void assemble_tokamak_globals(
+      diffusion *in_cell,
+      solvers::base_implicit_solver<dim, spacedim> *in_solver,
+      std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+        b_func);
+
+    /**
+     *
      *
      *
      */
@@ -856,7 +889,7 @@ struct diffusion : public cell<dim, spacedim>
      * All of the main local matrices of the element.
      *
      */
-    Eigen::MatrixXd A, B, C, D, E, H, H0, A0;
+    Eigen::MatrixXd A, B, C, C2, D, E, E2, H, H0, H2, A0;
     ///@}
 
     /** @{

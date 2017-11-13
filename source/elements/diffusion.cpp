@@ -464,6 +464,54 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
 
 template <int dim, int spacedim>
 template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  assemble_my_tokamak_globals(
+    solvers::base_implicit_solver<dim, spacedim> *in_solver,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
+{
+  compute_tokamak_matrices(b_func);
+  //
+  Eigen::MatrixXd A_inv = A.inverse();
+  Eigen::LDLT<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
+  Eigen::MatrixXd Mat2 = (B.transpose() * A_inv * C + E);
+  //
+  std::vector<int> dof_indices(my_basis->n_trace_unkns_per_cell());
+  for (unsigned i_face = 0; i_face < this->my_cell->n_faces; ++i_face)
+    for (unsigned i_unkn = 0; i_unkn < my_basis->n_trace_unkns_per_face();
+         ++i_unkn)
+    {
+      int idx1 = i_face * my_basis->n_trace_unkns_per_face() + i_unkn;
+      dof_indices[idx1] = this->unkns_id_in_all_ranks[i_face][i_unkn];
+    }
+  //
+  for (unsigned i_dof = 0; i_dof < dof_indices.size(); ++i_dof)
+  {
+    u_vec = lu_of_Mat1.solve(Mat2.col(i_dof));
+    q_vec = A_inv * (B * u_vec - C.col(i_dof));
+    Eigen::VectorXd jth_col =
+      C2.transpose() * q_vec + E2.transpose() * u_vec - H2.col(i_dof);
+    int i_col = dof_indices[i_dof];
+    in_solver->push_to_global_mat(dof_indices.data(), &i_col, jth_col,
+                                  ADD_VALUES);
+  }
+  //
+  u_vec = lu_of_Mat1.solve(F + B.transpose() * A_inv * R + E * gD_vec);
+  q_vec = A_inv * (-R + B * u_vec);
+  Eigen::MatrixXd jth_col =
+    L - C2.transpose() * q_vec - E2.transpose() * u_vec + H2 * gD_vec;
+  in_solver->push_to_rhs_vec(dof_indices.data(), jth_col, ADD_VALUES);
+  //
+  // Now, we clean memory from the above matrices.
+  //
+  // this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_local_unkns(const double *trace_sol)
 {
@@ -647,6 +695,189 @@ void nargil::diffusion<dim,
           double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
           H(i_face_unkn, j_face_unkn) +=
             lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
+          //
+          // *** This part can be put into another function.
+          //
+          H0(i_face_unkn, j_face_unkn) += lambda_i1 * lambda_j1 * face_JxW;
+        }
+        L(i_face_unkn) += lambda_i1 * face_JxW * gN_dot_n;
+      }
+      // Loop 2
+    }
+    // Loop 1
+  }
+  R = C * gD_vec;
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  compute_tokamak_matrices(
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
+{
+  static_assert(dim == 3, "This was designed for 3D model only");
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  unsigned n_trace_unkns = my_basis->n_trace_unkns_per_cell();
+  unsigned cell_quad_size = my_basis->get_cell_quad_size();
+  unsigned face_quad_size = my_basis->get_face_quad_size();
+  const std::vector<dealii::Point<spacedim> > &cell_quad_locs =
+    my_basis->local_fe_val_in_cell->get_quadrature_points();
+  const diffusion *own_cell = static_cast<const diffusion *>(this->my_cell);
+  //
+  dealii::FEValuesExtractors::Scalar scalar(0);
+  dealii::FEValuesExtractors::Vector fluxes(1);
+  //
+  my_basis->local_fe_val_in_cell->reinit(this->my_dealii_local_dofs_cell);
+  //
+  A = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, dim * n_scalar_unkns);
+  B = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, n_scalar_unkns);
+  C = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, n_trace_unkns);
+  C2 = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, n_trace_unkns);
+  D = Eigen::MatrixXd::Zero(n_scalar_unkns, n_scalar_unkns);
+  E = Eigen::MatrixXd::Zero(n_scalar_unkns, n_trace_unkns);
+  E2 = Eigen::MatrixXd::Zero(n_scalar_unkns, n_trace_unkns);
+  F = Eigen::VectorXd::Zero(n_scalar_unkns);
+  H = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  H2 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  L = Eigen::VectorXd::Zero(n_trace_unkns);
+  R = Eigen::VectorXd::Zero(n_trace_unkns);
+  H0 = Eigen::MatrixXd::Zero(n_trace_unkns, n_trace_unkns);
+  //
+  // A0 matrix is the same as A, only does not have kappa_inv
+  //
+  A0 = Eigen::MatrixXd::Zero(dim * n_scalar_unkns, dim * n_scalar_unkns);
+  //
+  for (unsigned i_quad = 0; i_quad < cell_quad_size; ++i_quad)
+  {
+    double JxW = my_basis->local_fe_val_in_cell->JxW(i_quad);
+    const dealii::Tensor<2, dim> &kappa_inv_at_quad =
+      own_cell->my_data->kappa_inv(cell_quad_locs[i_quad]);
+    for (unsigned i1 = n_scalar_unkns; i1 < (dim + 1) * n_scalar_unkns; ++i1)
+    {
+      dealii::Tensor<1, dim> q_i1 =
+        (*my_basis->local_fe_val_in_cell)[fluxes].value(i1, i_quad);
+      for (unsigned j1 = n_scalar_unkns; j1 < (dim + 1) * n_scalar_unkns; ++j1)
+      {
+        dealii::Tensor<1, dim> v_j1 =
+          (*my_basis->local_fe_val_in_cell)[fluxes].value(j1, i_quad);
+        A(i1 - n_scalar_unkns, j1 - n_scalar_unkns) +=
+          kappa_inv_at_quad * q_i1 * v_j1 * JxW;
+        A0(i1 - n_scalar_unkns, j1 - n_scalar_unkns) += q_i1 * v_j1 * JxW;
+      }
+    }
+    //
+    for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+    {
+      double u_j1 = (*my_basis->local_fe_val_in_cell)[scalar].value(j1, i_quad);
+      for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+      {
+        double u_i1 =
+          (*my_basis->local_fe_val_in_cell)[scalar].value(i1, i_quad);
+        double mij = u_i1 * u_j1 * JxW;
+        F(j1) += mij * f_vec(i1);
+      }
+      for (unsigned i1 = n_scalar_unkns; i1 < (dim + 1) * n_scalar_unkns; ++i1)
+      {
+        double q_i1_div =
+          (*my_basis->local_fe_val_in_cell)[fluxes].divergence(i1, i_quad);
+        B(i1 - n_scalar_unkns, j1) += u_j1 * q_i1_div * JxW;
+      }
+    }
+  }
+  //
+  for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
+  {
+    unsigned i_half = this->half_range_flag[i_face];
+    dealii::FEFaceValues<dim> *fe_face_val =
+      my_basis->trace_fe_face_val[i_half].get();
+    fe_face_val->reinit(this->my_dealii_trace_dofs_cell, i_face);
+    my_basis->local_fe_val_on_faces[i_face]->reinit(
+      this->my_dealii_local_dofs_cell);
+    std::vector<dealii::Point<spacedim> > face_quad_locs =
+      fe_face_val->get_quadrature_points();
+    // Loop 1
+    for (unsigned i_face_quad = 0; i_face_quad < face_quad_size; ++i_face_quad)
+    {
+      dealii::Tensor<1, dim> n_vec = fe_face_val->normal_vector(i_face_quad);
+      double face_JxW = fe_face_val->JxW(i_face_quad);
+      //
+      dealii::Tensor<1, dim> b_vec = b_func(face_quad_locs[i_face_quad]);
+      b_vec[2] = 0.;
+      double amp_b_vec = sqrt(b_vec * b_vec);
+      if (amp_b_vec > 1.e-12)
+        b_vec = b_vec / amp_b_vec;
+      //
+      const dealii::Tensor<2, dim> &kappa_inv_at_quad =
+        own_cell->my_data->kappa_inv(face_quad_locs[i_face_quad]);
+      const dealii::Tensor<2, dim> &kappa_at_quad =
+        dealii::invert(kappa_inv_at_quad);
+      double tau_at_quad = own_cell->my_data->tau(face_quad_locs[i_face_quad]);
+      tau_at_quad *= n_vec * kappa_at_quad * n_vec;
+      //
+      for (unsigned i1 = 0; i1 < n_scalar_unkns; ++i1)
+      {
+        double u_i1 = (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
+          i1, i_face_quad);
+        for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+        {
+          double w_j1 =
+            (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
+              j1, i_face_quad);
+          D(i1, j1) += face_JxW * tau_at_quad * u_i1 * w_j1;
+        }
+      }
+      //
+      // Here we compute the value of gN at quadrature point.
+      //
+      //
+      // double to_be_1 = 0;
+      //
+      dealii::Tensor<1, dim> gN_at_face_quad;
+      for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns; ++j_face_unkn)
+      {
+        double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
+        gN_at_face_quad += gN_vec[j_face_unkn] * lambda_j1;
+      }
+      double gN_dot_n = gN_at_face_quad * n_vec;
+      // Loop 2
+      for (unsigned i_face_unkn = 0; i_face_unkn < n_trace_unkns; ++i_face_unkn)
+      {
+        double lambda_i1 = fe_face_val->shape_value(i_face_unkn, i_face_quad);
+        //
+        for (unsigned j1 = n_scalar_unkns; j1 < (dim + 1) * n_scalar_unkns;
+             ++j1)
+        {
+          dealii::Tensor<1, dim> v_j1 =
+            (*my_basis->local_fe_val_on_faces[i_face])[fluxes].value(
+              j1, i_face_quad);
+          C(j1 - n_scalar_unkns, i_face_unkn) +=
+            face_JxW * lambda_i1 * (v_j1 * n_vec);
+          C2(j1 - n_scalar_unkns, i_face_unkn) +=
+            face_JxW * lambda_i1 * (v_j1 * b_vec);
+        }
+        //
+        for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
+        {
+          double w_j1 =
+            (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
+              j1, i_face_quad);
+          E(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
+          E2(j1, i_face_unkn) +=
+            w_j1 * tau_at_quad * (n_vec * b_vec) * lambda_i1 * face_JxW;
+        }
+        //
+        for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
+             ++j_face_unkn)
+        {
+          double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
+          H(i_face_unkn, j_face_unkn) +=
+            lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
+          H2(i_face_unkn, j_face_unkn) +=
+            lambda_i1 * tau_at_quad * (n_vec * b_vec) * lambda_j1 * face_JxW;
           //
           // *** This part can be put into another function.
           //
@@ -1108,6 +1339,22 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::assemble_globals(
   hdg_manager *own_manager =
     static_cast<hdg_manager *>(in_cell->my_manager.get());
   own_manager->assemble_my_globals(in_solver);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  assemble_tokamak_globals(
+    diffusion *in_cell, solvers::base_implicit_solver<dim, spacedim> *in_solver,
+    std::function<dealii::Tensor<1, dim>(const dealii::Point<spacedim> &p)>
+      b_func)
+{
+  hdg_manager *own_manager =
+    static_cast<hdg_manager *>(in_cell->my_manager.get());
+  own_manager->assemble_my_tokamak_globals(in_solver, b_func);
 }
 
 //

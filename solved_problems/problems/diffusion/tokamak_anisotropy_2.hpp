@@ -361,7 +361,9 @@ template <int dim, int spacedim = dim> struct Problem2
   static void generate_rect_mesh(
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
-    std::vector<unsigned> refine_repeats = {5, 5, 5};
+
+    int NMesh = 35;
+    std::vector<unsigned> refine_repeats = {NMesh, NMesh, NMesh};
     //
     // ***
     //
@@ -427,6 +429,8 @@ template <int dim, int spacedim = dim> struct Problem2
     // double r_m = 1.;
     // double r_m = (r_i + r_o) / 2.;
     //
+    double NMesh = 35.;
+
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)
     {
@@ -440,26 +444,33 @@ template <int dim, int spacedim = dim> struct Problem2
           in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
-        else if (face->center()[0] > s_o - 1e-6)
-        {
-          in_manager->BCs[i_face] =
-            ModelEq::boundary_condition::tokamak_specific;
-          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
-        }
+        else if (face->center()[0] > s_o - 1e-6) 
+	  {
+	    if (face->center()[1] < 0.0 + M_PI/NMesh && face->center()[2] < 0.0 + M_PI/NMesh){
+	      in_manager->BCs[i_face] =
+		ModelEq::boundary_condition::essential;
+	      in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+	    }
+	    else{
+	      in_manager->BCs[i_face] =
+		ModelEq::boundary_condition::essential; //tokamak_specific;
+	      in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+	    }
+	  }
         else if (face->center()[0] < s_i + 1e-6)
-        {
-          in_manager->BCs[i_face] = ModelEq::boundary_condition::natural;
+	  {
+	    in_manager->BCs[i_face] = ModelEq::boundary_condition::natural; //Neumann
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
-        }
+	  }
         else
-        {
-          // to make sure that all of the boundary conditions are taken care of:
-          std::cout << face->center()[0] << std::endl;
-          assert(false);
-        }
+	  {
+	    // to make sure that all of the boundary conditions are taken care of:
+	    std::cout << face->center()[0] << std::endl;
+	    assert(false);
+	  }
       }
       else
-      {
+	{
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
       }
     }

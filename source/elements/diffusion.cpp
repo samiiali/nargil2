@@ -807,7 +807,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
       //
       dealii::Tensor<1, dim> b_vec = b_func(face_quad_locs[i_face_quad]);
       b_vec[2] = 0.;
-      double amp_b_vec = sqrt(b_vec * b_vec);
+      double amp_b_vec = 1.0; //sqrt(b_vec * b_vec);
       if (amp_b_vec > 1.e-12)
         b_vec = b_vec / amp_b_vec;
       //

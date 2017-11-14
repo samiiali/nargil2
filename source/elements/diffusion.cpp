@@ -856,9 +856,13 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
               j1, i_face_quad);
           C(j1 - n_scalar_unkns, i_face_unkn) +=
             face_JxW * lambda_i1 * (v_j1 * n_vec);
-          C2(j1 - n_scalar_unkns, i_face_unkn) +=
-            face_JxW * lambda_i1 * (v_j1 * b_vec);
-        }
+          if (this->BCs[i_face] == boundary_condition::tokamak_specific)
+              C2(j1 - n_scalar_unkns, i_face_unkn) +=
+                  face_JxW * lambda_i1 * (v_j1 * b_vec);
+          else
+              C2(j1 - n_scalar_unkns, i_face_unkn) +=
+                  face_JxW * lambda_i1 * (v_j1 * n_vec);
+         }
         //
         for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
         {
@@ -866,8 +870,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
             (*my_basis->local_fe_val_on_faces[i_face])[scalar].value(
               j1, i_face_quad);
           E(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
+          if (this->BCs[i_face] == boundary_condition::tokamak_specific)
           E2(j1, i_face_unkn) +=
             w_j1 * tau_at_quad * (n_vec * b_vec) * lambda_i1 * face_JxW;
+          else
+          E2(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
         }
         //
         for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
@@ -876,8 +883,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
           double lambda_j1 = fe_face_val->shape_value(j_face_unkn, i_face_quad);
           H(i_face_unkn, j_face_unkn) +=
             lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
+          if (this->BCs[i_face] == boundary_condition::tokamak_specific)
           H2(i_face_unkn, j_face_unkn) +=
             lambda_i1 * tau_at_quad * (n_vec * b_vec) * lambda_j1 * face_JxW;
+          else
+          H2(i_face_unkn, j_face_unkn) +=
+            lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
           //
           // *** This part can be put into another function.
           //

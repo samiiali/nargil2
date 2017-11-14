@@ -362,7 +362,7 @@ template <int dim, int spacedim = dim> struct Problem2
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
 
-    int NMesh = 35;
+    unsigned NMesh = 15;
     std::vector<unsigned> refine_repeats = {NMesh, NMesh, NMesh};
     //
     // ***
@@ -429,7 +429,7 @@ template <int dim, int spacedim = dim> struct Problem2
     // double r_m = 1.;
     // double r_m = (r_i + r_o) / 2.;
     //
-    double NMesh = 35.;
+    double NMesh = 15.;
 
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
     for (unsigned i_face = 0; i_face < 2 * dim; ++i_face)

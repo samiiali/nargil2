@@ -682,6 +682,7 @@ void nargil::solvers::petsc_implicit_cg_solver<dim, spacedim>::form_factors()
   //
   //  Mat factor_mat;
   KSPSetType(ksp, KSPCG);
+  //KSPSetType(ksp, KSPGMRES);  
   KSPSetFromOptions(ksp);
   KSPSetTolerances(ksp, 1.E-6, PETSC_DEFAULT, PETSC_DEFAULT, 40000);
   KSPGetPC(ksp, &pc);

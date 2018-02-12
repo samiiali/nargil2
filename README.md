@@ -8,13 +8,13 @@ it simply means coconut in Persian !
 - [Intro](###Intro)
 - [Current Status](###current-status)
 
-###Intro
+### Intro
 Although, *nargil* is a program for solving a few well-known PDEs, it is
 mainly written in the form of a library, which can be used in other codes.
 It highly depends on deal.II, but the hybridized dG method employed hereby
 is totally independent of deal.II.
 
-###Current Status
+### Current Status
 Currently, there is only one type of finite element (HDG element) in the
 toolset, along with a few model equations.
 

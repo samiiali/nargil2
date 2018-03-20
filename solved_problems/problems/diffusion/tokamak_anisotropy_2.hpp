@@ -73,7 +73,8 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double left = 0.55;
     double dr = 0.08 / (2.0 * M_PI);
 
-    return 0.0; // (epsinv/2.0)  * (-56.0 * pow(dr, 2) * pow((left + dr * s), 6) *
+    return 0.0; // (epsinv/2.0)  * (-56.0 * pow(dr, 2) * pow((left + dr * s), 6)
+                // *
                 //        pow((pow((left + dr * s), 2) - 1.0), 8) -
                 //      272.0 * pow(dr, 2) * pow((left + dr * s), 8) *
                 //        pow((pow((left + dr * s), 2) - 1.0), 7) -
@@ -145,15 +146,17 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double s = p[0];
     // double y = p[1], z = p[2];
     // double g = M_PI;
-    double temperature = 0.0;
+    double temperature;
 
-    if ( (s > s_o - 1.e-6) ){
+    if ((s > s_o - 1.e-6))
+    {
       temperature = 0.0;
     }
-    else{
+    else
+    {
       temperature = 1.0;
     }
-      //assert(false);
+    // assert(false);
 
     return temperature;
   }
@@ -186,7 +189,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
     double dx = 0.08 / (2. * M_PI); // Ali, this is just x_step in equation 7
     double x = 0.55 + dx * s;
 
-    double psitilde = 0.0002 ;
+    double psitilde = 0.0002;
     double psishape = a * B0 * (x * x) * (1. - x) * (1. - x);
     double psishapep = 2.0 * a * B0 * x * (1. - x) * (1. - x) -
                        2.0 * a * B0 * x * x * (1. - x); //
@@ -258,55 +261,67 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
 
     double psitilde, psishape, psishapep;
 
-    psitilde = 0.0002 ;
+    psitilde = 0.0002;
 
     // if (x>=M_PI){
     //   psitilde = 0.0002*1000;}
     // else{
     //   psitilde = 0.0002;}
 
-    if (shape == 1){
-      double xleft = x -0.55;
+    if (shape == 1)
+    {
+      double xleft = x - 0.55;
       double xright = 0.63 - x;
 
       psishape = a * B0 * (xleft * xleft) * (xright) * (xright);
-      psishapep = 2.0 * a * B0 * xleft * (xright) * (xright) -
-	2.0 * a * B0 * xleft * xleft * (xright); //
+      psishapep = 2.0 * a * B0 * xleft * (xright) * (xright)-2.0 * a * B0 *
+                  xleft * xleft * (xright); //
     }
-    else if (shape == 3){
+    else if (shape == 3)
+    {
 
-      psishape = a * B0 * (x * x) * (1.0-x) * (1.0-x);
-      psishapep = 2.0 * a * B0 * x * (1.0-x) * (1.0-x) -
-	2.0 * a * B0 * x * x * (1.0-x);
-
+      psishape = a * B0 * (x * x) * (1.0 - x) * (1.0 - x);
+      psishapep = 2.0 * a * B0 * x * (1.0 - x) * (1.0 - x) -
+                  2.0 * a * B0 * x * x * (1.0 - x);
     }
-    else if (shape == 2){
+    else if (shape == 2)
+    {
 
-      double xl=.555; 
-      double xr=.625;
-      double gg = (tanh(10000.0*(x-xl)*(xr -x))+1.0)/2.0;
-      double dgg = -((tanh((10000.0*x - 10000.0*xl)*(x - xr))*tanh((10000.0*x - 10000.0*xl)*(x - xr)) - 1.0)
-		     *(10000.0*xl - 20000.0*x + 10000.0*xr))/2.0;
-    
-      double gg2  = 2.559999999999995e-06*gg;
-      double dgg2 = 2.559999999999995e-06*dgg;
+      double xl = .555;
+      double xr = .625;
+      double gg = (tanh(10000.0 * (x - xl) * (xr - x)) + 1.0) / 2.0;
+      double dgg = -((tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) *
+                        tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) -
+                      1.0) *
+                     (10000.0 * xl - 20000.0 * x + 10000.0 * xr)) /
+                   2.0;
+
+      double gg2 = 2.559999999999995e-06 * gg;
+      double dgg2 = 2.559999999999995e-06 * dgg;
 
       psishape = gg2;
       psishapep = dgg2;
-
     }
-    else if(shape ==4){
-      
-      double xl=.555;
-      double xr=.625;
-      double gg = (x * x) * ((1.-x) * (1.-x)) * (tanh(10000.0*(x-xl)*(xr -x))+1.0)/2.0;
-      double dgg = - (x*x * (2.*x - 2.) * (tanh((10000.0*x - 10000.0*xl) * (x - xr)) - 1.))/2.
-        - x * (x - 1.)*(x-1.) * (tanh((10000.0*x - 10000.0*xl) * (x - xr)) - 1.) 
-        - (x*x * (pow(tanh((10000.0*x - 10000.0*xl) * (x - xr)),2.0) - 1.) * (x - 1.)*(x-1.) 
-	   * (10000.0*xl - 20000.0*x + 10000.*xr)) / 2.;
+    else if (shape == 4)
+    {
+
+      double xl = .555;
+      double xr = .625;
+      double gg = (x * x) * ((1. - x) * (1. - x)) *
+                  (tanh(10000.0 * (x - xl) * (xr - x)) + 1.0) / 2.0;
+      double dgg =
+        -(x * x * (2. * x - 2.) *
+          (tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) - 1.)) /
+          2. -
+        x * (x - 1.) * (x - 1.) *
+          (tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) - 1.) -
+        (x * x *
+         (pow(tanh((10000.0 * x - 10000.0 * xl) * (x - xr)), 2.0) - 1.) *
+         (x - 1.) * (x - 1.) * (10000.0 * xl - 20000.0 * x + 10000. * xr)) /
+          2.;
       psishape = gg;
       psishapep = dgg;
-}
+    }
 
     double psi32 = cos(3.0 * y - 2.0 * z);
     double psi43 = cos(4.0 * y - 3.0 * z);
@@ -417,7 +432,7 @@ template <int dim, int spacedim = dim> struct Problem2
     dealii::parallel::distributed::Triangulation<dim, spacedim> &the_mesh)
   {
 
-    unsigned NMesh = 65;
+    unsigned NMesh = 20;
     std::vector<unsigned> refine_repeats = {NMesh, NMesh, NMesh};
     //
     // ***
@@ -462,7 +477,7 @@ template <int dim, int spacedim = dim> struct Problem2
         else
         {
           in_manager->BCs[i_face] =
-            ModelEq::boundary_condition::natural; //tokamak_specific;
+            ModelEq::boundary_condition::natural; // tokamak_specific;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
       }
@@ -484,6 +499,7 @@ template <int dim, int spacedim = dim> struct Problem2
     // double r_m = 1.;
     // double r_m = (r_i + r_o) / 2.;
     //
+    //
     double NMesh = 65.;
 
     unsigned n_dof_per_face = BasisType::get_n_dofs_per_face();
@@ -499,35 +515,38 @@ template <int dim, int spacedim = dim> struct Problem2
           in_manager->BCs[i_face] = ModelEq::boundary_condition::periodic;
           in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
         }
-        else if (face->center()[0] > s_o - 1e-6) 
-	  {
-	    // if (face->center()[1] < 0.0 + M_PI/NMesh && face->center()[2] < 0.0 + M_PI/NMesh){
-	    //   in_manager->BCs[i_face] =
-	    // 	ModelEq::boundary_condition::essential;
-	    //   in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-	    // }
-	    //  else{
-	      in_manager->BCs[i_face] =
-		ModelEq::boundary_condition::essential; //tokamak_specific;
-	      in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-	      //}
-	  }
+        else if (face->center()[0] > s_o - 1e-6)
+        {
+          // if (face->center()[1] < 0.0 + M_PI/NMesh && face->center()[2] < 0.0
+          // + M_PI/NMesh){
+          //   in_manager->BCs[i_face] =
+          // 	ModelEq::boundary_condition::essential;
+          //   in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face,
+          //   0);
+          // }
+          //  else{
+          in_manager->BCs[i_face] =
+            ModelEq::boundary_condition::essential; // tokamak_specific;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+          //}
+        }
         else if (face->center()[0] < s_i + 1e-6)
-	  {
-	    in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
-	    in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
-	    // in_manager->BCs[i_face] = ModelEq::boundary_condition::natural; //Neumann
-	    // in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
-	  }
+        {
+          in_manager->BCs[i_face] = ModelEq::boundary_condition::essential;
+          in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 0);
+          // in_manager->BCs[i_face] = ModelEq::boundary_condition::natural;
+          // //Neumann
+          // in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
+        }
         else
-	  {
-	    // to make sure that all of the boundary conditions are taken care of:
-	    std::cout << face->center()[0] << std::endl;
-	    assert(false);
-	  }
+        {
+          // to make sure that all of the boundary conditions are taken care of:
+          std::cout << face->center()[0] << std::endl;
+          assert(false);
+        }
       }
       else
-	{
+      {
         in_manager->dof_status_on_faces[i_face].resize(n_dof_per_face, 1);
       }
     }
@@ -549,53 +568,65 @@ template <int dim, int spacedim = dim> struct Problem2
 
     double psitilde, psishape, psishapep;
 
-    psitilde = 0.0002 ;
+    psitilde = 0.0002;
 
     // if (x>=M_PI){
     //   psitilde = 0.0002*1000;}
     // else{
     //   psitilde = 0.0002;}
-    
-    if (shape == 1){
-      double xleft = x -0.55;
+
+    if (shape == 1)
+    {
+      double xleft = x - 0.55;
       double xright = 0.63 - x;
-      
+
       psishape = a * B0 * (xleft * xleft) * (xright) * (xright);
-      psishapep = 2.0 * a * B0 * xleft * (xright) * (xright) -
-	2.0 * a * B0 * xleft * xleft * (xright); //
+      psishapep = 2.0 * a * B0 * xleft * (xright) * (xright)-2.0 * a * B0 *
+                  xleft * xleft * (xright); //
     }
-    else if (shape == 3){
+    else if (shape == 3)
+    {
 
-      psishape = a * B0 * (x * x) * (1.0-x) * (1.0-x);
-      psishapep = 2.0 * a * B0 * x * (1.0-x) * (1.0-x) -
-	2.0 * a * B0 * x * x * (1.0-x);
-
+      psishape = a * B0 * (x * x) * (1.0 - x) * (1.0 - x);
+      psishapep = 2.0 * a * B0 * x * (1.0 - x) * (1.0 - x) -
+                  2.0 * a * B0 * x * x * (1.0 - x);
     }
-    else if (shape == 2){
-      
-      double xl=.555;
-      double xr=.625;
-      
-      double gg = (tanh(10000.0*(x-xl)*(xr -x))+1.0)/2.0;
-      double dgg = -((tanh((10000.0*x - 10000.0*xl)*(x - xr))*tanh((10000.0*x - 10000.0*xl)*(x - xr)) - 1.0)
-                     *(10000.0*xl - 20000.0*x + 10000.0*xr))/2.0;
-      
-      double gg2  = 2.559999999999995e-06*gg;
-      double dgg2 = 2.559999999999995e-06*dgg;
-    
+    else if (shape == 2)
+    {
+
+      double xl = .555;
+      double xr = .625;
+
+      double gg = (tanh(10000.0 * (x - xl) * (xr - x)) + 1.0) / 2.0;
+      double dgg = -((tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) *
+                        tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) -
+                      1.0) *
+                     (10000.0 * xl - 20000.0 * x + 10000.0 * xr)) /
+                   2.0;
+
+      double gg2 = 2.559999999999995e-06 * gg;
+      double dgg2 = 2.559999999999995e-06 * dgg;
+
       psishape = gg2;
       psishapep = dgg2;
-
     }
-    else if(shape ==4){
+    else if (shape == 4)
+    {
 
-      double xl=.555;
-      double xr=.625;
-      double gg = (x * x) * ((1.-x) * (1.-x)) * (tanh(10000.0*(x-xl)*(xr -x))+1.0)/2.0;
-      double dgg = - (x*x * (2.*x - 2.) * (tanh((10000.0*x - 10000.0*xl) * (x - xr)) - 1.))/2.
-        - x * (x - 1.)*(x-1.) * (tanh((10000.0*x - 10000.0*xl) * (x - xr)) - 1.)
-        - (x*x * (pow(tanh((10000.0*x - 10000.0*xl) * (x - xr)),2.0) - 1.) * (x - 1.)*(x-1.)
-           * (10000.0*xl - 20000.0*x + 10000.*xr)) / 2.;
+      double xl = .555;
+      double xr = .625;
+      double gg = (x * x) * ((1. - x) * (1. - x)) *
+                  (tanh(10000.0 * (x - xl) * (xr - x)) + 1.0) / 2.0;
+      double dgg =
+        -(x * x * (2. * x - 2.) *
+          (tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) - 1.)) /
+          2. -
+        x * (x - 1.) * (x - 1.) *
+          (tanh((10000.0 * x - 10000.0 * xl) * (x - xr)) - 1.) -
+        (x * x *
+         (pow(tanh((10000.0 * x - 10000.0 * xl) * (x - xr)), 2.0) - 1.) *
+         (x - 1.) * (x - 1.) * (10000.0 * xl - 20000.0 * x + 10000. * xr)) /
+          2.;
       psishape = gg;
       psishapep = dgg;
     }
@@ -616,10 +647,10 @@ template <int dim, int spacedim = dim> struct Problem2
     //    double by = thetaprime;
     double bz = 1.0 / R;
 
-    //dealii::Tensor<1, dim> b_vec({bs, by, bz});
+    // dealii::Tensor<1, dim> b_vec({bs, by, bz});
     dealii::Tensor<1, dim> b_vec({1.0, 0.0, 0.0});
-    
-return b_vec;
+
+    return b_vec;
   }
 
   //
@@ -671,17 +702,17 @@ return b_vec;
                           nargil::solvers::solver_update_opts::update_rhs;
         //
 
-        //PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);
-	nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-							       solver_keys, dof_counter1, comm);
-	
-	//nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+        // PETScWrappers::SolverGMRES solver(solver_control, mpi_communicator);
+        nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          solver_keys, dof_counter1, comm);
+
+        // nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
         // 						  dof_counter1,
-	//						  comm);
+        //						  comm);
         //
         model_manager1.apply_on_owned_cells(
-					    &model1, CellManagerType::assemble_globals, &solver1);//,
-//          b_components);
+          &model1, CellManagerType::assemble_globals, &solver1); //,
+        //          b_components);
 
         //
         Vec sol_vec2;

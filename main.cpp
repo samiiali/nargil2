@@ -1,4 +1,4 @@
-#include "solved_problems/problems/diffusion/tokamak_anisotropy_2.hpp"
+#include "solved_problems/problems/reactive_interface/Mike_1D_5_3_1_1.hpp"
 
 //
 //
@@ -12,6 +12,6 @@
 int main(int argc, char **argv)
 {
   //
-  Problem2<3>::run(argc, argv);
+  RI_Problem1_dyna<2>::run(argc, argv);
   //
 }

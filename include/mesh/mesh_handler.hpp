@@ -89,6 +89,13 @@ template <int dim, int spacedim = dim> struct mesh
 
   /**
    *
+   * Refines the mesh.
+   *
+   */
+  void refine_mesh_uniformly(const unsigned n);
+
+  /**
+   *
    * This function gives the integer ID of the corresponding input dealii cell.
    * When the cell is owned by this rank, then we should pass cell_is_owned as
    * true to this function; otherwise, this function assumes that the cell is a

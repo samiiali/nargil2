@@ -100,6 +100,13 @@ template <int dim, int spacedim = dim> struct dof_counter
    *
    */
   std::vector<int> scatter_to;
+
+  /**
+   *
+   *
+   *
+   */
+  void reset_components();
 };
 
 /**

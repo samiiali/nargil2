@@ -1,4 +1,4 @@
-#include "solved_problems/problems/diffusion/tokamak_anisotropy_2.hpp"
+#include "solved_problems/problems/diffusion/double_x_2d.hpp"
 
 //
 //
@@ -12,6 +12,6 @@
 int main(int argc, char **argv)
 {
   //
-  Problem2<3>::run(argc, argv);
+  double_x_points<2>::run(argc, argv);
   //
 }

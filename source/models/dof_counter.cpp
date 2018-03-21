@@ -15,6 +15,18 @@ nargil::dof_counter<dim, spacedim>::~dof_counter()
 
 //
 //
+
+template <int dim, int spacedim>
+void nargil::dof_counter<dim, spacedim>::reset_components()
+{
+  reck_it_Ralph(&n_local_unkns_connected_to_unkn);
+  reck_it_Ralph(&n_nonlocal_unkns_connected_to_unkn);
+  reck_it_Ralph(&scatter_from);
+  reck_it_Ralph(&scatter_to);
+}
+
+//
+//
 //
 //
 //

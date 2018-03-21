@@ -456,7 +456,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
   //
   // Now, we clean memory from the above matrices.
   //
-  // this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
+  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //
@@ -515,7 +515,7 @@ template <typename BasisType>
 void nargil::diffusion<dim, spacedim>::hdg_manager<
   BasisType>::compute_my_local_unkns(const double *trace_sol)
 {
-  // compute_my_matrices();
+  compute_my_matrices();
   //
   Eigen::MatrixXd A_inv = A.inverse();
   Eigen::LDLT<Eigen::MatrixXd> lu_of_Mat1(B.transpose() * A_inv * B + D);
@@ -541,7 +541,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   //
   // Now we free the memory.
   //
-  // this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
+  this->free_up_memory(&A, &B, &C, &D, &E, &F, &H, &L, &R, &H0);
 }
 
 //

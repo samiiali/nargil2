@@ -411,7 +411,7 @@ void nargil::solvers::petsc_direct_solver<dim, spacedim>::form_factors()
   MatMumpsSetCntl(factor_mat, 3, -1.E-14);
 
   // Static pivoting
-  MatMumpsSetCntl(factor_mat, 4, 1.E-6);
+  MatMumpsSetCntl(factor_mat, 4, 1.E-10);
 
   // MatMumpsSetCntl(factor_mat, 5, 1.E20);
 

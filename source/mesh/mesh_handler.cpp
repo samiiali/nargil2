@@ -198,17 +198,20 @@ void nargil::mesh<dim, spacedim>::refine_mesh(
   const dealii::DoFHandler<dim, spacedim> &dof_handler,
   const LA::MPI::Vector &refine_solu)
 {
-  if (n != 0 && refn_cycle == 0)
+  // Why should you enter a negative n here ?
+  if (n <= 0)
+    return;
+  if (refn_cycle == 0)
   {
     tria.refine_global(n);
     refn_cycle += n;
   }
-  else if (n != 0 && !adaptive_on)
+  else if (!adaptive_on)
   {
     tria.refine_global(1);
     ++refn_cycle;
   }
-  else if (n != 0)
+  else
   {
     dealii::Vector<float> estimated_error_per_cell(tria.n_active_cells());
     dealii::KellyErrorEstimator<dim>::estimate(
@@ -223,6 +226,16 @@ void nargil::mesh<dim, spacedim>::refine_mesh(
     tria.execute_coarsening_and_refinement();
     ++(refn_cycle);
   }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+void nargil::mesh<dim, spacedim>::refine_mesh_uniformly(const unsigned n)
+{
+  tria.refine_global(n);
+  refn_cycle += n;
 }
 
 //

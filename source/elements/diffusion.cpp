@@ -807,7 +807,7 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
       //
       dealii::Tensor<1, dim> b_vec = b_func(face_quad_locs[i_face_quad]);
       b_vec[2] = 0.;
-      double amp_b_vec = 1.0; //sqrt(b_vec * b_vec);
+      double amp_b_vec = 1.0; // sqrt(b_vec * b_vec);
       if (amp_b_vec > 1.e-12)
         b_vec = b_vec / amp_b_vec;
       //
@@ -857,12 +857,12 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
           C(j1 - n_scalar_unkns, i_face_unkn) +=
             face_JxW * lambda_i1 * (v_j1 * n_vec);
           if (this->BCs[i_face] == boundary_condition::tokamak_specific)
-              C2(j1 - n_scalar_unkns, i_face_unkn) +=
-                  face_JxW * lambda_i1 * (v_j1 * b_vec);
+            C2(j1 - n_scalar_unkns, i_face_unkn) +=
+              face_JxW * lambda_i1 * (v_j1 * b_vec);
           else
-              C2(j1 - n_scalar_unkns, i_face_unkn) +=
-                  face_JxW * lambda_i1 * (v_j1 * n_vec);
-         }
+            C2(j1 - n_scalar_unkns, i_face_unkn) +=
+              face_JxW * lambda_i1 * (v_j1 * n_vec);
+        }
         //
         for (unsigned j1 = 0; j1 < n_scalar_unkns; ++j1)
         {
@@ -871,10 +871,10 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
               j1, i_face_quad);
           E(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
           if (this->BCs[i_face] == boundary_condition::tokamak_specific)
-          E2(j1, i_face_unkn) +=
-            w_j1 * tau_at_quad * (n_vec * b_vec) * lambda_i1 * face_JxW;
+            E2(j1, i_face_unkn) +=
+              w_j1 * tau_at_quad * (n_vec * b_vec) * lambda_i1 * face_JxW;
           else
-          E2(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
+            E2(j1, i_face_unkn) += w_j1 * tau_at_quad * lambda_i1 * face_JxW;
         }
         //
         for (unsigned j_face_unkn = 0; j_face_unkn < n_trace_unkns;
@@ -884,11 +884,11 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
           H(i_face_unkn, j_face_unkn) +=
             lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
           if (this->BCs[i_face] == boundary_condition::tokamak_specific)
-          H2(i_face_unkn, j_face_unkn) +=
-            lambda_i1 * tau_at_quad * (n_vec * b_vec) * lambda_j1 * face_JxW;
+            H2(i_face_unkn, j_face_unkn) +=
+              lambda_i1 * tau_at_quad * (n_vec * b_vec) * lambda_j1 * face_JxW;
           else
-          H2(i_face_unkn, j_face_unkn) +=
-            lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
+            H2(i_face_unkn, j_face_unkn) +=
+              lambda_i1 * tau_at_quad * lambda_j1 * face_JxW;
           //
           // *** This part can be put into another function.
           //
@@ -1053,6 +1053,26 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<
   {
     int idx1 = this->my_cell->id_num * n_scalar_unkns + i_unkn;
     out_vec->assemble(idx1, u_vec(i_unkn));
+  }
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_my_refn_vector_with_criterion(
+    std::function<Eigen::VectorXd(const hdg_manager *)> refn_crit,
+    distributed_vector<dim, spacedim> *out_vec)
+{
+  unsigned n_scalar_unkns = my_basis->n_unkns_per_local_scalar_dof();
+  Eigen::VectorXd &&criterion_vec = refn_crit(this);
+  //
+  for (unsigned i_unkn = 0; i_unkn < n_scalar_unkns; ++i_unkn)
+  {
+    int idx1 = this->my_cell->id_num * n_scalar_unkns + i_unkn;
+    out_vec->assemble(idx1, criterion_vec(i_unkn));
   }
 }
 
@@ -1312,6 +1332,22 @@ void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::fill_refn_vector(
 {
   hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
   own_manager->fill_my_refn_vector(out_vec);
+}
+
+//
+//
+
+template <int dim, int spacedim>
+template <typename BasisType>
+void nargil::diffusion<dim, spacedim>::hdg_manager<BasisType>::
+  fill_refn_vector_with_criterion(
+    diffusion *in_cell,
+    std::function<Eigen::VectorXd(const hdg_manager *)>
+      refn_crit,
+    distributed_vector<dim, spacedim> *out_vec)
+{
+  hdg_manager *own_manager = in_cell->template get_manager<hdg_manager>();
+  own_manager->fill_my_refn_vector_with_criterion(refn_crit, out_vec);
 }
 
 //

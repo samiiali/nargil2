@@ -169,6 +169,47 @@ template <int dim, int spacedim = dim> struct double_x_points
   constexpr static double epsinv = problem_data_2<dim, spacedim>::epsinv;
 
   /**
+   * @brief u_refn_crit
+   * @param i_manager
+   * @return
+   */
+  static Eigen::VectorXd u_refn_crit(const CellManagerType *i_manager)
+  {
+    return i_manager->u_vec;
+  }
+
+  /**
+   *
+   */
+  static Eigen::VectorXd q_mag_refn_crit(const CellManagerType *i_manager)
+  {
+    unsigned n_dofs_per_cell = i_manager->u_vec.rows();
+    Eigen::VectorXd crit_vec = Eigen::VectorXd::Zero(n_dofs_per_cell);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+      for (unsigned i1 = 0; i1 < n_dofs_per_cell; ++i1)
+        crit_vec[i1] += pow(i_manager->q_vec[i1 + i_dim * n_dofs_per_cell], 2);
+    for (unsigned i1 = 0; i1 < n_dofs_per_cell; ++i1)
+      crit_vec[i1] = sqrt(crit_vec[i1]);
+    return crit_vec;
+  }
+
+  /**
+   *
+   */
+  static Eigen::VectorXd q_dot_b_refn_crit(const CellManagerType *i_manager)
+  {
+    unsigned n_dofs_per_cell = i_manager->u_vec.rows();
+    dealii::Tensor<1, dim> b_at_center =
+      b_components(i_manager->my_cell->my_dealii_cell->center());
+    Eigen::VectorXd crit_vec = Eigen::VectorXd::Zero(n_dofs_per_cell);
+    for (unsigned i_dim = 0; i_dim < dim; ++i_dim)
+      for (unsigned i1 = 0; i1 < n_dofs_per_cell; ++i1)
+        crit_vec[i1] +=
+          i_manager->q_vec[i1 + i_dim * n_dofs_per_cell] * b_at_center[i_dim];
+    return crit_vec;
+  }
+
+  /**
    * @brief mesh generator
    */
   static void generate_mesh(
@@ -270,7 +311,7 @@ template <int dim, int spacedim = dim> struct double_x_points
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
-      for (unsigned i_cycle = 0; i_cycle < 4; ++i_cycle)
+      for (unsigned i_cycle = 0; i_cycle < 6; ++i_cycle)
       {
         mesh1.init_cell_ID_to_num();
         ModelType model1(mesh1);
@@ -320,8 +361,13 @@ template <int dim, int spacedim = dim> struct double_x_points
         model_manager1.apply_on_owned_cells(
           &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
 
+        // model_manager1.apply_on_owned_cells(
+        //   &model1, CellManagerType::fill_refn_vector_with_criterion,
+        //   u_refn_crit, &dist_refn_vec);
+
         model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_refn_vector, &dist_refn_vec);
+          &model1, CellManagerType::fill_refn_vector_with_criterion,
+          q_dot_b_refn_crit, &dist_refn_vec);
 
         LA::MPI::Vector global_sol_vec;
         LA::MPI::Vector global_refn_vec;
@@ -336,8 +382,8 @@ template <int dim, int spacedim = dim> struct double_x_points
         //        cycle_string =
         //          std::string(2 - cycle_string.length(), '0') + cycle_string;
         typename ModelEq::viz_data viz_data1(
-          comm, &model_manager1.local_dof_handler, &global_sol_vec, "solution",
-          "Temperature", "Heat_flow");
+          comm, &model_manager1.local_dof_handler, &global_sol_vec,
+          "solution_q_dot_b", "Temperature", "Heat_flow");
         viz_data1.time_step = 0;
         viz_data1.cycle = i_cycle;
         // Now we visualize the results
@@ -350,14 +396,11 @@ template <int dim, int spacedim = dim> struct double_x_points
           &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
           &dist_sol_vec, b_components);
         dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        // typename ModelEq::viz_data viz_data3(
-        //   comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
-        //   "Grad_T_dot_b", "Grad_T");
         typename ModelEq::viz_data viz_data3(
           comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
           "q_dot_b", "Grad_T");
         viz_data3.time_step = 0;
-        viz_data3.cycle = 0;
+        viz_data3.cycle = i_cycle;
         CellManagerType::visualize_results(viz_data3);
 
         // We interpolated exact u and q to u_exact and q_exact

@@ -714,6 +714,15 @@ struct diffusion : public cell<dim, spacedim>
 
     /**
      *
+     * Called from fill_refn_vector().
+     *
+     */
+    void fill_my_refn_vector_with_criterion(
+      std::function<Eigen::VectorXd(const hdg_manager *)> refn_crit,
+      distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
      * Called from set_source_and_BCs().
      *
      */
@@ -799,6 +808,17 @@ struct diffusion : public cell<dim, spacedim>
      */
     static void fill_refn_vector(diffusion *in_cell,
                                  distributed_vector<dim, spacedim> *out_vec);
+
+    /**
+     *
+     * Same as the above function, but we can also define the refinement
+     * criterion.
+     *
+     */
+    static void fill_refn_vector_with_criterion(
+      diffusion *,
+      std::function<Eigen::VectorXd(const hdg_manager *)>,
+      distributed_vector<dim, spacedim> *);
 
     /**
      *

@@ -221,7 +221,7 @@ void nargil::mesh<dim, spacedim>::refine_mesh(
       refine_solu,
       estimated_error_per_cell);
     dealii::parallel::distributed::GridRefinement::
-      refine_and_coarsen_fixed_number(tria, estimated_error_per_cell, 0.3,
+      refine_and_coarsen_fixed_number(tria, estimated_error_per_cell, 0.2,
                                       0.03);
     tria.execute_coarsening_and_refinement();
     ++(refn_cycle);

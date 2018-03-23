@@ -41,7 +41,7 @@ struct problem_data_2 : public nargil::diffusion<dim, spacedim>::data
   /**
    * @brief pi
    */
-  constexpr static double epsinv = 1.0e6;
+  constexpr static double epsinv = 1.0e9;
 
   /**
    * @brief Constructor.
@@ -311,133 +311,273 @@ template <int dim, int spacedim = dim> struct double_x_points
       nargil::implicit_hybridized_numbering<dim> dof_counter1;
       nargil::hybridized_model_manager<dim> model_manager1;
 
-      for (unsigned i_cycle = 0; i_cycle < 6; ++i_cycle)
+      for (unsigned i_cycle = 0; i_cycle < 5; ++i_cycle)
       {
-        mesh1.init_cell_ID_to_num();
-        ModelType model1(mesh1);
-        model1.init_model_elements(&basis1);
-        model_manager1.form_dof_handlers(&model1, &basis1);
-
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
-        model_manager1.apply_on_ghost_cells(
-          &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
-        dof_counter1.template count_globals<BasisType>(&model1);
-        //
-        model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
-                                            &data1);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::set_source_and_BCs);
-        //
-        int solver_keys = nargil::solvers::solver_props::spd_matrix;
-        int update_keys = nargil::solvers::solver_update_opts::update_mat |
-                          nargil::solvers::solver_update_opts::update_rhs;
-        //
-
-        // nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
-        //  solver_keys, dof_counter1, comm);
-
-        nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
-                                                          dof_counter1, comm);
-        //
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::assemble_globals, &solver1);
-        //
-        Vec sol_vec2;
-        solver1.finish_assemble(update_keys);
-        solver1.form_factors();
-        solver1.solve_system(&sol_vec2);
-        std::vector<double> local_sol_vec(
-          solver1.get_local_part_of_global_vec(&sol_vec2));
-        //
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::compute_local_unkns, local_sol_vec.data());
-        //
-        nargil::distributed_vector<dim> dist_sol_vec(
-          model_manager1.local_dof_handler, PETSC_COMM_WORLD);
-        nargil::distributed_vector<dim> dist_refn_vec(
-          model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
-        //
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
-
-        // model_manager1.apply_on_owned_cells(
-        //   &model1, CellManagerType::fill_refn_vector_with_criterion,
-        //   u_refn_crit, &dist_refn_vec);
-
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_refn_vector_with_criterion,
-          q_dot_b_refn_crit, &dist_refn_vec);
-
-        LA::MPI::Vector global_sol_vec;
-        LA::MPI::Vector global_refn_vec;
-
-        dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        dist_refn_vec.copy_to_global_vec(global_refn_vec);
-
-        //
-        // We prepare the visulization data
-        //
-        //        std::string cycle_string = std::to_string(i_cycle);
-        //        cycle_string =
-        //          std::string(2 - cycle_string.length(), '0') + cycle_string;
-        typename ModelEq::viz_data viz_data1(
-          comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "solution_q_dot_b", "Temperature", "Heat_flow");
-        viz_data1.time_step = 0;
-        viz_data1.cycle = i_cycle;
-        // Now we visualize the results
-        CellManagerType::visualize_results(viz_data1);
-
-        //
-        // Here, we visualize grad_u, which will be used to compute b.grad_u
-        //
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
-          &dist_sol_vec, b_components);
-        dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        typename ModelEq::viz_data viz_data3(
-          comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
-          "q_dot_b", "Grad_T");
-        viz_data3.time_step = 0;
-        viz_data3.cycle = i_cycle;
-        CellManagerType::visualize_results(viz_data3);
-
-        // We interpolated exact u and q to u_exact and q_exact
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::interpolate_to_interior);
-        //
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::fill_viz_vec_with_exact_sol, &dist_sol_vec);
-        dist_sol_vec.copy_to_global_vec(global_sol_vec);
-        typename ModelEq::viz_data viz_data2(
-          comm, &model_manager1.local_dof_handler, &global_sol_vec,
-          "b_components", "Temperature", "b_components");
-        viz_data2.time_step = 0;
-        viz_data2.cycle = 0;
-        CellManagerType::visualize_results(viz_data2);
-        //
-
-        std::vector<double> sum_of_L2_errors(2, 0);
-        model_manager1.apply_on_owned_cells(
-          &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
-
-        double u_error_global, q_error_global;
-        MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
-        MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
-                   MPI_SUM, 0, comm);
-
-        if (comm_rank == 0)
+        // Refinement based on q.n
         {
-          std::cout << sqrt(u_error_global) << " " << sqrt(q_error_global)
-                    << std::endl;
-        }
+          mesh1.init_cell_ID_to_num();
+          ModelType model1(mesh1);
+          model1.init_model_elements(&basis1);
+          model_manager1.form_dof_handlers(&model1, &basis1);
 
-        mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
-                          global_refn_vec);
-        dof_counter1.reset_components();
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
+          model_manager1.apply_on_ghost_cells(
+            &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
+          dof_counter1.template count_globals<BasisType>(&model1);
+          //
+          model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
+                                              &data1);
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::set_source_and_BCs);
+          //
+          int solver_keys = nargil::solvers::solver_props::spd_matrix;
+          int update_keys = nargil::solvers::solver_update_opts::update_mat |
+                            nargil::solvers::solver_update_opts::update_rhs;
+          //
+
+          // nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          //  solver_keys, dof_counter1, comm);
+
+          nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                            dof_counter1, comm);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::assemble_globals, &solver1);
+          //
+          Vec sol_vec2;
+          solver1.finish_assemble(update_keys);
+          solver1.form_factors();
+          solver1.solve_system(&sol_vec2);
+          std::vector<double> local_sol_vec(
+            solver1.get_local_part_of_global_vec(&sol_vec2));
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::compute_local_unkns,
+            local_sol_vec.data());
+          //
+          nargil::distributed_vector<dim> dist_sol_vec(
+            model_manager1.local_dof_handler, PETSC_COMM_WORLD);
+          nargil::distributed_vector<dim> dist_refn_vec(
+            model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
+
+          // model_manager1.apply_on_owned_cells(
+          //   &model1, CellManagerType::fill_refn_vector_with_criterion,
+          //   u_refn_crit, &dist_refn_vec);
+
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_refn_vector_with_criterion,
+            q_mag_refn_crit, &dist_refn_vec);
+
+          LA::MPI::Vector global_sol_vec;
+          LA::MPI::Vector global_refn_vec;
+
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          dist_refn_vec.copy_to_global_vec(global_refn_vec);
+
+          //
+          // We prepare the visulization data
+          //
+          //        std::string cycle_string = std::to_string(i_cycle);
+          //        cycle_string =
+          //          std::string(2 - cycle_string.length(), '0') +
+          //          cycle_string;
+          typename ModelEq::viz_data viz_data1(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec,
+            "solution_u", "Temperature", "Heat_flow");
+          viz_data1.time_step = 0;
+          viz_data1.cycle = i_cycle;
+          // Now we visualize the results
+          CellManagerType::visualize_results(viz_data1);
+
+          //
+          // Here, we visualize grad_u, which will be used to compute b.grad_u
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
+            &dist_sol_vec, b_components);
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          typename ModelEq::viz_data viz_data3(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
+            "q_dot_b", "Grad_T");
+          viz_data3.time_step = 0;
+          viz_data3.cycle = i_cycle;
+          CellManagerType::visualize_results(viz_data3);
+
+          // We interpolated exact u and q to u_exact and q_exact
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::interpolate_to_interior);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vec_with_exact_sol,
+            &dist_sol_vec);
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          typename ModelEq::viz_data viz_data2(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec,
+            "b_components", "Temperature", "b_components");
+          viz_data2.time_step = 0;
+          viz_data2.cycle = 0;
+          CellManagerType::visualize_results(viz_data2);
+          //
+
+          std::vector<double> sum_of_L2_errors(2, 0);
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
+
+          double u_error_global, q_error_global;
+          MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
+                     MPI_SUM, 0, comm);
+          MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
+                     MPI_SUM, 0, comm);
+
+          if (comm_rank == 0)
+          {
+            std::cout << sqrt(u_error_global) << " " << sqrt(q_error_global)
+                      << std::endl;
+          }
+
+          mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
+                            global_refn_vec);
+          dof_counter1.reset_components();
+        } // End of refinement based on q.n
+        //
+        //
+        //
+        // Refinement based on u
+        {
+          mesh1.init_cell_ID_to_num();
+          ModelType model1(mesh1);
+          model1.init_model_elements(&basis1);
+          model_manager1.form_dof_handlers(&model1, &basis1);
+
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
+          model_manager1.apply_on_ghost_cells(
+            &model1, CellManagerType::assign_BCs, assign_mesh_BCs);
+          dof_counter1.template count_globals<BasisType>(&model1);
+          //
+          model_manager1.apply_on_owned_cells(&model1, ModelEq::assign_data,
+                                              &data1);
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::set_source_and_BCs);
+          //
+          int solver_keys = nargil::solvers::solver_props::spd_matrix;
+          int update_keys = nargil::solvers::solver_update_opts::update_mat |
+                            nargil::solvers::solver_update_opts::update_rhs;
+          //
+
+          // nargil::solvers::petsc_implicit_cg_solver<dim> solver1(
+          //  solver_keys, dof_counter1, comm);
+
+          nargil::solvers::petsc_direct_solver<dim> solver1(solver_keys,
+                                                            dof_counter1, comm);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::assemble_globals, &solver1);
+          //
+          Vec sol_vec2;
+          solver1.finish_assemble(update_keys);
+          solver1.form_factors();
+          solver1.solve_system(&sol_vec2);
+          std::vector<double> local_sol_vec(
+            solver1.get_local_part_of_global_vec(&sol_vec2));
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::compute_local_unkns,
+            local_sol_vec.data());
+          //
+          nargil::distributed_vector<dim> dist_sol_vec(
+            model_manager1.local_dof_handler, PETSC_COMM_WORLD);
+          nargil::distributed_vector<dim> dist_refn_vec(
+            model_manager1.refn_dof_handler, PETSC_COMM_WORLD);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vector, &dist_sol_vec);
+
+          // model_manager1.apply_on_owned_cells(
+          //   &model1, CellManagerType::fill_refn_vector_with_criterion,
+          //   u_refn_crit, &dist_refn_vec);
+
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_refn_vector_with_criterion,
+            q_mag_refn_crit, &dist_refn_vec);
+
+          LA::MPI::Vector global_sol_vec;
+          LA::MPI::Vector global_refn_vec;
+
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          dist_refn_vec.copy_to_global_vec(global_refn_vec);
+
+          //
+          // We prepare the visulization data
+          //
+          //        std::string cycle_string = std::to_string(i_cycle);
+          //        cycle_string =
+          //          std::string(2 - cycle_string.length(), '0') +
+          //          cycle_string;
+          typename ModelEq::viz_data viz_data1(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec,
+            "solution_u", "Temperature", "Heat_flow");
+          viz_data1.time_step = 0;
+          viz_data1.cycle = i_cycle;
+          // Now we visualize the results
+          CellManagerType::visualize_results(viz_data1);
+
+          //
+          // Here, we visualize grad_u, which will be used to compute b.grad_u
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vector_with_grad_u_dot_b,
+            &dist_sol_vec, b_components);
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          typename ModelEq::viz_data viz_data3(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec, "Grad_T",
+            "q_dot_b", "Grad_T");
+          viz_data3.time_step = 0;
+          viz_data3.cycle = i_cycle;
+          CellManagerType::visualize_results(viz_data3);
+
+          // We interpolated exact u and q to u_exact and q_exact
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::interpolate_to_interior);
+          //
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::fill_viz_vec_with_exact_sol,
+            &dist_sol_vec);
+          dist_sol_vec.copy_to_global_vec(global_sol_vec);
+          typename ModelEq::viz_data viz_data2(
+            comm, &model_manager1.local_dof_handler, &global_sol_vec,
+            "b_components", "Temperature", "b_components");
+          viz_data2.time_step = 0;
+          viz_data2.cycle = 0;
+          CellManagerType::visualize_results(viz_data2);
+          //
+
+          std::vector<double> sum_of_L2_errors(2, 0);
+          model_manager1.apply_on_owned_cells(
+            &model1, CellManagerType::compute_errors, &sum_of_L2_errors);
+
+          double u_error_global, q_error_global;
+          MPI_Reduce(&sum_of_L2_errors[0], &u_error_global, 1, MPI_DOUBLE,
+                     MPI_SUM, 0, comm);
+          MPI_Reduce(&sum_of_L2_errors[1], &q_error_global, 1, MPI_DOUBLE,
+                     MPI_SUM, 0, comm);
+
+          if (comm_rank == 0)
+          {
+            std::cout << sqrt(u_error_global) << " " << sqrt(q_error_global)
+                      << std::endl;
+          }
+
+          mesh1.refine_mesh(1, basis1, model_manager1.refn_dof_handler,
+                            global_refn_vec);
+          dof_counter1.reset_components();
+        } // End of refinement based on u
       }
+
       //
       //
     }
